@@ -154,26 +154,22 @@ app.get('/api/admin/templates', adminAuth, async (_, res) => {
   res.json(data.map(fromDb));
 });
 
-app.post('/api/admin/templates', adminAuth,
-  upload.fields([{ name: 'imagem', maxCount: 1 }, { name: 'anotada', maxCount: 1 }]),
-  async (req, res) => {
+app.post('/api/admin/templates', adminAuth, upload.single('imagem'), async (req, res) => {
   try {
-    const original = req.files?.imagem?.[0];
-    const anotada  = req.files?.anotada?.[0];
-    if (!original) return res.status(400).json({ error: 'Imagem obrigatória' });
+    if (!req.file) return res.status(400).json({ error: 'Imagem obrigatória' });
 
-    const origBuf  = original.buffer;
-    const origMime = original.mimetype;
-    const origB64  = origBuf.toString('base64');
+    const buf  = req.file.buffer;
+    const mime = req.file.mimetype;
+    const b64  = buf.toString('base64');
 
-    // 1. Analisa campos na imagem original
+    // Analisa campos na imagem já editada pelo cliente
     const analysis = await openai.chat.completions.create({
       model: 'gpt-4o',
       response_format: { type: 'json_object' },
       messages: [{
         role: 'user',
         content: [
-          { type: 'image_url', image_url: { url: `data:${origMime};base64,${origB64}` } },
+          { type: 'image_url', image_url: { url: `data:${mime};base64,${b64}` } },
           { type: 'text', text: ANALYZE_PROMPT },
         ],
       }],
@@ -181,54 +177,10 @@ app.post('/api/admin/templates', adminAuth,
     const parsed = JSON.parse(analysis.choices[0].message.content);
     const fields = Array.isArray(parsed.fields) ? parsed.fields : [];
 
-    // 2. IA edita usando a imagem anotada como referência
-    const refBuf  = anotada?.buffer || origBuf;
-    const refMime = anotada?.mimetype || origMime;
-    const refB64  = refBuf.toString('base64');
-
-    const temMarcacoes = !!anotada;
-    const editPrompt = temMarcacoes
-      ? `You are editing a Brazilian real estate marketing template image.
-
-Image 1 is the ORIGINAL template. Image 2 is the same template with colored rectangles drawn by the user marking exactly which areas to replace:
-- Purple rectangle labeled "{ LOGO AQUI }" → replace that area with a clean flat rectangle (matching the background tone) containing the bold text "{ LOGO AQUI }"
-- Blue rectangle labeled "{ LOCALIZAÇÃO }" → replace that area with the bold text "{ LOCALIZAÇÃO }" in the same style as the original text
-
-CRITICAL RULES:
-- Only modify the areas inside the colored rectangles — leave EVERYTHING else pixel-perfect
-- Do NOT touch property photos, background graphics, decorative elements, or any other text
-- The result must look identical to the original except those two marked areas`
-
-      : `You are editing a Brazilian real estate marketing template image.
-Replace any visible logo or brand mark with a flat rectangle labeled "{ LOGO AQUI }" and any address or location text with "{ LOCALIZAÇÃO }".
-Keep everything else — photos, backgrounds, colors, layout — exactly as-is.`;
-
-    const editResponse = await openai.responses.create({
-      model: 'gpt-4o',
-      input: [{
-        role: 'user',
-        content: [
-          { type: 'input_image', image_url: `data:${origMime};base64,${origB64}` },
-          ...(temMarcacoes ? [{ type: 'input_image', image_url: `data:${refMime};base64,${refB64}` }] : []),
-          { type: 'input_text', text: editPrompt },
-        ],
-      }],
-      tools: [{ type: 'image_generation', quality: 'high', size: '1024x1024' }],
-    });
-
-    let editedBuf = origBuf;
-    for (const item of editResponse.output || []) {
-      if (item.type === 'image_generation_call' && item.result) {
-        editedBuf = Buffer.from(item.result, 'base64');
-        break;
-      }
-    }
-
-    // 3. Salva imagem editada
-    const result = await cloudinaryUpload(editedBuf, 'templates');
+    const result = await cloudinaryUpload(buf, 'templates');
     const { data, error } = await supabase.from('templates').insert({
       id:        Date.now(),
-      nome:      req.body.nome || original.originalname,
+      nome:      req.body.nome || req.file.originalname,
       image_url: result.secure_url,
       fields,
       angulos:   [],
@@ -254,54 +206,10 @@ app.patch('/api/admin/templates/:id', adminAuth, async (req, res) => {
   res.json(fromDb(data));
 });
 
-app.post('/api/admin/templates/:id/editar-ia', adminAuth, upload.single('anotada'), async (req, res) => {
+app.post('/api/admin/templates/:id/editar-ia', adminAuth, upload.single('imagem'), async (req, res) => {
   try {
-    const { data: tRow } = await supabase
-      .from('templates').select('*').eq('id', req.params.id).single();
-    if (!tRow) return res.status(404).json({ error: 'Template não encontrado' });
-
-    const origImg = await imageB64FromUrl(tRow.image_url);
-    if (!origImg) return res.status(500).json({ error: 'Não foi possível carregar a imagem' });
-
-    const temAnotada = !!req.file;
-    const refB64  = temAnotada ? req.file.buffer.toString('base64') : origImg.b64;
-    const refMime = temAnotada ? req.file.mimetype : origImg.mime;
-
-    const prompt = temAnotada
-      ? `You are editing a Brazilian real estate marketing template image.
-
-Image 1 is the ORIGINAL template. Image 2 is the same template with colored rectangles drawn marking exactly which areas to replace:
-- Purple rectangle labeled "{ LOGO AQUI }" → replace that area with a clean flat rectangle (matching the background tone) containing the bold text "{ LOGO AQUI }"
-- Blue rectangle labeled "{ LOCALIZAÇÃO }" → replace that area with the bold text "{ LOCALIZAÇÃO }" in the same style as the surrounding text
-
-CRITICAL RULES:
-- Only modify the areas inside the colored rectangles — leave EVERYTHING else pixel-perfect
-- Do NOT touch property photos, background graphics, decorative elements, or any other text
-- The result must look identical to the original except those marked areas`
-      : `Replace any visible logo or brand mark with a flat rectangle labeled "{ LOGO AQUI }" and any address or location text with "{ LOCALIZAÇÃO }". Keep everything else exactly as-is.`;
-
-    const response = await openai.responses.create({
-      model: 'gpt-4o',
-      input: [{
-        role: 'user',
-        content: [
-          { type: 'input_image', image_url: `data:${origImg.mime};base64,${origImg.b64}` },
-          ...(temAnotada ? [{ type: 'input_image', image_url: `data:${refMime};base64,${refB64}` }] : []),
-          { type: 'input_text', text: prompt },
-        ],
-      }],
-      tools: [{ type: 'image_generation', quality: 'high', size: '1024x1024' }],
-    });
-
-    let editedBuf = null;
-    for (const item of response.output || []) {
-      if (item.type === 'image_generation_call' && item.result) {
-        editedBuf = Buffer.from(item.result, 'base64'); break;
-      }
-    }
-    if (!editedBuf) return res.status(500).json({ error: 'IA não retornou imagem' });
-
-    const result = await cloudinaryUpload(editedBuf, 'templates');
+    if (!req.file) return res.status(400).json({ error: 'Imagem obrigatória' });
+    const result = await cloudinaryUpload(req.file.buffer, 'templates');
     const { data, error } = await supabase
       .from('templates').update({ image_url: result.secure_url })
       .eq('id', req.params.id).select().single();

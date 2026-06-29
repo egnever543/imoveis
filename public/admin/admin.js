@@ -295,42 +295,54 @@ function redrawIAMarcacoes() {
 }
 
 async function confirmarEditIA() {
+  if (!Object.keys(iaMarcacoes).length) {
+    toast('Marque pelo menos uma área antes de salvar.', 'error');
+    return;
+  }
+
   const img    = document.getElementById('editIAImage');
   const canvas = document.getElementById('editIACanvas');
   const final  = document.createElement('canvas');
   final.width  = img.naturalWidth;
   final.height = img.naturalHeight;
   const ctx    = final.getContext('2d');
+
+  // Desenha imagem original
   ctx.drawImage(img, 0, 0, final.width, final.height);
 
+  // Desenha placeholders em resolução natural (retângulo branco + texto)
   const scaleX = final.width / canvas.width;
   const scaleY = final.height / canvas.height;
   for (const [campo, z] of Object.entries(iaMarcacoes)) {
-    const color = IA_COLORS[campo];
     const label = IA_LABELS[campo];
     const rx = z.x * scaleX, ry = z.y * scaleY;
     const rw = z.w * scaleX, rh = z.h * scaleY;
-    ctx.fillStyle = hexToRgba(color, 0.55);
+
+    // Fundo branco/cinza limpo para cobrir o conteúdo original
+    ctx.fillStyle = '#e8e8e8';
     ctx.fillRect(rx, ry, rw, rh);
-    ctx.strokeStyle = color; ctx.lineWidth = 3;
+    // Borda sutil
+    ctx.strokeStyle = '#aaaaaa';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 3]);
     ctx.strokeRect(rx, ry, rw, rh);
-    const fs = Math.max(14, Math.min(36, Math.round(rh * 0.35)));
-    ctx.font = `800 ${fs}px "Arial Black", Arial, sans-serif`;
+    ctx.setLineDash([]);
+    // Texto do placeholder
+    const fs = Math.max(14, Math.min(40, Math.round(rh * 0.32)));
+    ctx.font = `700 ${fs}px Arial, sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.strokeStyle = 'rgba(0,0,0,0.9)'; ctx.lineWidth = 4;
-    ctx.strokeText(label, rx + rw / 2, ry + rh / 2);
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = '#555555';
     ctx.fillText(label, rx + rw / 2, ry + rh / 2);
   }
 
   const status = document.getElementById('editIAStatus');
-  status.textContent = '⏳ Editando com IA…';
+  status.textContent = '⏳ Salvando…';
   document.querySelector('#editIAModal .btn-ia').disabled = true;
 
   try {
     const blob = await new Promise(resolve => final.toBlob(resolve, 'image/png'));
     const fd   = new FormData();
-    fd.append('anotada', blob, 'anotada.png');
+    fd.append('imagem', blob, 'template.png');
 
     const res  = await fetch(`/api/admin/templates/${iaId}/editar-ia`, {
       method: 'POST',
@@ -341,7 +353,7 @@ async function confirmarEditIA() {
     if (!res.ok) throw new Error(data.error);
 
     fecharEditIA();
-    toast('Template editado com IA!', 'success');
+    toast('Template salvo com placeholders!', 'success');
     await carregarTemplates();
   } catch (err) {
     toast('Erro: ' + err.message, 'error');
@@ -518,38 +530,29 @@ async function uploadTemplate() {
   const ctx    = final.getContext('2d');
   ctx.drawImage(img, 0, 0, final.width, final.height);
 
-  // Re-escala e desenha marcações em resolução natural
+  // Re-escala e desenha placeholders em resolução natural
   const scaleX = final.width  / canvas.width;
   const scaleY = final.height / canvas.height;
   for (const [campo, z] of Object.entries(marcacoes)) {
-    const color = MARK_COLORS[campo];
     const label = MARK_LABELS[campo];
     const rx = z.x * scaleX, ry = z.y * scaleY;
     const rw = z.w * scaleX, rh = z.h * scaleY;
-    ctx.fillStyle = hexToRgba(color, 0.55);
+    ctx.fillStyle = '#e8e8e8';
     ctx.fillRect(rx, ry, rw, rh);
-    ctx.strokeStyle = color;
-    ctx.lineWidth   = 3;
-    ctx.strokeRect(rx, ry, rw, rh);
-    const fs = Math.max(14, Math.min(36, Math.round(rh * 0.35)));
-    ctx.font         = `800 ${fs}px "Arial Black", Arial, sans-serif`;
-    ctx.textAlign    = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.strokeStyle  = 'rgba(0,0,0,0.9)';
-    ctx.lineWidth    = 4;
-    ctx.strokeText(label, rx + rw / 2, ry + rh / 2);
-    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#aaaaaa'; ctx.lineWidth = 2;
+    ctx.setLineDash([6, 3]); ctx.strokeRect(rx, ry, rw, rh); ctx.setLineDash([]);
+    const fs = Math.max(14, Math.min(40, Math.round(rh * 0.32)));
+    ctx.font = `700 ${fs}px Arial, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#555555';
     ctx.fillText(label, rx + rw / 2, ry + rh / 2);
   }
 
   try {
     const blob = await new Promise(resolve => final.toBlob(resolve, 'image/png'));
-    const fd   = new FormData();
-    // Envia imagem original para análise de campos + anotada para edição
-    fd.append('imagem',    selectedFile);
-    fd.append('anotada',   blob, 'anotada.png');
-    fd.append('nome',      nome);
-    fd.append('marcacoes', JSON.stringify(marcacoes));
+    const fd = new FormData();
+    fd.append('imagem', blob, 'template.png');
+    fd.append('nome',   nome);
 
     const res  = await fetch('/api/admin/templates', {
       method: 'POST',
