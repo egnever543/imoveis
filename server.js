@@ -91,66 +91,9 @@ function fromDb(row) {
   if ('criado_em'     in r) { r.criadoEm     = r.criado_em;     delete r.criado_em; }
   if ('total_andares' in r) { r.totalAndares  = r.total_andares; delete r.total_andares; }
   if ('image_url'     in r) { r.imageUrl      = r.image_url;     delete r.image_url; }
-  if ('guide_url'     in r) { r.guideUrl      = r.guide_url;     delete r.guide_url; }
   // fotos é JSONB — vem como objeto, garante {}
   if ('fotos' in r) r.fotos = r.fotos || {};
   return r;
-}
-
-// ── Geração do guia anotado ───────────────────────────────────────────────────
-const ZONE_COLORS = {
-  foto_imovel:  '#10b981',
-  logo:         '#8b5cf6',
-  titulo:       '#3b82f6',
-  preco:        '#f59e0b',
-  entrada:      '#f59e0b',
-  parcela:      '#f59e0b',
-  financiamento:'#f59e0b',
-  destaque:     '#ec4899',
-  _default:     '#64748b',
-};
-
-function hexToRgb(hex) {
-  return [
-    parseInt(hex.slice(1,3),16),
-    parseInt(hex.slice(3,5),16),
-    parseInt(hex.slice(5,7),16),
-  ];
-}
-
-async function gerarGuia(imageUrl, zonas, labels) {
-  const buf  = await fetchBuffer(imageUrl);
-  const meta = await sharp(buf).metadata();
-  const W = meta.width, H = meta.height;
-
-  const rects = Object.entries(zonas).map(([field, z]) => {
-    const x = Math.round(z.xPct / 100 * W);
-    const y = Math.round(z.yPct / 100 * H);
-    const w = Math.round(z.wPct / 100 * W);
-    const h = Math.round(z.hPct / 100 * H);
-    const color = ZONE_COLORS[field] || ZONE_COLORS._default;
-    const [r,g,b] = hexToRgb(color);
-    const label   = `[ ${(labels[field] || field).toUpperCase()} ]`;
-    const fs      = Math.max(14, Math.min(36, Math.round(h * 0.32)));
-    return `
-      <rect x="${x}" y="${y}" width="${w}" height="${h}"
-            fill="rgb(${r},${g},${b})" fill-opacity="0.42"
-            stroke="rgb(${r},${g},${b})" stroke-width="3" rx="4"/>
-      <text x="${x + w/2}" y="${y + h/2}"
-            font-family="Arial Black, Arial, sans-serif"
-            font-size="${fs}" font-weight="900"
-            fill="white" text-anchor="middle" dominant-baseline="middle"
-            stroke="black" stroke-width="2" paint-order="stroke">
-        ${label}
-      </text>`;
-  }).join('');
-
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${rects}</svg>`;
-
-  return sharp(buf)
-    .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
-    .png()
-    .toBuffer();
 }
 
 // ── Labels ────────────────────────────────────────────────────────────────────
@@ -300,145 +243,15 @@ Keep everything else — photos, backgrounds, colors, layout — exactly as-is.`
 });
 
 app.patch('/api/admin/templates/:id', adminAuth, async (req, res) => {
-  try {
-    const { nome, fields, angulos, zonas } = req.body;
-    const update = {};
-    if (nome    !== undefined) update.nome    = nome;
-    if (fields  !== undefined) update.fields  = fields;
-    if (angulos !== undefined) update.angulos = angulos;
-    if (zonas   !== undefined) update.zonas   = zonas;
-
-    // Se zonas foram atualizadas, gera e salva guia automaticamente
-    if (zonas && Object.keys(zonas).length > 0) {
-      const { data: tRow } = await supabase
-        .from('templates').select('image_url, guide_url').eq('id', req.params.id).single();
-      if (tRow?.image_url) {
-        // Remove guia anterior do Cloudinary
-        if (tRow.guide_url) {
-          const pid = cloudinaryPublicId(tRow.guide_url);
-          if (pid) await cloudinary.uploader.destroy(pid).catch(() => {});
-        }
-        const guiaBuf = await gerarGuia(tRow.image_url, zonas, FIELD_LABELS_PT);
-        const result  = await cloudinaryUpload(guiaBuf, 'guias');
-        update.guide_url = result.secure_url;
-      }
-    }
-
-    const { data, error } = await supabase
-      .from('templates').update(update).eq('id', req.params.id).select().single();
-    if (error) return res.status(400).json({ error: error.message });
-    res.json(fromDb(data));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Salva guia editado (imagem enviada do canvas do admin)
-app.post('/api/admin/templates/:id/guia', adminAuth, upload.single('imagem'), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: 'Imagem obrigatória' });
-
-    // Remove guia anterior do Cloudinary se existir
-    const { data: existing } = await supabase
-      .from('templates').select('guide_url').eq('id', req.params.id).single();
-    if (existing?.guide_url) {
-      const pid = cloudinaryPublicId(existing.guide_url);
-      if (pid) await cloudinary.uploader.destroy(pid).catch(() => {});
-    }
-
-    const result = await cloudinaryUpload(req.file.buffer, 'guias');
-    const { data, error } = await supabase
-      .from('templates').update({ guide_url: result.secure_url })
-      .eq('id', req.params.id).select().single();
-    if (error) throw new Error(error.message);
-    res.json(fromDb(data));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Edita template com IA: substitui conteúdo real por placeholders
-app.post('/api/admin/templates/:id/editar-ia', adminAuth, async (req, res) => {
-  try {
-    const { data: tRow } = await supabase
-      .from('templates').select('*').eq('id', req.params.id).single();
-    if (!tRow) return res.status(404).json({ error: 'Template não encontrado' });
-    const template = fromDb(tRow);
-
-    const templateImg = await imageB64FromUrl(template.imageUrl);
-    if (!templateImg) return res.status(500).json({ error: 'Não foi possível carregar a imagem do template' });
-
-    const fields = (template.fields || []);
-    const placeholders = fields.map(f => {
-      const map = {
-        logo:          '{ LOGO AQUI }',
-        foto_imovel:   '{ FOTO DO IMÓVEL }',
-        titulo:        '{ TÍTULO DO IMÓVEL }',
-        preco:         '{ PREÇO }',
-        entrada:       '{ ENTRADA }',
-        parcela:       '{ PARCELA }',
-        financiamento: '{ FINANCIAMENTO }',
-        localizacao:   '{ LOCALIZAÇÃO }',
-        endereco:      '{ ENDEREÇO }',
-        destaque:      '{ CHAMADA PRINCIPAL }',
-        diferenciais:  '{ DIFERENCIAIS }',
-        area:          '{ ÁREA }',
-        quartos:       '{ QUARTOS }',
-        suites:        '{ SUÍTES }',
-        banheiros:     '{ BANHEIROS }',
-        vagas:         '{ VAGAS }',
-        andar:         '{ ANDAR }',
-      };
-      return `- Replace the "${f}" element with the placeholder text: ${map[f] || `{ ${f.toUpperCase()} }`}`;
-    }).join('\n');
-
-    const prompt = `You are editing a Brazilian real estate marketing template image.
-
-Your task: replace all real content with visible placeholder text, keeping the exact layout, colors, shapes, and design.
-
-Instructions:
-${placeholders}
-
-Rules:
-- Keep ALL background graphics, colors, decorative elements, and overall layout exactly as-is
-- Replace logo/brand images with a gray/white rectangle containing the placeholder text
-- Replace property photos with a light gray rectangle containing the placeholder text
-- Replace all text (addresses, prices, names) with the corresponding placeholder text in the same position, size and style
-- The result must look like the original template but with placeholder labels instead of real content
-- Write all placeholder text in a clean, readable font (bold, dark or white depending on background contrast)
-- Do NOT add any new elements or change the layout in any way`;
-
-    const response = await openai.responses.create({
-      model: 'gpt-4o',
-      input: [{
-        role: 'user',
-        content: [
-          { type: 'input_image', image_url: `data:${templateImg.mime};base64,${templateImg.b64}` },
-          { type: 'input_text', text: prompt },
-        ],
-      }],
-      tools: [{ type: 'image_generation', quality: 'high', size: '1024x1024' }],
-    });
-
-    let b64 = null;
-    for (const item of response.output || []) {
-      if (item.type === 'image_generation_call' && item.result) { b64 = item.result; break; }
-    }
-    if (!b64) return res.status(500).json({ error: 'IA não retornou imagem' });
-
-    const buf = Buffer.from(b64, 'base64');
-
-    // Salva como nova image_url, arquiva original
-    const result = await cloudinaryUpload(buf, 'templates');
-    const { data, error } = await supabase
-      .from('templates').update({ image_url: result.secure_url })
-      .eq('id', req.params.id).select().single();
-    if (error) throw new Error(error.message);
-
-    res.json(fromDb(data));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  const { nome, fields, angulos } = req.body;
+  const update = {};
+  if (nome    !== undefined) update.nome    = nome;
+  if (fields  !== undefined) update.fields  = fields;
+  if (angulos !== undefined) update.angulos = angulos;
+  const { data, error } = await supabase
+    .from('templates').update(update).eq('id', req.params.id).select().single();
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(fromDb(data));
 });
 
 app.delete('/api/admin/templates/:id', adminAuth, async (req, res) => {
@@ -642,22 +455,7 @@ app.post('/api/gerar', async (req, res) => {
 
     const { data: perfil } = await supabase.from('perfil').select('*').eq('id', 1).single();
 
-    // Prioridade: guia editado manualmente → guia gerado por zonas → template original
-    let templateImg;
-    let temGuia = false;
-    if (template.guideUrl) {
-      templateImg = await imageB64FromUrl(template.guideUrl);
-      temGuia = true;
-    }
-    if (!templateImg) {
-      const zonas = template.zonas || {};
-      if (Object.keys(zonas).length > 0) {
-        const guiaBuf = await gerarGuia(template.imageUrl, zonas, FIELD_LABELS_PT);
-        templateImg   = { b64: guiaBuf.toString('base64'), mime: 'image/png' };
-        temGuia = true;
-      }
-    }
-    if (!templateImg) templateImg = await imageB64FromUrl(template.imageUrl);
+    const templateImg = await imageB64FromUrl(template.imageUrl);
     if (!templateImg) return res.status(500).json({ error: 'Não foi possível carregar o template' });
 
     // Seleciona fotos pelos ângulos exigidos pelo template
@@ -702,27 +500,15 @@ app.post('/api/gerar', async (req, res) => {
       `Image ${imgOrder[`foto_${i}`]}: property photo (${ANGLE_LABELS_PT[s.ang] || s.ang}) — place in the photo area of the template.`
     ).join('\n');
 
-    const mensagem = temGuia
-      ? `Image ${imgOrder.template}: this is an annotated guide of the template. Each labeled zone (e.g. [ENTRADA], [LOCALIZAÇÃO]) shows exactly where that field must appear and how it is styled. Reproduce this design pixel-perfectly, replacing each labeled placeholder with the real value below. Keep all background graphics, colors, shapes and typography exactly as shown.
+    const mensagem = `Image ${imgOrder.template}: design template with placeholder labels where real content should go. Replace each placeholder with the corresponding value below. Keep all background graphics, colors, shapes and typography exactly as shown.
 ${fotoLines}
-${logoImg ? `Image ${imgOrder.logo}: agency logo — place it exactly in the logo zone shown in the guide. Do not redraw or recreate it.` : ''}
+${logoImg ? `Image ${imgOrder.logo}: agency logo — place it in the { LOGO AQUI } area. Do not redraw or recreate it.` : ''}
 
-Replace each placeholder with the corresponding value (maintain the exact typography, size and color of each zone):
+Replace each placeholder with the corresponding value (maintain the exact position, size and style of each zone):
 ${dados || '(no text placeholders — only place photo and/or logo)'}
 
-CRITICAL: do not invent, add or remove any element. Only replace the labeled placeholders and place the provided images in their zones.`
+CRITICAL: do not invent, add or remove any element. Only replace the labeled placeholders and place the provided images in their zones.`;
 
-      : `Image ${imgOrder.template}: design template — source of truth for layout, zones, colors and typography.
-${fotoLines}
-${logoImg ? `Image ${imgOrder.logo}: agency logo — replace the logo zone of the template with this exact logo image. Do not redraw or recreate it.` : ''}
-
-STRICT RULES:
-1. Reproduce the template layout pixel-perfectly — do not add, remove or reposition any zone or graphic element.
-2. Replace ONLY the fields listed below. Every field corresponds to something already visible in the template. Do not insert any data that is not listed.
-3. All replacement text must be in Brazilian Portuguese. Maintain original font style, weight and contrast.
-
-Fields to replace:
-${dados || '(no text fields — only replace photo and/or logo)'}`;
 
     const content = [];
     content.push({ type: 'input_image', image_url: `data:${templateImg.mime};base64,${templateImg.b64}` });
