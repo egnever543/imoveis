@@ -318,20 +318,17 @@ async function confirmarEditIA() {
     const rx = z.x * scaleX, ry = z.y * scaleY;
     const rw = z.w * scaleX, rh = z.h * scaleY;
 
-    // Fundo branco/cinza limpo para cobrir o conteúdo original
-    ctx.fillStyle = '#e8e8e8';
-    ctx.fillRect(rx, ry, rw, rh);
-    // Borda sutil
-    ctx.strokeStyle = '#aaaaaa';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 3]);
-    ctx.strokeRect(rx, ry, rw, rh);
-    ctx.setLineDash([]);
-    // Texto do placeholder
-    const fs = Math.max(14, Math.min(40, Math.round(rh * 0.32)));
+    // Sem retângulo — desenha só o texto sobre o fundo original
+    // Assim a IA vê o fundo real e consegue igualar o estilo do texto adjacente
+    const fs = Math.max(14, Math.min(48, Math.round(rh * 0.38)));
     ctx.font = `700 ${fs}px Arial, sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#555555';
+    // Stroke branco para legibilidade sobre qualquer fundo
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = Math.max(3, fs * 0.12);
+    ctx.strokeText(label, rx + rw / 2, ry + rh / 2);
+    // Texto magenta bem vivo — sinaliza claramente onde está o placeholder
+    ctx.fillStyle = '#e600c8';
     ctx.fillText(label, rx + rw / 2, ry + rh / 2);
   }
 
@@ -537,14 +534,14 @@ async function uploadTemplate() {
     const label = MARK_LABELS[campo];
     const rx = z.x * scaleX, ry = z.y * scaleY;
     const rw = z.w * scaleX, rh = z.h * scaleY;
-    ctx.fillStyle = '#e8e8e8';
-    ctx.fillRect(rx, ry, rw, rh);
-    ctx.strokeStyle = '#aaaaaa'; ctx.lineWidth = 2;
-    ctx.setLineDash([6, 3]); ctx.strokeRect(rx, ry, rw, rh); ctx.setLineDash([]);
-    const fs = Math.max(14, Math.min(40, Math.round(rh * 0.32)));
+    // Sem retângulo — desenha só o texto sobre o fundo original
+    const fs = Math.max(14, Math.min(48, Math.round(rh * 0.38)));
     ctx.font = `700 ${fs}px Arial, sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#555555';
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = Math.max(3, fs * 0.12);
+    ctx.strokeText(label, rx + rw / 2, ry + rh / 2);
+    ctx.fillStyle = '#e600c8';
     ctx.fillText(label, rx + rw / 2, ry + rh / 2);
   }
 
