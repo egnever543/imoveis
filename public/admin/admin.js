@@ -89,6 +89,7 @@ function renderTemplates(templates) {
       </div>
       <div class="template-row-actions">
         <button class="btn-ghost btn-sm"  onclick="abrirEdicao(${t.id})">✏️ Editar</button>
+        <button class="btn-ia btn-sm"     onclick="abrirEditarIA(${t.id})">✨ Editar com IA</button>
         <button class="btn-danger btn-sm" onclick="deletarTemplate(${t.id}, '${t.nome.replace(/'/g,"\\'")}')">🗑 Excluir</button>
       </div>
     </div>`).join('');
@@ -175,6 +176,179 @@ async function deletarTemplate(id, nome) {
   });
   toast('Template excluído', 'success');
   await carregarTemplates();
+}
+
+// ── Editar com IA (templates existentes) ─────────────────────────────────────
+const IA_COLORS = { logo: '#8b5cf6', localizacao: '#3b82f6' };
+const IA_LABELS = { logo: '{ LOGO AQUI }', localizacao: '{ LOCALIZAÇÃO }' };
+let iaId        = null;
+let iaMarcador  = 'logo';
+let iaMarcacoes = {};
+let iaDrawing   = false;
+let iaStart     = null;
+
+function abrirEditarIA(id) {
+  const t = allTemplates.find(t => t.id == id);
+  if (!t) return;
+  iaId        = id;
+  iaMarcacoes = {};
+  iaMarcador  = 'logo';
+
+  document.getElementById('btnIAMarkLogo').classList.add('active');
+  document.getElementById('btnIAMarkLoc').classList.remove('active');
+  document.getElementById('editIAStatus').textContent = '';
+
+  const img = document.getElementById('editIAImage');
+  img.onload = () => {
+    const canvas = document.getElementById('editIACanvas');
+    canvas.width  = img.offsetWidth;
+    canvas.height = img.offsetHeight;
+    canvas.style.width  = img.offsetWidth  + 'px';
+    canvas.style.height = img.offsetHeight + 'px';
+    redrawIAMarcacoes();
+  };
+  img.src = t.imageUrl;
+  document.getElementById('editIAModal').style.display = 'flex';
+}
+
+function fecharEditIA() {
+  document.getElementById('editIAModal').style.display = 'none';
+}
+
+function setIAMarcador(campo) {
+  iaMarcador = campo;
+  document.getElementById('btnIAMarkLogo').classList.toggle('active', campo === 'logo');
+  document.getElementById('btnIAMarkLoc').classList.toggle('active', campo === 'localizacao');
+}
+
+function limparIAMarcacao() {
+  iaMarcacoes = {};
+  redrawIAMarcacoes();
+}
+
+function iaMarkPos(e) {
+  const canvas = document.getElementById('editIACanvas');
+  const rect   = canvas.getBoundingClientRect();
+  const touch  = e.touches?.[0] || e;
+  return {
+    x: (touch.clientX - rect.left) * (canvas.width  / rect.width),
+    y: (touch.clientY - rect.top)  * (canvas.height / rect.height),
+  };
+}
+
+function iaMarkStart(e) {
+  e.preventDefault();
+  iaDrawing = true;
+  iaStart   = iaMarkPos(e);
+}
+
+function iaMarkMove(e) {
+  e.preventDefault();
+  if (!iaDrawing) return;
+  const cur    = iaMarkPos(e);
+  const canvas = document.getElementById('editIACanvas');
+  const ctx    = canvas.getContext('2d');
+  redrawIAMarcacoes();
+  const color = IA_COLORS[iaMarcador];
+  const x = Math.min(iaStart.x, cur.x), y = Math.min(iaStart.y, cur.y);
+  const w = Math.abs(cur.x - iaStart.x), h = Math.abs(cur.y - iaStart.y);
+  ctx.fillStyle = hexToRgba(color, 0.25);
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.setLineDash([6, 3]); ctx.strokeRect(x, y, w, h); ctx.setLineDash([]);
+}
+
+function iaMarkEnd(e) {
+  e.preventDefault();
+  if (!iaDrawing || !iaStart) return;
+  iaDrawing = false;
+  const cur = iaMarkPos(e.changedTouches?.[0] || e);
+  const x = Math.min(iaStart.x, cur.x), y = Math.min(iaStart.y, cur.y);
+  const w = Math.abs(cur.x - iaStart.x), h = Math.abs(cur.y - iaStart.y);
+  if (w > 10 && h > 10) {
+    iaMarcacoes[iaMarcador] = { x, y, w, h };
+    if (iaMarcador === 'logo' && !iaMarcacoes.localizacao) setIAMarcador('localizacao');
+  }
+  iaStart = null;
+  redrawIAMarcacoes();
+}
+
+function redrawIAMarcacoes() {
+  const canvas = document.getElementById('editIACanvas');
+  const ctx    = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const [campo, z] of Object.entries(iaMarcacoes)) {
+    const color = IA_COLORS[campo];
+    const label = IA_LABELS[campo];
+    ctx.fillStyle = hexToRgba(color, 0.35);
+    ctx.fillRect(z.x, z.y, z.w, z.h);
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.setLineDash([]); ctx.strokeRect(z.x, z.y, z.w, z.h);
+    const fs = Math.max(11, Math.min(22, Math.round(z.h * 0.35)));
+    ctx.font = `700 ${fs}px Arial, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 3;
+    ctx.strokeText(label, z.x + z.w / 2, z.y + z.h / 2);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, z.x + z.w / 2, z.y + z.h / 2);
+  }
+}
+
+async function confirmarEditIA() {
+  const img    = document.getElementById('editIAImage');
+  const canvas = document.getElementById('editIACanvas');
+  const final  = document.createElement('canvas');
+  final.width  = img.naturalWidth;
+  final.height = img.naturalHeight;
+  const ctx    = final.getContext('2d');
+  ctx.drawImage(img, 0, 0, final.width, final.height);
+
+  const scaleX = final.width / canvas.width;
+  const scaleY = final.height / canvas.height;
+  for (const [campo, z] of Object.entries(iaMarcacoes)) {
+    const color = IA_COLORS[campo];
+    const label = IA_LABELS[campo];
+    const rx = z.x * scaleX, ry = z.y * scaleY;
+    const rw = z.w * scaleX, rh = z.h * scaleY;
+    ctx.fillStyle = hexToRgba(color, 0.55);
+    ctx.fillRect(rx, ry, rw, rh);
+    ctx.strokeStyle = color; ctx.lineWidth = 3;
+    ctx.strokeRect(rx, ry, rw, rh);
+    const fs = Math.max(14, Math.min(36, Math.round(rh * 0.35)));
+    ctx.font = `800 ${fs}px "Arial Black", Arial, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.strokeStyle = 'rgba(0,0,0,0.9)'; ctx.lineWidth = 4;
+    ctx.strokeText(label, rx + rw / 2, ry + rh / 2);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, rx + rw / 2, ry + rh / 2);
+  }
+
+  const status = document.getElementById('editIAStatus');
+  status.textContent = '⏳ Editando com IA…';
+  document.querySelector('#editIAModal .btn-ia').disabled = true;
+
+  try {
+    const blob = await new Promise(resolve => final.toBlob(resolve, 'image/png'));
+    const fd   = new FormData();
+    fd.append('anotada', blob, 'anotada.png');
+
+    const res  = await fetch(`/api/admin/templates/${iaId}/editar-ia`, {
+      method: 'POST',
+      headers: { 'x-admin-password': adminPassword },
+      body: fd,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    fecharEditIA();
+    toast('Template editado com IA!', 'success');
+    await carregarTemplates();
+  } catch (err) {
+    toast('Erro: ' + err.message, 'error');
+    status.textContent = '';
+  } finally {
+    document.querySelector('#editIAModal .btn-ia').disabled = false;
+  }
 }
 
 function hexToRgba(hex, alpha) {

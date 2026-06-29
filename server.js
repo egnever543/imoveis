@@ -254,6 +254,64 @@ app.patch('/api/admin/templates/:id', adminAuth, async (req, res) => {
   res.json(fromDb(data));
 });
 
+app.post('/api/admin/templates/:id/editar-ia', adminAuth, upload.single('anotada'), async (req, res) => {
+  try {
+    const { data: tRow } = await supabase
+      .from('templates').select('*').eq('id', req.params.id).single();
+    if (!tRow) return res.status(404).json({ error: 'Template não encontrado' });
+
+    const origImg = await imageB64FromUrl(tRow.image_url);
+    if (!origImg) return res.status(500).json({ error: 'Não foi possível carregar a imagem' });
+
+    const temAnotada = !!req.file;
+    const refB64  = temAnotada ? req.file.buffer.toString('base64') : origImg.b64;
+    const refMime = temAnotada ? req.file.mimetype : origImg.mime;
+
+    const prompt = temAnotada
+      ? `You are editing a Brazilian real estate marketing template image.
+
+Image 1 is the ORIGINAL template. Image 2 is the same template with colored rectangles drawn marking exactly which areas to replace:
+- Purple rectangle labeled "{ LOGO AQUI }" → replace that area with a clean flat rectangle (matching the background tone) containing the bold text "{ LOGO AQUI }"
+- Blue rectangle labeled "{ LOCALIZAÇÃO }" → replace that area with the bold text "{ LOCALIZAÇÃO }" in the same style as the surrounding text
+
+CRITICAL RULES:
+- Only modify the areas inside the colored rectangles — leave EVERYTHING else pixel-perfect
+- Do NOT touch property photos, background graphics, decorative elements, or any other text
+- The result must look identical to the original except those marked areas`
+      : `Replace any visible logo or brand mark with a flat rectangle labeled "{ LOGO AQUI }" and any address or location text with "{ LOCALIZAÇÃO }". Keep everything else exactly as-is.`;
+
+    const response = await openai.responses.create({
+      model: 'gpt-4o',
+      input: [{
+        role: 'user',
+        content: [
+          { type: 'input_image', image_url: `data:${origImg.mime};base64,${origImg.b64}` },
+          ...(temAnotada ? [{ type: 'input_image', image_url: `data:${refMime};base64,${refB64}` }] : []),
+          { type: 'input_text', text: prompt },
+        ],
+      }],
+      tools: [{ type: 'image_generation', quality: 'high', size: '1024x1024' }],
+    });
+
+    let editedBuf = null;
+    for (const item of response.output || []) {
+      if (item.type === 'image_generation_call' && item.result) {
+        editedBuf = Buffer.from(item.result, 'base64'); break;
+      }
+    }
+    if (!editedBuf) return res.status(500).json({ error: 'IA não retornou imagem' });
+
+    const result = await cloudinaryUpload(editedBuf, 'templates');
+    const { data, error } = await supabase
+      .from('templates').update({ image_url: result.secure_url })
+      .eq('id', req.params.id).select().single();
+    if (error) throw new Error(error.message);
+    res.json(fromDb(data));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.delete('/api/admin/templates/:id', adminAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('templates').delete().eq('id', req.params.id).select().single();
