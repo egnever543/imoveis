@@ -466,17 +466,17 @@ app.post('/api/gerar', async (req, res) => {
       `Image ${imgOrder[`foto_${i}`]}: property photo (${ANGLE_LABELS_PT[s.ang] || s.ang}) — place in the photo area of the template.`
     ).join('\n');
 
-    const mensagem = `Image ${imgOrder.template} is a real estate marketing template. Keep the entire design pixel-perfect and make exactly three changes:
+    const mensagem = `Image ${imgOrder.template} is a real estate marketing template. Reproduce the entire design exactly — same layout, colors, fonts, shapes — and make only these three substitutions:
 
-1. TEXT — The template contains gray rectangular placeholder boxes with labels like "{ ENDEREÇO DO IMÓVEL }", "{ LOGO AQUI }", etc. Each gray box defines the EXACT POSITION and SIZE where content must be placed. For text placeholders: render the replacement text centered INSIDE that gray rectangle, at that exact location on the image, fully covering the gray box. Use the same font style, size, weight and color as other text in that region of the template. Do NOT move the text to a different part of the image — the gray box IS the target location.
-Replacement values:
+1. TEXT — There are gray placeholder boxes labeled e.g. "{ ENDEREÇO DO IMÓVEL }". Each box tells you WHERE to place the text: erase the gray box entirely (remove it, leave no box, no border, no background rectangle) and draw the replacement text at that exact location, styled to match the surrounding design as if it was always part of the template — same font family, weight, size and color as nearby text.
+Values to substitute:
 ${dados || '(none)'}
 
-2. PROPERTY PHOTO — replace the property photo area with Image ${fotoSlots.length ? imgOrder['foto_0'] : '(none provided)'}, keeping the exact same crop, size and position.
+2. PROPERTY PHOTO — replace the property photo area with Image ${fotoSlots.length ? imgOrder['foto_0'] : '(none provided)'}, same crop, size and position.
 
-3. LOGO — the gray box labeled "{ LOGO AQUI }" marks the exact position and size for the logo. Place Image ${logoImg ? imgOrder.logo : '(none provided)'} centered inside that box, blending it naturally with the background (no white rectangle behind it).
+3. LOGO — erase the gray box labeled "{ LOGO AQUI }" completely and place Image ${logoImg ? imgOrder.logo : '(none provided)'} at that exact spot, blending seamlessly with the background — no box, no border, no white fill.
 
-Everything else — layout, colors, shapes, typography, decorative elements — must remain pixel-perfect identical to the original template.`;
+The final image must look like a professionally finished piece where none of the placeholders were ever visible.`;
 
 
     const content = [];
