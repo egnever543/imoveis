@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Criativos Imobiliários</title>
+  <link rel="stylesheet" href="../style.css" />
+</head>
+<body>
+
+  <nav class="sidebar">
+    <div class="sidebar-logo">🏠 Criativos</div>
+    <button class="nav-item active" data-page="gerar">
+      <span class="nav-icon">✨</span> Gerar Arte
+    </button>
+    <button class="nav-item" data-page="imoveis">
+      <span class="nav-icon">🏢</span> Imóveis
+    </button>
+    <button class="nav-item" data-page="perfil">
+      <span class="nav-icon">🏷️</span> Perfil
+    </button>
+  </nav>
+
+  <main class="content">
+
+    <!-- ===== GERAR ARTE ===== -->
+    <div id="page-gerar" class="page active">
+      <div class="page-header">
+        <h1>Gerar Arte</h1>
+        <p>Selecione um template e um imóvel cadastrado</p>
+      </div>
+
+      <div class="gerar-layout">
+
+        <section class="gerar-section">
+          <h2 class="section-title">1. Template</h2>
+          <div class="templates-grid" id="templatesGrid"></div>
+        </section>
+
+        <section class="gerar-section">
+          <h2 class="section-title">2. Imóvel</h2>
+          <div id="imovelPickerEmpty" class="empty-state small">
+            <p>Nenhum imóvel cadastrado.</p>
+            <button class="btn-link" onclick="navegarPara('imoveis')">Cadastrar imóvel →</button>
+          </div>
+          <div class="imoveis-picker" id="imovelPicker"></div>
+        </section>
+
+        <section class="gerar-section">
+          <h2 class="section-title">3. Gerar</h2>
+          <div class="gerar-resumo" id="gerarResumo">
+            <p class="resumo-hint">Selecione template e imóvel para continuar</p>
+          </div>
+          <button class="btn-generate" id="btnGerar" disabled onclick="gerarArte()">
+            ✨ Gerar Arte com IA
+          </button>
+        </section>
+
+      </div>
+
+      <!-- Resultado -->
+      <div id="resultadoWrap" style="display:none" class="resultado-wrap">
+        <h2 class="section-title">Arte gerada</h2>
+        <div class="resultado-img-wrap">
+          <img id="resultadoImg" src="" alt="Arte gerada" />
+        </div>
+        <div class="resultado-actions">
+          <button class="btn-success" onclick="downloadArte()">⬇ Baixar</button>
+          <button class="btn-primary" onclick="gerarArte()">🔄 Gerar novamente</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== IMÓVEIS ===== -->
+    <div id="page-imoveis" class="page">
+      <div class="page-header">
+        <div>
+          <h1>Imóveis</h1>
+          <p>Gerencie o seu portfólio</p>
+        </div>
+        <button class="btn-primary" onclick="abrirFormImovel()">+ Cadastrar imóvel</button>
+      </div>
+
+      <div id="imoveisEmpty" class="empty-state" style="display:none">
+        <div class="empty-icon">🏢</div>
+        <p>Nenhum imóvel cadastrado ainda.</p>
+        <button class="btn-primary" onclick="abrirFormImovel()">Cadastrar primeiro imóvel</button>
+      </div>
+
+      <div class="imoveis-grid" id="imoveisGrid"></div>
+    </div>
+
+    <!-- ===== FORM IMÓVEL (modal-like) ===== -->
+    <div id="page-imovel-form" class="page">
+      <div class="page-header">
+        <button class="btn-back" onclick="voltarImoveis()">← Voltar</button>
+        <div>
+          <h1 id="formImovelTitulo">Cadastrar Imóvel</h1>
+          <p>Preencha os dados detalhados do imóvel</p>
+        </div>
+      </div>
+
+      <form id="imovelForm" class="form-card" onsubmit="salvarImovel(event)">
+        <input type="hidden" id="imovelEditId" />
+
+        <div class="form-section">
+          <h3>Identificação</h3>
+          <div class="form-grid">
+            <div class="field field-full">
+              <label>Título do imóvel *</label>
+              <input type="text" name="titulo" placeholder="Ex: Bangalô Beach Club — Apto 2 quartos" required />
+            </div>
+            <div class="field">
+              <label>Tipo</label>
+              <select name="tipo">
+                <option value="">Selecione</option>
+                <option>Apartamento</option>
+                <option>Casa</option>
+                <option>Cobertura</option>
+                <option>Terreno</option>
+                <option>Comercial</option>
+                <option>Rural</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Status</label>
+              <select name="status">
+                <option value="disponivel">Disponível</option>
+                <option value="reservado">Reservado</option>
+                <option value="vendido">Vendido</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3>Financeiro</h3>
+          <div class="form-grid">
+            <div class="field">
+              <label>Preço total</label>
+              <div class="input-prefix"><span>R$</span><input type="text" name="preco" placeholder="1.000.000,00" /></div>
+            </div>
+            <div class="field">
+              <label>Entrada</label>
+              <div class="input-prefix"><span>R$</span><input type="text" name="entrada" placeholder="200.000,00" /></div>
+            </div>
+            <div class="field">
+              <label>Parcela mínima</label>
+              <div class="input-prefix"><span>R$</span><input type="text" name="parcela" placeholder="3.500,00/mês" /></div>
+            </div>
+            <div class="field">
+              <label>Financiamento</label>
+              <input type="text" name="financiamento" placeholder="Ex: FGTS, CEF, MCMV" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3>Características</h3>
+          <div class="form-grid cols-3">
+            <div class="field">
+              <label>Área (m²)</label>
+              <input type="text" name="area" placeholder="75" />
+            </div>
+            <div class="field">
+              <label>Quartos</label>
+              <input type="number" name="quartos" placeholder="2" min="0" />
+            </div>
+            <div class="field">
+              <label>Suítes</label>
+              <input type="number" name="suites" placeholder="1" min="0" />
+            </div>
+            <div class="field">
+              <label>Banheiros</label>
+              <input type="number" name="banheiros" placeholder="2" min="0" />
+            </div>
+            <div class="field">
+              <label>Vagas de garagem</label>
+              <input type="number" name="vagas" placeholder="1" min="0" />
+            </div>
+            <div class="field">
+              <label>Andar</label>
+              <input type="number" name="andar" placeholder="5" min="0" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3>Localização</h3>
+          <div class="form-grid">
+            <div class="field field-full">
+              <label>Endereço</label>
+              <input type="text" name="endereco" placeholder="Av. Atlântica, 1200" />
+            </div>
+            <div class="field">
+              <label>Bairro</label>
+              <input type="text" name="bairro" placeholder="Copacabana" />
+            </div>
+            <div class="field">
+              <label>Cidade</label>
+              <input type="text" name="cidade" placeholder="Rio de Janeiro" />
+            </div>
+            <div class="field">
+              <label>Estado</label>
+              <input type="text" name="estado" placeholder="RJ" maxlength="2" style="text-transform:uppercase" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3>Marketing</h3>
+          <div class="form-grid">
+            <div class="field field-full">
+              <label>Chamada principal</label>
+              <input type="text" name="destaque" placeholder="Ex: Frente Mar, Academia, Vista permanente" />
+            </div>
+            <div class="field field-full">
+              <label>Diferenciais</label>
+              <input type="text" name="diferenciais" placeholder="Ex: Piscina, Churrasqueira, Portaria 24h, Pet-friendly" />
+            </div>
+            <div class="field field-full">
+              <label>Descrição</label>
+              <textarea name="descricao" rows="3" placeholder="Descrição completa do imóvel para referência..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3>Fotos</h3>
+          <div id="fotosPreview" class="fotos-preview"></div>
+          <label class="upload-btn">
+            📷 Adicionar fotos
+            <input type="file" name="fotos" accept="image/*" multiple onchange="previewFotos(this)" style="display:none" />
+          </label>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-ghost" onclick="voltarImoveis()">Cancelar</button>
+          <button type="submit" class="btn-primary">Salvar imóvel</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- ===== PERFIL ===== -->
+    <div id="page-perfil" class="page">
+      <div class="page-header">
+        <div>
+          <h1>Perfil da Imobiliária</h1>
+          <p>Informações que aparecem nas artes geradas</p>
+        </div>
+      </div>
+
+      <form id="perfilForm" class="form-card" onsubmit="salvarPerfil(event)">
+        <div class="form-section">
+          <h3>Logo</h3>
+          <div class="logo-upload-area">
+            <div class="logo-preview-wrap" id="logoPreviewWrap">
+              <img id="logoPreview" src="" alt="Logo" style="display:none" />
+              <div id="logoPlaceholder" class="logo-placeholder">
+                <span>🏷️</span>
+                <p>Nenhum logo</p>
+              </div>
+            </div>
+            <label class="upload-btn">
+              📁 Enviar logo
+              <input type="file" name="logo" accept="image/*" onchange="previewLogo(this)" style="display:none" />
+            </label>
+            <p class="hint">PNG ou SVG com fundo transparente recomendado</p>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3>Dados da empresa</h3>
+          <div class="form-grid">
+            <div class="field field-full">
+              <label>Nome da imobiliária *</label>
+              <input type="text" name="nome" placeholder="Ex: Rogga Imóveis" />
+            </div>
+            <div class="field field-full">
+              <label>Slogan</label>
+              <input type="text" name="slogan" placeholder="Ex: Realizando sonhos desde 1990" />
+            </div>
+            <div class="field">
+              <label>CRECI</label>
+              <input type="text" name="creci" placeholder="12345-J" />
+            </div>
+            <div class="field">
+              <label>Telefone</label>
+              <input type="text" name="telefone" placeholder="(47) 3333-4444" />
+            </div>
+            <div class="field">
+              <label>WhatsApp</label>
+              <input type="text" name="whatsapp" placeholder="(47) 99999-8888" />
+            </div>
+            <div class="field">
+              <label>E-mail</label>
+              <input type="email" name="email" placeholder="contato@imobiliaria.com.br" />
+            </div>
+            <div class="field">
+              <label>Site</label>
+              <input type="text" name="site" placeholder="www.imobiliaria.com.br" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Salvar perfil</button>
+        </div>
+      </form>
+    </div>
+
+  </main>
+
+  <!-- Loading overlay -->
+  <div id="loadingOverlay" class="loading-overlay" style="display:none">
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <p>Gerando arte com IA...</p>
+      <p class="loading-hint">Pode levar até 3 minutos</p>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
