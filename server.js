@@ -468,7 +468,7 @@ app.post('/api/gerar', async (req, res) => {
 
     const mensagem = `Image ${imgOrder.template} is a real estate marketing template. Reproduce the entire design exactly — same layout, colors, fonts, shapes — and make only these three substitutions:
 
-1. TEXT — There are gray placeholder boxes labeled e.g. "{ ENDEREÇO DO IMÓVEL }". Each box tells you WHERE to place the text: erase the gray box entirely (remove it, leave no box, no border, no background rectangle) and draw the replacement text at that exact location, styled to match the surrounding design as if it was always part of the template — same font family, weight, size and color as nearby text.
+1. TEXT — There are gray placeholder boxes labeled e.g. "{ ENDEREÇO DO IMÓVEL }". Each box tells you WHERE to place the text. Erase the gray box entirely (no box, no border, no background) and render the replacement text at that exact location. Critical: the replacement text must have the EXACT SAME font family, font size, font weight and color as the text immediately adjacent to or surrounding that placeholder in the template — as if a designer typed it there originally. Do not choose a different size or color; match it precisely to what surrounds it.
 Values to substitute:
 ${dados || '(none)'}
 
