@@ -23,9 +23,9 @@
     /* Upload card */
     .upload-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 28px; }
     .upload-card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 16px; }
-    .upload-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
-    .upload-row .field { flex: 1; min-width: 140px; }
-    .upload-row button { flex-shrink: 0; width: 100%; }
+    .upload-row { display: flex; gap: 12px; align-items: flex-end; }
+    .upload-row .field { flex: 1; }
+    .upload-row button { flex-shrink: 0; white-space: nowrap; }
     .drop-zone {
       border: 2px dashed var(--border); border-radius: var(--radius);
       padding: 24px 16px; text-align: center; cursor: pointer;
@@ -56,11 +56,13 @@
     .field-badge.media { background: #1a3a2f; color: #6ee7b7; border-color: #10b98144; }
     .no-templates { text-align: center; padding: 40px; color: var(--text-muted); }
 
-    @media (max-width: 480px) {
+    @media (max-width: 600px) {
       .admin-wrap { padding: 20px 12px 60px; }
       .admin-header h1 { font-size: 1.15rem; }
       .admin-header-actions { width: 100%; justify-content: flex-end; }
-      .upload-row button { flex: 1; }
+      .upload-row { flex-wrap: wrap; }
+      .upload-row .field { min-width: 0; }
+      .upload-row button { width: 100%; }
       .template-row img { width: 64px; height: 64px; }
     }
   </style>
