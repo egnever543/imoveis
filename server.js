@@ -466,14 +466,16 @@ app.post('/api/gerar', async (req, res) => {
       `Image ${imgOrder[`foto_${i}`]}: property photo (${ANGLE_LABELS_PT[s.ang] || s.ang}) — place in the photo area of the template.`
     ).join('\n');
 
-    const mensagem = `Recreate this marketing piece EXACTLY as shown in Image ${imgOrder.template} — same layout, same fonts, same colors, same proportions, same everything — but with the following substitutions:
+    const mensagem = `Image ${imgOrder.template} is a real estate marketing template. Your only job is to keep the entire design intact and swap out three things:
 
-${fotoLines ? `- Replace the property photo area with Image ${Object.keys(imgOrder).find(k => k.startsWith('foto_')) ? imgOrder[Object.keys(imgOrder).find(k => k.startsWith('foto_'))] : 2} (keep the same crop, position and size as the original photo area).` : ''}
-${logoImg ? `- Replace the "{ LOGO AQUI }" gray box with Image ${imgOrder.logo} (same position and size, no white background behind it — blend with the existing background).` : ''}
-${dados ? `- Replace each gray placeholder box with the corresponding value below, using the exact same typography (font, weight, size, color) as the text already present in that region of the template:\n${dados}` : ''}
+1. TEXT — replace each gray placeholder box with the value below, using the exact same font, size, weight and color as the surrounding text in that area:
+${dados || '(none)'}
 
-The output must look like the original template was always made with this data. Not inspired by it — identical to it, just with different content.`;
+2. PROPERTY PHOTO — replace the property photo area with Image ${fotoSlots.length ? imgOrder['foto_0'] : '(none provided)'}, maintaining the exact same crop, size and position.
 
+3. LOGO — replace the "{ LOGO AQUI }" gray box with Image ${logoImg ? imgOrder.logo : '(none provided)'}, blending it naturally with the existing background (no white box behind it).
+
+Everything else — layout, background, shapes, decorative elements, colors, typography style — must be pixel-perfect identical to the original. The final result must look like this template was always designed with this specific content.`;
 
 
     const content = [];
