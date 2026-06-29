@@ -215,16 +215,18 @@ app.post('/api/admin/templates', adminAuth, upload.single('imagem'), async (req,
   try {
     if (!req.file) return res.status(400).json({ error: 'Imagem obrigatória' });
 
-    const result = await cloudinaryUpload(req.file.buffer, 'templates');
-    const img    = await imageB64FromUrl(result.secure_url);
+    const imgBuf = req.file.buffer;
+    const b64    = imgBuf.toString('base64');
+    const mime   = req.file.mimetype;
 
+    // 1. Analisa campos presentes no template
     const analysis = await openai.chat.completions.create({
       model: 'gpt-4o',
       response_format: { type: 'json_object' },
       messages: [{
         role: 'user',
         content: [
-          { type: 'image_url', image_url: { url: `data:${img.mime};base64,${img.b64}` } },
+          { type: 'image_url', image_url: { url: `data:${mime};base64,${b64}` } },
           { type: 'text', text: ANALYZE_PROMPT },
         ],
       }],
@@ -232,6 +234,70 @@ app.post('/api/admin/templates', adminAuth, upload.single('imagem'), async (req,
 
     const parsed = JSON.parse(analysis.choices[0].message.content);
     const fields = Array.isArray(parsed.fields) ? parsed.fields : [];
+
+    // 2. IA edita a imagem: substitui logo e textos por placeholders, mantém fotos
+    const PLACEHOLDER_MAP = {
+      logo:          '{ LOGO AQUI }',
+      titulo:        '{ TÍTULO DO IMÓVEL }',
+      preco:         '{ PREÇO }',
+      entrada:       '{ ENTRADA }',
+      parcela:       '{ PARCELA }',
+      financiamento: '{ FINANCIAMENTO }',
+      localizacao:   '{ LOCALIZAÇÃO }',
+      endereco:      '{ ENDEREÇO }',
+      destaque:      '{ CHAMADA PRINCIPAL }',
+      diferenciais:  '{ DIFERENCIAIS }',
+      area:          '{ ÁREA }',
+      quartos:       '{ QUARTOS }',
+      suites:        '{ SUÍTES }',
+      banheiros:     '{ BANHEIROS }',
+      vagas:         '{ VAGAS }',
+      andar:         '{ ANDAR }',
+    };
+
+    const textFields  = fields.filter(f => f !== 'foto_imovel');
+    const placeholders = textFields.map(f =>
+      `- Replace the "${f}" element with the placeholder text: ${PLACEHOLDER_MAP[f] || `{ ${f.toUpperCase()} }`}`
+    ).join('\n');
+
+    const editPrompt = `You are editing a Brazilian real estate marketing template image.
+
+Your task: replace logo and text content with visible placeholder labels, keeping the exact layout, colors, shapes, and design intact.
+
+Instructions:
+${placeholders || '- Replace any visible logo or brand with a gray rectangle labeled { LOGO AQUI }\n- Replace any address, price, or name text with an appropriate placeholder label'}
+
+IMPORTANT RULES:
+- DO NOT touch or alter any property photo areas — leave them exactly as they are
+- Keep ALL background graphics, decorative shapes, colors, and overall layout exactly as-is
+- Replace logo/brand images with a flat gray or white rectangle containing the placeholder text in bold
+- Replace all real text (names, addresses, prices, phone numbers, slogans) with the corresponding placeholder text in the same position and approximate size
+- Write placeholder text in a clean bold font, contrasting with the background
+- Do NOT add any new elements or change spacing/layout in any way
+- The result must look like the same template but with placeholder labels instead of real content`;
+
+    const editResponse = await openai.responses.create({
+      model: 'gpt-4o',
+      input: [{
+        role: 'user',
+        content: [
+          { type: 'input_image', image_url: `data:${mime};base64,${b64}` },
+          { type: 'input_text', text: editPrompt },
+        ],
+      }],
+      tools: [{ type: 'image_generation', quality: 'high', size: '1024x1024' }],
+    });
+
+    let editedBuf = imgBuf; // fallback: usa original se IA falhar
+    for (const item of editResponse.output || []) {
+      if (item.type === 'image_generation_call' && item.result) {
+        editedBuf = Buffer.from(item.result, 'base64');
+        break;
+      }
+    }
+
+    // 3. Salva imagem editada no Cloudinary
+    const result = await cloudinaryUpload(editedBuf, 'templates');
 
     const { data, error } = await supabase.from('templates').insert({
       id:        Date.now(),
