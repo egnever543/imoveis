@@ -466,14 +466,15 @@ app.post('/api/gerar', async (req, res) => {
       `Image ${imgOrder[`foto_${i}`]}: property photo (${ANGLE_LABELS_PT[s.ang] || s.ang}) — place in the photo area of the template.`
     ).join('\n');
 
-    const mensagem = `Image ${imgOrder.template}: design template with placeholder labels where real content should go. Replace each placeholder with the corresponding value below. Keep all background graphics, colors, shapes and typography exactly as shown.
-${fotoLines}
-${logoImg ? `Image ${imgOrder.logo}: agency logo — place it in the { LOGO AQUI } area. Do not redraw or recreate it.` : ''}
+    const mensagem = `Image ${imgOrder.template}: design template with placeholder labels. Each gray box with text like "{ LOGO AQUI }" or "{ ENDEREÇO DO IMÓVEL }" marks exactly where real content must be placed.
 
-Replace each placeholder with the corresponding value (maintain the exact position, size and style of each zone):
+${fotoLines}
+${logoImg ? `Image ${imgOrder.logo}: agency logo — place it covering the "{ LOGO AQUI }" gray box exactly. Do not redraw or recreate it.` : ''}
+
+Replace each placeholder gray box with the corresponding value below (keep the same position and style):
 ${dados || '(no text placeholders — only place photo and/or logo)'}
 
-CRITICAL: do not invent, add or remove any element. Only replace the labeled placeholders and place the provided images in their zones.`;
+CRITICAL: replace ONLY the gray placeholder boxes. Do not change any other element.`;
 
 
     const content = [];

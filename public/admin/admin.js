@@ -180,7 +180,7 @@ async function deletarTemplate(id, nome) {
 
 // ── Editar com IA (templates existentes) ─────────────────────────────────────
 const IA_COLORS = { logo: '#8b5cf6', localizacao: '#3b82f6' };
-const IA_LABELS = { logo: '{ LOGO AQUI }', localizacao: '{ LOCALIZAÇÃO }' };
+const IA_LABELS = { logo: '{ LOGO AQUI }', localizacao: '{ ENDEREÇO DO IMÓVEL }' };
 let iaId        = null;
 let iaMarcador  = 'logo';
 let iaMarcacoes = {};
@@ -372,7 +372,7 @@ function hexToRgba(hex, alpha) {
 
 // ── Upload & editor de marcação ───────────────────────────────────────────────
 const MARK_COLORS = { logo: '#8b5cf6', localizacao: '#3b82f6' };
-const MARK_LABELS = { logo: '{ LOGO AQUI }', localizacao: '{ LOCALIZAÇÃO }' };
+const MARK_LABELS = { logo: '{ LOGO AQUI }', localizacao: '{ ENDEREÇO DO IMÓVEL }' };
 let marcador   = 'logo';   // campo ativo
 let marcacoes  = {};       // { logo: {x,y,w,h}, localizacao: {x,y,w,h} }
 let markDrawing = false;
