@@ -290,8 +290,16 @@ async function uploadFotoSlot(input, imovelId, slot) {
     const form = document.getElementById('imovelForm');
     const titulo = form.elements['titulo']?.value?.trim();
     if (!titulo) { toast('Salve o imóvel primeiro (preencha ao menos o título)', 'error'); return; }
-    const fd = new FormData(form);
-    const res = await fetch('/api/imoveis', { method: 'POST', body: fd });
+    const campos = ['titulo','tipo','status','preco','entrada','parcela','financiamento',
+      'area','quartos','suites','banheiros','vagas','andar',
+      'endereco','bairro','cidade','estado','destaque','diferenciais','descricao'];
+    const body = {};
+    campos.forEach(c => { body[c] = form.elements[c]?.value || ''; });
+    const res = await fetch('/api/imoveis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
     if (!res.ok) { toast('Erro ao salvar imóvel', 'error'); return; }
     const saved = await res.json();
     id = saved.id;
@@ -334,13 +342,22 @@ async function salvarImovel(e) {
   e.preventDefault();
   const form = e.target;
   const id   = document.getElementById('imovelEditId').value;
-  const fd   = new FormData(form);
+
+  const campos = ['titulo','tipo','status','preco','entrada','parcela','financiamento',
+    'area','quartos','suites','banheiros','vagas','andar',
+    'endereco','bairro','cidade','estado','destaque','diferenciais','descricao'];
+  const body = {};
+  campos.forEach(c => { body[c] = form.elements[c]?.value || ''; });
+
   const url    = id ? `/api/imoveis/${id}` : '/api/imoveis';
   const method = id ? 'PUT' : 'POST';
-  const res    = await fetch(url, { method, body: fd });
+  const res    = await fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
   if (!res.ok) { toast('Erro ao salvar', 'error'); return; }
   const saved = await res.json();
-  // Atualiza o id caso seja novo cadastro (para que os slots de foto funcionem)
   if (!id) document.getElementById('imovelEditId').value = saved.id;
   await loadImoveis();
   toast(id ? 'Imóvel atualizado!' : 'Imóvel salvo! Agora adicione as fotos abaixo.', 'success');
