@@ -12,7 +12,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
 );
 
 cloudinary.config({
@@ -434,5 +434,10 @@ ${dados || '(no text fields — only replace photo and/or logo)'}`;
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor rodando em http://localhost:${PORT}`));
+// Exporta para Vercel (serverless); listen só ativa localmente
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => console.log(`Servidor rodando em http://localhost:${PORT}`));
+}
+
+module.exports = app;
