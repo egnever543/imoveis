@@ -1,47 +1,33 @@
 require('dotenv').config();
-const express  = require('express');
-const multer   = require('multer');
-const path     = require('path');
-const fs       = require('fs');
-const https    = require('https');
-const http     = require('http');
-const OpenAI   = require('openai');
+const express    = require('express');
+const multer     = require('multer');
+const https      = require('https');
+const http       = require('http');
+const OpenAI     = require('openai');
+const { createClient } = require('@supabase/supabase-js');
+const cloudinary = require('cloudinary').v2;
 
 const app    = express();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const DATA_DIR    = path.join(__dirname, 'data');
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
 
-// ── Storage configs ───────────────────────────────────────────────────────────
-const storageImovel = multer.diskStorage({
-  destination: (_, __, cb) => cb(null, path.join(UPLOADS_DIR, 'imoveis')),
-  filename:    (_, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
-});
-const storageLogo = multer.diskStorage({
-  destination: (_, __, cb) => cb(null, path.join(UPLOADS_DIR, 'logos')),
-  filename:    (_, file, cb) => cb(null, `logo-${Date.now()}${path.extname(file.originalname)}`),
-});
-const storageTemplate = multer.diskStorage({
-  destination: (_, __, cb) => cb(null, path.join(UPLOADS_DIR, 'templates')),
-  filename:    (_, file, cb) => cb(null, `template-${Date.now()}${path.extname(file.originalname)}`),
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const uploadImovel   = multer({ storage: storageImovel });
-const uploadLogo     = multer({ storage: storageLogo });
-const uploadTemplate = multer({ storage: storageTemplate });
+// Multer em memória — não salva nada em disco
+const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(express.json());
 app.use(express.static('public'));
-app.use('/uploads', express.static(UPLOADS_DIR));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const readJSON  = (file) => JSON.parse(fs.readFileSync(path.join(DATA_DIR, file), 'utf8'));
-const writeJSON = (file, data) => fs.writeFileSync(path.join(DATA_DIR, file), JSON.stringify(data, null, 2));
-
-const TEMPLATES_FILE = path.join(DATA_DIR, 'templates.json');
-const readTemplates  = () => fs.existsSync(TEMPLATES_FILE) ? JSON.parse(fs.readFileSync(TEMPLATES_FILE, 'utf8')) : [];
-const writeTemplates = (data) => fs.writeFileSync(TEMPLATES_FILE, JSON.stringify(data, null, 2));
 
 function fetchBuffer(url) {
   return new Promise((resolve, reject) => {
@@ -57,32 +43,49 @@ function fetchBuffer(url) {
   });
 }
 
-function imageB64FromPath(filePath) {
-  if (!filePath || !fs.existsSync(filePath)) return null;
-  const ext  = path.extname(filePath).toLowerCase();
-  const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
-  return { b64: fs.readFileSync(filePath).toString('base64'), mime };
+async function imageB64FromUrl(url) {
+  if (!url) return null;
+  try {
+    const buf  = await fetchBuffer(url);
+    const ext  = url.split('?')[0].split('.').pop().toLowerCase();
+    const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+    return { b64: buf.toString('base64'), mime };
+  } catch {
+    return null;
+  }
 }
 
-// ── Nomes de campo para exibição ──────────────────────────────────────────────
+function cloudinaryUpload(buffer, folder) {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.upload_stream(
+      { folder, resource_type: 'image' },
+      (err, result) => err ? reject(err) : resolve(result)
+    ).end(buffer);
+  });
+}
+
+function cloudinaryPublicId(url) {
+  const m = url.match(/\/upload\/(?:v\d+\/)?(.+)\.[a-z]+$/i);
+  return m ? m[1] : null;
+}
+
+// Mapeia colunas snake_case do DB para camelCase da API
+function fromDb(row) {
+  if (!row) return null;
+  const r = { ...row };
+  if ('criado_em'     in r) { r.criadoEm     = r.criado_em;     delete r.criado_em; }
+  if ('total_andares' in r) { r.totalAndares  = r.total_andares; delete r.total_andares; }
+  if ('image_url'     in r) { r.imageUrl      = r.image_url;     delete r.image_url; }
+  return r;
+}
+
+// ── Labels dos campos ─────────────────────────────────────────────────────────
 const FIELD_LABELS_PT = {
-  titulo:        'Título',
-  preco:         'Preço',
-  entrada:       'Entrada',
-  parcela:       'Parcela',
-  financiamento: 'Financiamento',
-  area:          'Área (m²)',
-  quartos:       'Quartos',
-  suites:        'Suítes',
-  banheiros:     'Banheiros',
-  vagas:         'Vagas',
-  andar:         'Andar',
-  localizacao:   'Localização',
-  endereco:      'Endereço',
-  destaque:      'Chamada principal',
-  diferenciais:  'Diferenciais',
-  foto_imovel:   'Foto do imóvel',
-  logo:          'Logo',
+  titulo: 'Título', preco: 'Preço', entrada: 'Entrada', parcela: 'Parcela',
+  financiamento: 'Financiamento', area: 'Área (m²)', quartos: 'Quartos',
+  suites: 'Suítes', banheiros: 'Banheiros', vagas: 'Vagas', andar: 'Andar',
+  localizacao: 'Localização', endereco: 'Endereço', destaque: 'Chamada principal',
+  diferenciais: 'Diferenciais', foto_imovel: 'Foto do imóvel', logo: 'Logo',
 };
 
 // ── Prompt de análise de template ─────────────────────────────────────────────
@@ -127,15 +130,24 @@ app.post('/api/admin/login', (req, res) => {
 });
 
 // ── ADMIN: Templates ──────────────────────────────────────────────────────────
-app.get('/api/admin/templates', adminAuth, (_, res) => res.json(readTemplates()));
+app.get('/api/admin/templates', adminAuth, async (_, res) => {
+  const { data, error } = await supabase
+    .from('templates').select('*').order('criado_em', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data.map(fromDb));
+});
 
-app.post('/api/admin/templates', adminAuth, uploadTemplate.single('imagem'), async (req, res) => {
+app.post('/api/admin/templates', adminAuth, upload.single('imagem'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Imagem obrigatória' });
 
-    const imagePath = path.join(UPLOADS_DIR, 'templates', req.file.filename);
-    const img = imageB64FromPath(imagePath);
+    // Upload para Cloudinary
+    const result = await cloudinaryUpload(req.file.buffer, 'templates');
 
+    // Busca buffer para análise da IA
+    const img = await imageB64FromUrl(result.secure_url);
+
+    // Analisa campos presentes com IA
     const analysis = await openai.chat.completions.create({
       model: 'gpt-4o',
       response_format: { type: 'json_object' },
@@ -151,199 +163,235 @@ app.post('/api/admin/templates', adminAuth, uploadTemplate.single('imagem'), asy
     const parsed = JSON.parse(analysis.choices[0].message.content);
     const fields = Array.isArray(parsed.fields) ? parsed.fields : [];
 
-    const templates = readTemplates();
-    const novo = {
+    const { data, error } = await supabase.from('templates').insert({
       id: Date.now(),
       nome: req.body.nome || req.file.originalname,
-      imageUrl: `/uploads/templates/${req.file.filename}`,
+      image_url: result.secure_url,
       fields,
-      criadoEm: new Date().toISOString(),
-    };
-    templates.push(novo);
-    writeTemplates(templates);
-    res.status(201).json(novo);
+    }).select().single();
+
+    if (error) throw new Error(error.message);
+    res.status(201).json(fromDb(data));
   } catch (err) {
     console.error('Erro análise template:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.delete('/api/admin/templates/:id', adminAuth, (req, res) => {
-  const templates = readTemplates();
-  const idx = templates.findIndex(t => String(t.id) === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Não encontrado' });
-  const [removed] = templates.splice(idx, 1);
-  const fp = path.join(__dirname, removed.imageUrl.replace(/^\//, ''));
-  if (fs.existsSync(fp)) fs.unlinkSync(fp);
-  writeTemplates(templates);
+app.delete('/api/admin/templates/:id', adminAuth, async (req, res) => {
+  const { data, error } = await supabase
+    .from('templates').delete().eq('id', req.params.id).select().single();
+  if (error) return res.status(404).json({ error: 'Não encontrado' });
+  const pid = cloudinaryPublicId(data.image_url);
+  if (pid) await cloudinary.uploader.destroy(pid).catch(() => {});
   res.json({ ok: true });
 });
 
-// ── PUBLIC: Templates ─────────────────────────────────────────────────────────
-app.get('/api/templates', (_, res) => res.json(readTemplates()));
+// ── PUBLIC: Templates & Labels ────────────────────────────────────────────────
+app.get('/api/templates', async (_, res) => {
+  const { data, error } = await supabase
+    .from('templates').select('*').order('criado_em', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data.map(fromDb));
+});
+
 app.get('/api/field-labels', (_, res) => res.json(FIELD_LABELS_PT));
 
-// ── PERFIL DA IMOBILIÁRIA ─────────────────────────────────────────────────────
-app.get('/api/perfil', (_, res) => res.json(readJSON('perfil.json')));
+// ── PERFIL ────────────────────────────────────────────────────────────────────
+app.get('/api/perfil', async (_, res) => {
+  const { data, error } = await supabase.from('perfil').select('*').eq('id', 1).single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
 
-app.put('/api/perfil', uploadLogo.single('logo'), (req, res) => {
-  const perfil = readJSON('perfil.json');
+app.put('/api/perfil', upload.single('logo'), async (req, res) => {
   const campos = ['nome','slogan','creci','telefone','whatsapp','email','site'];
-  campos.forEach(c => { if (req.body[c] !== undefined) perfil[c] = req.body[c]; });
+  const updates = {};
+  campos.forEach(c => { if (req.body[c] !== undefined) updates[c] = req.body[c]; });
+
   if (req.file) {
-    if (perfil.logo) {
-      const old = path.join(__dirname, perfil.logo.replace(/^\//, ''));
-      if (fs.existsSync(old)) fs.unlinkSync(old);
+    const { data: old } = await supabase.from('perfil').select('logo').eq('id', 1).single();
+    if (old?.logo) {
+      const pid = cloudinaryPublicId(old.logo);
+      if (pid) await cloudinary.uploader.destroy(pid).catch(() => {});
     }
-    perfil.logo = `/uploads/logos/${req.file.filename}`;
+    const result = await cloudinaryUpload(req.file.buffer, 'logos');
+    updates.logo = result.secure_url;
   }
-  writeJSON('perfil.json', perfil);
-  res.json(perfil);
+
+  const { data, error } = await supabase
+    .from('perfil').update(updates).eq('id', 1).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
 // ── IMÓVEIS ───────────────────────────────────────────────────────────────────
-app.get('/api/imoveis', (_, res) => res.json(readJSON('imoveis.json')));
-
-app.get('/api/imoveis/:id', (req, res) => {
-  const imovel = readJSON('imoveis.json').find(i => i.id === req.params.id);
-  if (!imovel) return res.status(404).json({ error: 'Não encontrado' });
-  res.json(imovel);
+app.get('/api/imoveis', async (_, res) => {
+  const { data, error } = await supabase
+    .from('imoveis').select('*').order('criado_em', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data.map(fromDb));
 });
 
-app.post('/api/imoveis', uploadImovel.array('fotos', 10), (req, res) => {
-  const imoveis = readJSON('imoveis.json');
-  const novo = {
-    id: Date.now().toString(),
-    criadoEm: new Date().toISOString(),
-    titulo:        req.body.titulo || '',
-    tipo:          req.body.tipo || '',
-    status:        req.body.status || 'disponivel',
-    preco:         req.body.preco || '',
-    entrada:       req.body.entrada || '',
-    parcela:       req.body.parcela || '',
-    financiamento: req.body.financiamento || '',
-    area:          req.body.area || '',
-    quartos:       req.body.quartos || '',
-    suites:        req.body.suites || '',
-    banheiros:     req.body.banheiros || '',
-    vagas:         req.body.vagas || '',
-    andar:         req.body.andar || '',
-    totalAndares:  req.body.totalAndares || '',
-    endereco:      req.body.endereco || '',
-    bairro:        req.body.bairro || '',
-    cidade:        req.body.cidade || '',
-    estado:        req.body.estado || '',
-    destaque:      req.body.destaque || '',
-    diferenciais:  req.body.diferenciais || '',
-    descricao:     req.body.descricao || '',
-    fotos: (req.files || []).map(f => `/uploads/imoveis/${f.filename}`),
-  };
-  imoveis.push(novo);
-  writeJSON('imoveis.json', imoveis);
-  res.status(201).json(novo);
+app.get('/api/imoveis/:id', async (req, res) => {
+  const { data, error } = await supabase
+    .from('imoveis').select('*').eq('id', req.params.id).single();
+  if (error) return res.status(404).json({ error: 'Não encontrado' });
+  res.json(fromDb(data));
 });
 
-app.put('/api/imoveis/:id', uploadImovel.array('fotos', 10), (req, res) => {
-  const imoveis = readJSON('imoveis.json');
-  const idx = imoveis.findIndex(i => i.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Não encontrado' });
-  const campos = ['titulo','tipo','status','preco','entrada','parcela','financiamento',
-    'area','quartos','suites','banheiros','vagas','andar','totalAndares',
-    'endereco','bairro','cidade','estado','destaque','diferenciais','descricao'];
-  campos.forEach(c => { if (req.body[c] !== undefined) imoveis[idx][c] = req.body[c]; });
-  if (req.files && req.files.length > 0) {
-    const novas = req.files.map(f => `/uploads/imoveis/${f.filename}`);
-    imoveis[idx].fotos = [...(imoveis[idx].fotos || []), ...novas];
+app.post('/api/imoveis', upload.array('fotos', 10), async (req, res) => {
+  try {
+    const fotos = [];
+    for (const file of (req.files || [])) {
+      const r = await cloudinaryUpload(file.buffer, 'imoveis');
+      fotos.push(r.secure_url);
+    }
+
+    const { data, error } = await supabase.from('imoveis').insert({
+      id:            Date.now().toString(),
+      titulo:        req.body.titulo || '',
+      tipo:          req.body.tipo || '',
+      status:        req.body.status || 'disponivel',
+      preco:         req.body.preco || '',
+      entrada:       req.body.entrada || '',
+      parcela:       req.body.parcela || '',
+      financiamento: req.body.financiamento || '',
+      area:          req.body.area || '',
+      quartos:       req.body.quartos || '',
+      suites:        req.body.suites || '',
+      banheiros:     req.body.banheiros || '',
+      vagas:         req.body.vagas || '',
+      andar:         req.body.andar || '',
+      total_andares: req.body.totalAndares || '',
+      endereco:      req.body.endereco || '',
+      bairro:        req.body.bairro || '',
+      cidade:        req.body.cidade || '',
+      estado:        req.body.estado || '',
+      destaque:      req.body.destaque || '',
+      diferenciais:  req.body.diferenciais || '',
+      descricao:     req.body.descricao || '',
+      fotos,
+    }).select().single();
+
+    if (error) throw new Error(error.message);
+    res.status(201).json(fromDb(data));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  writeJSON('imoveis.json', imoveis);
-  res.json(imoveis[idx]);
 });
 
-app.delete('/api/imoveis/:id', (req, res) => {
-  const imoveis = readJSON('imoveis.json');
-  const idx = imoveis.findIndex(i => i.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Não encontrado' });
-  const [removed] = imoveis.splice(idx, 1);
-  (removed.fotos || []).forEach(f => {
-    const p = path.join(__dirname, f.replace(/^\//, ''));
-    if (fs.existsSync(p)) fs.unlinkSync(p);
-  });
-  writeJSON('imoveis.json', imoveis);
+app.put('/api/imoveis/:id', upload.array('fotos', 10), async (req, res) => {
+  try {
+    const campos = ['titulo','tipo','status','preco','entrada','parcela','financiamento',
+      'area','quartos','suites','banheiros','vagas','andar',
+      'endereco','bairro','cidade','estado','destaque','diferenciais','descricao'];
+    const updates = {};
+    campos.forEach(c => { if (req.body[c] !== undefined) updates[c] = req.body[c]; });
+    if (req.body.totalAndares !== undefined) updates.total_andares = req.body.totalAndares;
+
+    if (req.files?.length > 0) {
+      const { data: existing } = await supabase
+        .from('imoveis').select('fotos').eq('id', req.params.id).single();
+      const novas = [];
+      for (const file of req.files) {
+        const r = await cloudinaryUpload(file.buffer, 'imoveis');
+        novas.push(r.secure_url);
+      }
+      updates.fotos = [...(existing?.fotos || []), ...novas];
+    }
+
+    const { data, error } = await supabase
+      .from('imoveis').update(updates).eq('id', req.params.id).select().single();
+    if (error) return res.status(404).json({ error: 'Não encontrado' });
+    res.json(fromDb(data));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/imoveis/:id', async (req, res) => {
+  const { data, error } = await supabase
+    .from('imoveis').delete().eq('id', req.params.id).select().single();
+  if (error) return res.status(404).json({ error: 'Não encontrado' });
+  for (const url of (data.fotos || [])) {
+    const pid = cloudinaryPublicId(url);
+    if (pid) await cloudinary.uploader.destroy(pid).catch(() => {});
+  }
   res.json({ ok: true });
 });
 
-app.delete('/api/imoveis/:id/foto', (req, res) => {
-  const imoveis = readJSON('imoveis.json');
-  const imovel = imoveis.find(i => i.id === req.params.id);
-  if (!imovel) return res.status(404).json({ error: 'Não encontrado' });
-  imovel.fotos = (imovel.fotos || []).filter(f => f !== req.body.url);
-  const p = path.join(__dirname, req.body.url.replace(/^\//, ''));
-  if (fs.existsSync(p)) fs.unlinkSync(p);
-  writeJSON('imoveis.json', imoveis);
-  res.json(imovel);
+app.delete('/api/imoveis/:id/foto', async (req, res) => {
+  const fotoUrl = req.body.url;
+  const { data, error } = await supabase
+    .from('imoveis').select('fotos').eq('id', req.params.id).single();
+  if (error) return res.status(404).json({ error: 'Não encontrado' });
+
+  const novas = (data.fotos || []).filter(f => f !== fotoUrl);
+  const { data: updated } = await supabase
+    .from('imoveis').update({ fotos: novas }).eq('id', req.params.id).select().single();
+
+  const pid = cloudinaryPublicId(fotoUrl);
+  if (pid) await cloudinary.uploader.destroy(pid).catch(() => {});
+
+  res.json(fromDb(updated));
 });
 
 // ── GERAÇÃO DE ARTE ───────────────────────────────────────────────────────────
 const FIELD_DATA = (imovel, localizacao) => ({
   titulo:        `Title: ${imovel.titulo}`,
-  preco:         imovel.preco        ? `Price: R$ ${imovel.preco}` : null,
-  entrada:       imovel.entrada      ? `Down payment: R$ ${imovel.entrada}` : null,
-  parcela:       imovel.parcela      ? `Monthly installment: R$ ${imovel.parcela}` : null,
-  financiamento: imovel.financiamento? `Financing: ${imovel.financiamento}` : null,
-  area:          imovel.area         ? `Area: ${imovel.area} m²` : null,
-  quartos:       imovel.quartos      ? `Bedrooms: ${imovel.quartos}` : null,
-  suites:        imovel.suites       ? `Suites: ${imovel.suites}` : null,
-  banheiros:     imovel.banheiros    ? `Bathrooms: ${imovel.banheiros}` : null,
-  vagas:         imovel.vagas        ? `Parking spots: ${imovel.vagas}` : null,
-  andar:         imovel.andar        ? `Floor: ${imovel.andar}º` : null,
-  localizacao:   localizacao         ? `Location: ${localizacao}` : null,
-  endereco:      imovel.endereco     ? `Address: ${imovel.endereco}` : null,
-  destaque:      imovel.destaque     ? `Headline: ${imovel.destaque}` : null,
-  diferenciais:  imovel.diferenciais ? `Differentials: ${imovel.diferenciais}` : null,
+  preco:         imovel.preco         ? `Price: R$ ${imovel.preco}` : null,
+  entrada:       imovel.entrada       ? `Down payment: R$ ${imovel.entrada}` : null,
+  parcela:       imovel.parcela       ? `Monthly installment: R$ ${imovel.parcela}` : null,
+  financiamento: imovel.financiamento ? `Financing: ${imovel.financiamento}` : null,
+  area:          imovel.area          ? `Area: ${imovel.area} m²` : null,
+  quartos:       imovel.quartos       ? `Bedrooms: ${imovel.quartos}` : null,
+  suites:        imovel.suites        ? `Suites: ${imovel.suites}` : null,
+  banheiros:     imovel.banheiros     ? `Bathrooms: ${imovel.banheiros}` : null,
+  vagas:         imovel.vagas         ? `Parking spots: ${imovel.vagas}` : null,
+  andar:         imovel.andar         ? `Floor: ${imovel.andar}º` : null,
+  localizacao:   localizacao          ? `Location: ${localizacao}` : null,
+  endereco:      imovel.endereco      ? `Address: ${imovel.endereco}` : null,
+  destaque:      imovel.destaque      ? `Headline: ${imovel.destaque}` : null,
+  diferenciais:  imovel.diferenciais  ? `Differentials: ${imovel.diferenciais}` : null,
 });
 
 app.post('/api/gerar', async (req, res) => {
   try {
     const { templateId, imovelId } = req.body;
 
-    const template = readTemplates().find(t => String(t.id) === String(templateId));
-    if (!template) return res.status(400).json({ error: 'Template inválido' });
+    const { data: tRow } = await supabase.from('templates').select('*').eq('id', templateId).single();
+    if (!tRow) return res.status(400).json({ error: 'Template inválido' });
+    const template = fromDb(tRow);
 
-    const imovel = readJSON('imoveis.json').find(i => i.id === imovelId);
-    if (!imovel) return res.status(400).json({ error: 'Imóvel não encontrado' });
+    const { data: imRow } = await supabase.from('imoveis').select('*').eq('id', imovelId).single();
+    if (!imRow) return res.status(400).json({ error: 'Imóvel não encontrado' });
+    const imovel = fromDb(imRow);
 
-    const perfil = readJSON('perfil.json');
+    const { data: perfil } = await supabase.from('perfil').select('*').eq('id', 1).single();
 
-    // Baixa imagem do template
-    const templateBuf = await fetchBuffer(`http://localhost:${process.env.PORT || 3000}${template.imageUrl}`);
-    const templateB64 = templateBuf.toString('base64');
-    const templateExt = path.extname(template.imageUrl).toLowerCase();
-    const templateMime = templateExt === '.png' ? 'image/png' : templateExt === '.webp' ? 'image/webp' : 'image/jpeg';
+    // Carrega imagens via URL (Cloudinary)
+    const templateImg = await imageB64FromUrl(template.imageUrl);
+    if (!templateImg) return res.status(500).json({ error: 'Não foi possível carregar o template' });
 
-    // Foto do imóvel (se o template pede)
     let imovelImg = null;
     if (template.fields.includes('foto_imovel') && imovel.fotos?.length > 0) {
-      imovelImg = imageB64FromPath(path.join(__dirname, imovel.fotos[0].replace(/^\//, '')));
+      imovelImg = await imageB64FromUrl(imovel.fotos[0]);
     }
 
-    // Logo da imobiliária (se o template pede)
     let logoImg = null;
-    if (template.fields.includes('logo') && perfil.logo) {
-      logoImg = imageB64FromPath(path.join(__dirname, perfil.logo.replace(/^\//, '')));
+    if (template.fields.includes('logo') && perfil?.logo) {
+      logoImg = await imageB64FromUrl(perfil.logo);
     }
 
-    // Localização
     const localizacao = [imovel.bairro, imovel.cidade, imovel.estado].filter(Boolean).join(', ');
-
-    // Monta dados — apenas os campos que o template declarou ter
-    const fieldData = FIELD_DATA(imovel, localizacao);
+    const fieldData   = FIELD_DATA(imovel, localizacao);
     const dados = template.fields
       .filter(f => !['foto_imovel', 'logo'].includes(f))
       .map(f => fieldData[f])
       .filter(Boolean)
       .join('\n');
 
-    // Índice das imagens
     let imgIdx = 1;
     const imgOrder = { template: imgIdx++ };
     if (imovelImg) imgOrder.imovel = imgIdx++;
@@ -361,9 +409,8 @@ STRICT RULES:
 Fields to replace:
 ${dados || '(no text fields — only replace photo and/or logo)'}`;
 
-    // Monta content
     const content = [];
-    content.push({ type: 'input_image', image_url: `data:${templateMime};base64,${templateB64}` });
+    content.push({ type: 'input_image', image_url: `data:${templateImg.mime};base64,${templateImg.b64}` });
     if (imovelImg) content.push({ type: 'input_image', image_url: `data:${imovelImg.mime};base64,${imovelImg.b64}` });
     if (logoImg)   content.push({ type: 'input_image', image_url: `data:${logoImg.mime};base64,${logoImg.b64}` });
     content.push({ type: 'input_text', text: mensagem });
