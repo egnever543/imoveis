@@ -68,6 +68,7 @@ async function carregarTemplates() {
 }
 
 function renderTemplates(templates) {
+  allTemplates = templates;
   const el = document.getElementById('templatesList');
   if (!templates.length) {
     el.innerHTML = '<div class="no-templates">Nenhum template cadastrado ainda.</div>';
@@ -91,7 +92,7 @@ function renderTemplates(templates) {
         ${angulos ? `<div class="fields-wrap"><span style="font-size:0.65rem;color:var(--text-muted);margin-right:4px">📐</span>${angulos}</div>` : ''}
       </div>
       <div class="template-row-actions">
-        <button class="btn-ghost btn-sm" onclick="abrirEdicao(${t.id}, '${t.nome.replace(/'/g,"\\'")}', ${JSON.stringify(t.fields || [])}, ${JSON.stringify(t.angulos || [])})">✏️ Editar</button>
+        <button class="btn-ghost btn-sm" onclick="abrirEdicao(${t.id})">✏️ Editar</button>
         <button class="btn-danger btn-sm" onclick="deletarTemplate(${t.id}, '${t.nome.replace(/'/g,"\\'")}')">🗑 Excluir</button>
       </div>
     </div>`;
@@ -109,7 +110,12 @@ async function deletarTemplate(id, nome) {
 }
 
 // ── Editar ────────────────────────────────────────────────────────────────────
-function abrirEdicao(id, nome, fields, angulos) {
+let allTemplates = [];
+
+function abrirEdicao(id) {
+  const t = allTemplates.find(t => t.id == id);
+  if (!t) return;
+  const { nome, fields = [], angulos = [] } = t;
   editingId = id;
   document.getElementById('editNome').value = nome;
 
