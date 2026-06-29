@@ -326,6 +326,24 @@ textarea { resize: vertical; }
 }
 .btn-danger:hover { background: var(--danger); color: #fff; }
 
+.btn-ia {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff; border: none; border-radius: var(--radius);
+  padding: 8px 16px; font-size: 0.88rem;
+  cursor: pointer; transition: opacity 0.15s;
+}
+.btn-ia:hover { opacity: 0.85; }
+.btn-ia:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-secondary {
+  background: none; color: var(--text-muted);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 8px 16px; font-size: 0.88rem;
+  cursor: pointer; transition: all 0.15s;
+}
+.btn-secondary:hover { border-color: var(--text-muted); color: var(--text); }
+.btn-secondary:disabled { opacity: 0.35; cursor: not-allowed; }
+
 .btn-sm {
   padding: 6px 12px !important;
   font-size: 0.8rem !important;

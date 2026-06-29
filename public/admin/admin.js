@@ -96,13 +96,14 @@ function renderTemplates(templates) {
   }
   el.innerHTML = templates.map(t => {
     const nZonas   = Object.keys(t.zonas || {}).length;
+    const hasZonas = nZonas > 0;
     const mapBadge = nZonas
       ? `<span class="field-badge mapped">🗺 ${nZonas} zona${nZonas > 1 ? 's' : ''} mapeada${nZonas > 1 ? 's' : ''}</span>`
       : `<span class="field-badge" style="opacity:.5">🗺 sem mapeamento</span>`;
 
     return `
     <div class="template-row" id="trow-${t.id}">
-      <img src="${t.imageUrl}" alt="${t.nome}" />
+      <img src="${t.guideUrl || t.imageUrl}" alt="${t.nome}" title="${t.guideUrl ? 'Visualização com zonas mapeadas' : 'Template original'}" />
       <div class="template-row-info">
         <h3>${t.nome}</h3>
         <div class="fields-wrap" style="margin-bottom:6px">
@@ -117,9 +118,9 @@ function renderTemplates(templates) {
         <div class="fields-wrap">${mapBadge}</div>
       </div>
       <div class="template-row-actions">
-        <button class="btn-ghost btn-sm"    onclick="abrirEdicao(${t.id})">✏️ Editar</button>
-        <button class="btn-primary btn-sm"  onclick="abrirMapeamento(${t.id})">🗺 Mapear</button>
-        <button class="btn-danger btn-sm"   onclick="deletarTemplate(${t.id}, '${t.nome.replace(/'/g,"\\'")}')">🗑 Excluir</button>
+        <button class="btn-ghost btn-sm"      onclick="abrirEdicao(${t.id})">✏️ Editar</button>
+        <button class="btn-ia btn-sm"         onclick="editarComIA(${t.id}, this)" title="IA substitui conteúdo real por placeholders">✨ Editar com IA</button>
+        <button class="btn-danger btn-sm"     onclick="deletarTemplate(${t.id}, '${t.nome.replace(/'/g,"\\'")}')">🗑 Excluir</button>
       </div>
     </div>`;
   }).join('');
@@ -196,6 +197,27 @@ async function salvarEdicao() {
   document.getElementById('editModal').style.display = 'none';
   toast('Template atualizado!', 'success');
   await carregarTemplates();
+}
+
+async function editarComIA(id, btn) {
+  if (!confirm('A IA vai editar a imagem do template substituindo o conteúdo real por placeholders.\n\nIsso pode levar ~30 segundos. Continuar?')) return;
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Processando…';
+  try {
+    const res = await fetch(`/api/admin/templates/${id}/editar-ia`, {
+      method: 'POST',
+      headers: { 'x-admin-password': adminPassword },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    toast('Template editado com sucesso! Recarregando…', 'success');
+    await carregarTemplates();
+  } catch (err) {
+    toast('Erro: ' + err.message, 'error');
+    btn.innerHTML = original;
+    btn.disabled = false;
+  }
 }
 
 async function deletarTemplate(id, nome) {
@@ -405,6 +427,193 @@ function hexToRgba(hex, alpha) {
   const g = parseInt(hex.slice(3,5), 16);
   const b = parseInt(hex.slice(5,7), 16);
   return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// ── Editor de Guia ───────────────────────────────────────────────────────────
+let guiaId       = null;
+let guiaZonas    = {};
+let guiaTemplate = null;
+
+function abrirEditorGuia(id) {
+  guiaTemplate = allTemplates.find(t => t.id == id);
+  if (!guiaTemplate) return;
+  guiaId    = id;
+  guiaZonas = guiaTemplate.zonas || {};
+
+  if (!Object.keys(guiaZonas).length) {
+    toast('Mapeie as zonas do template antes de editar o guia.', 'error');
+    return;
+  }
+
+  document.getElementById('guiaImage').src = guiaTemplate.imageUrl;
+  document.getElementById('guiaStatus').textContent = '';
+  document.getElementById('guiaModal').style.display = 'flex';
+}
+
+function fecharGuiaModal(e) {
+  if (e.target === document.getElementById('guiaModal'))
+    document.getElementById('guiaModal').style.display = 'none';
+}
+
+function iniciarEditorGuia() {
+  const img    = document.getElementById('guiaImage');
+  const canvas = document.getElementById('guiaCanvas');
+  canvas.width  = img.offsetWidth;
+  canvas.height = img.offsetHeight;
+  canvas.style.width  = img.offsetWidth  + 'px';
+  canvas.style.height = img.offsetHeight + 'px';
+
+  // Monta inputs de texto por zona
+  const wrap = document.getElementById('guiaFieldsWrap');
+  wrap.innerHTML = '';
+  const zonas = guiaZonas;
+
+  Object.entries(zonas).forEach(([field, z]) => {
+    const isMedia = MEDIA_FIELDS.includes(field);
+    const color   = fieldColor(field);
+    const row     = document.createElement('div');
+    row.className = 'guia-field-row';
+
+    if (isMedia) {
+      row.innerHTML = `
+        <div class="guia-field-dot" style="background:${color}"></div>
+        <span class="guia-field-label">${fieldLabels[field] || field}</span>
+        <span class="guia-field-media">🤖 Inserido pela IA automaticamente</span>`;
+    } else {
+      const defaultText = `[ ${(fieldLabels[field] || field).toUpperCase()} ]`;
+      row.innerHTML = `
+        <div class="guia-field-dot" style="background:${color}"></div>
+        <span class="guia-field-label">${fieldLabels[field] || field}</span>
+        <input class="guia-field-input" data-field="${field}"
+               value="${defaultText}" placeholder="${defaultText}"
+               oninput="redrawGuiaCanvas()" />`;
+    }
+    wrap.appendChild(row);
+  });
+
+  redrawGuiaCanvas();
+}
+
+function redrawGuiaCanvas() {
+  const img    = document.getElementById('guiaImage');
+  const canvas = document.getElementById('guiaCanvas');
+  const ctx    = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  Object.entries(guiaZonas).forEach(([field, z]) => {
+    const x = z.xPct / 100 * W;
+    const y = z.yPct / 100 * H;
+    const w = z.wPct / 100 * W;
+    const h = z.hPct / 100 * H;
+    const color   = fieldColor(field);
+    const isMedia = MEDIA_FIELDS.includes(field);
+
+    if (isMedia) {
+      // Zona de mídia: overlay mais escuro, label diferente
+      ctx.fillStyle = hexToRgba(color, 0.15);
+      ctx.fillRect(x, y, w, h);
+      ctx.setLineDash([8, 4]);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, w, h);
+      ctx.setLineDash([]);
+      return;
+    }
+
+    // Pega texto do input
+    const input = document.querySelector(`.guia-field-input[data-field="${field}"]`);
+    const texto = input?.value || `[ ${(fieldLabels[field] || field).toUpperCase()} ]`;
+
+    // Fundo semitransparente sobre a zona original
+    ctx.fillStyle = hexToRgba(color, 0.55);
+    ctx.fillRect(x, y, w, h);
+
+    // Texto
+    const fs = Math.max(12, Math.min(30, Math.round(h * 0.38)));
+    ctx.font      = `800 ${fs}px "Arial Black", Arial, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // Sombra/contorno
+    ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+    ctx.lineWidth   = 3;
+    ctx.strokeText(texto, x + w / 2, y + h / 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(texto, x + w / 2, y + h / 2);
+  });
+}
+
+async function salvarGuia() {
+  const img    = document.getElementById('guiaImage');
+  const canvas = document.getElementById('guiaCanvas');
+
+  // Gera canvas final: template + overlay
+  const final  = document.createElement('canvas');
+  final.width  = img.naturalWidth  || img.offsetWidth;
+  final.height = img.naturalHeight || img.offsetHeight;
+  const ctx    = final.getContext('2d');
+
+  // Desenha imagem original em tamanho natural
+  ctx.drawImage(img, 0, 0, final.width, final.height);
+
+  // Re-renderiza overlay em escala natural
+  const scaleX = final.width  / canvas.width;
+  const scaleY = final.height / canvas.height;
+  ctx.scale(scaleX, scaleY);
+
+  Object.entries(guiaZonas).forEach(([field, z]) => {
+    const W = canvas.width, H = canvas.height;
+    const x = z.xPct / 100 * W;
+    const y = z.yPct / 100 * H;
+    const w = z.wPct / 100 * W;
+    const h = z.hPct / 100 * H;
+    const color   = fieldColor(field);
+    const isMedia = MEDIA_FIELDS.includes(field);
+
+    if (isMedia) {
+      ctx.fillStyle = hexToRgba(color, 0.15);
+      ctx.fillRect(x, y, w, h);
+      ctx.setLineDash([8, 4]);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, w, h);
+      ctx.setLineDash([]);
+      return;
+    }
+
+    const input = document.querySelector(`.guia-field-input[data-field="${field}"]`);
+    const texto = input?.value || `[ ${(fieldLabels[field] || field).toUpperCase()} ]`;
+
+    ctx.fillStyle = hexToRgba(color, 0.55);
+    ctx.fillRect(x, y, w, h);
+
+    const fs = Math.max(12, Math.min(30, Math.round(h * 0.38)));
+    ctx.font      = `800 ${fs}px "Arial Black", Arial, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+    ctx.lineWidth   = 3;
+    ctx.strokeText(texto, x + w / 2, y + h / 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(texto, x + w / 2, y + h / 2);
+  });
+
+  document.getElementById('guiaStatus').textContent = 'Enviando…';
+
+  final.toBlob(async blob => {
+    const fd = new FormData();
+    fd.append('imagem', blob, 'guia.png');
+    const res = await fetch(`/api/admin/templates/${guiaId}/guia`, {
+      method: 'POST',
+      headers: { 'x-admin-password': adminPassword },
+      body: fd,
+    });
+    if (!res.ok) { toast('Erro ao salvar guia', 'error'); return; }
+    document.getElementById('guiaModal').style.display = 'none';
+    toast('Guia salvo! Será usado na próxima geração.', 'success');
+    await carregarTemplates();
+  }, 'image/png');
 }
 
 // ── Upload ────────────────────────────────────────────────────────────────────
