@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express    = require('express');
 const multer     = require('multer');
+const path       = require('path');
 const https      = require('https');
 const http       = require('http');
 const OpenAI     = require('openai');
