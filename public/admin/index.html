@@ -173,60 +173,26 @@
       <div class="upload-card">
         <h2>Adicionar template</h2>
 
-        <!-- Passo 1: selecionar imagem -->
-        <div id="uploadStep1">
-          <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()"
-               ondragover="event.preventDefault();this.classList.add('over')"
-               ondragleave="this.classList.remove('over')"
-               ondrop="handleDrop(event)">
-            <div id="dropContent">
-              <div class="dz-icon">🖼</div>
-              <div>Clique ou arraste a imagem do template aqui</div>
-              <div style="font-size:0.75rem;margin-top:4px">PNG, JPG ou WEBP</div>
-            </div>
-            <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this.files[0])" />
-          </div>
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()"
+             ondragover="event.preventDefault();this.classList.add('over')"
+             ondragleave="this.classList.remove('over')"
+             ondrop="handleDrop(event)">
+          <div class="dz-icon">🖼</div>
+          <div>Clique ou arraste a imagem do template aqui</div>
+          <div style="font-size:0.75rem;margin-top:4px">PNG, JPG ou WEBP</div>
+          <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this.files[0])" />
         </div>
-
-        <!-- Passo 2: marcar zonas -->
-        <div id="uploadStep2" style="display:none">
-          <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px">
-            Arraste para marcar as áreas de <strong>Logo</strong> e <strong>Localização</strong> na imagem. A IA substituirá só essas regiões.
-          </p>
-          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-            <button id="btnMarkLogo" class="mark-btn active" onclick="setMarcador('logo')">
-              <span class="mark-dot" style="background:#8b5cf6"></span> Logo
-            </button>
-            <button id="btnMarkLoc" class="mark-btn" onclick="setMarcador('localizacao')">
-              <span class="mark-dot" style="background:#3b82f6"></span> Localização
-            </button>
-            <button class="mark-btn" onclick="limparMarcacao()" style="margin-left:auto;opacity:.6">✕ Limpar</button>
-          </div>
-          <div style="position:relative;display:inline-block;max-width:100%">
-            <img id="uploadPreviewImg" src="" alt="" draggable="false"
-                 style="display:block;max-width:100%;border-radius:8px;user-select:none" />
-            <canvas id="uploadMarkCanvas"
-                    style="position:absolute;top:0;left:0;cursor:crosshair;border-radius:8px"
-                    onmousedown="markStart(event)"
-                    onmousemove="markMove(event)"
-                    onmouseup="markEnd(event)"
-                    ontouchstart="markStart(event)"
-                    ontouchmove="markMove(event)"
-                    ontouchend="markEnd(event)"></canvas>
-          </div>
-          <div class="upload-row" style="margin-top:12px">
+        <div id="uploadPreview" style="display:none;margin-top:12px">
+          <img id="uploadPreviewImg" src="" alt="" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border);display:block;margin-bottom:12px" />
+          <div class="upload-row">
             <div class="field" style="flex:2">
               <label>Nome do template</label>
               <input type="text" id="nomeInput" placeholder="Ex: Litoral Premium" />
             </div>
-            <button class="btn-ghost" onclick="voltarStep1()">← Trocar imagem</button>
-            <button class="btn-primary" id="btnUpload" onclick="uploadTemplate()">
-              ✨ Analisar e editar com IA
-            </button>
+            <button class="btn-ghost" onclick="cancelarUpload()">✕ Cancelar</button>
+            <button class="btn-primary" id="btnUpload" onclick="uploadTemplate()">⬆ Salvar template</button>
           </div>
-          <div id="analyzingHint" class="analyzing-hint" style="display:none">
-            ⏳ Analisando e editando com IA… pode levar ~30 segundos.
-          </div>
+          <div id="analyzingHint" class="analyzing-hint" style="display:none">⏳ Salvando…</div>
         </div>
       </div>
 
@@ -238,46 +204,6 @@
         <div class="no-templates">Carregando…</div>
       </div>
 
-    </div>
-  </div>
-
-  <!-- Modal Editar com IA -->
-  <div id="editIAModal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)fecharEditIA()">
-    <div class="map-modal-card" onclick="event.stopPropagation()">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-        <div>
-          <h2 class="modal-title" style="margin:0">✨ Editar com IA</h2>
-          <p style="font-size:0.78rem;color:var(--text-muted);margin-top:4px">Marque as áreas de <strong>Logo</strong> e <strong>Localização</strong> que a IA deve substituir por placeholders.</p>
-        </div>
-        <button class="btn-ghost btn-sm" onclick="fecharEditIA()">✕</button>
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;flex-shrink:0">
-        <button id="btnIAMarkLogo" class="mark-btn active" onclick="setIAMarcador('logo')">
-          <span class="mark-dot" style="background:#8b5cf6"></span> Logo
-        </button>
-        <button id="btnIAMarkLoc" class="mark-btn" onclick="setIAMarcador('localizacao')">
-          <span class="mark-dot" style="background:#3b82f6"></span> Localização
-        </button>
-        <button class="mark-btn" onclick="limparIAMarcacao()" style="margin-left:auto;opacity:.6">✕ Limpar</button>
-      </div>
-      <div class="map-canvas-wrap" style="position:relative;flex:1;overflow:auto">
-        <img id="editIAImage" src="" alt="" draggable="false" crossorigin="anonymous" style="display:block;max-width:100%;border-radius:8px;user-select:none" />
-        <canvas id="editIACanvas"
-                style="position:absolute;top:0;left:0;cursor:crosshair;border-radius:8px"
-                onmousedown="iaMarkStart(event)"
-                onmousemove="iaMarkMove(event)"
-                onmouseup="iaMarkEnd(event)"
-                ontouchstart="iaMarkStart(event)"
-                ontouchmove="iaMarkMove(event)"
-                ontouchend="iaMarkEnd(event)"></canvas>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0;flex-wrap:wrap;gap:10px">
-        <span id="editIAStatus" style="font-size:0.8rem;color:var(--text-muted)"></span>
-        <div style="display:flex;gap:10px">
-          <button class="btn-ghost" onclick="fecharEditIA()">Cancelar</button>
-          <button class="btn-ia" onclick="confirmarEditIA()">✨ Editar com IA</button>
-        </div>
-      </div>
     </div>
   </div>
 

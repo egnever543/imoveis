@@ -466,17 +466,16 @@ app.post('/api/gerar', async (req, res) => {
       `Image ${imgOrder[`foto_${i}`]}: property photo (${ANGLE_LABELS_PT[s.ang] || s.ang}) — place in the photo area of the template.`
     ).join('\n');
 
-    const mensagem = `Image ${imgOrder.template} is a real estate marketing template. Reproduce the entire design exactly — same layout, colors, fonts, shapes — and make only these three substitutions:
+    const mensagem = `Image ${imgOrder.template} is a real estate marketing template. Your only job is to keep the entire design intact and swap out three things:
 
-1. TEXT — The template has bright magenta/pink placeholder labels (e.g. "{ ENDEREÇO DO IMÓVEL }") overlaid directly on the original background. These labels mark WHERE replacement text must appear. Remove the magenta label entirely and render the replacement text at that exact position, perfectly matching the font family, font size, font weight and color of the text immediately next to or on the same line as that label — because the background and surrounding text are fully visible, you can see exactly what style to replicate. The result must be indistinguishable from text that was always there.
-Values to substitute:
+1. TEXT — replace the existing text fields with the values below, using the exact same font, size, weight and color as the original text in each area:
 ${dados || '(none)'}
 
-2. PROPERTY PHOTO — replace the property photo area with Image ${fotoSlots.length ? imgOrder['foto_0'] : '(none provided)'}, same crop, size and position.
+2. PROPERTY PHOTO — replace the property photo area with Image ${fotoSlots.length ? imgOrder['foto_0'] : '(none provided)'}, maintaining the exact same crop, size and position.
 
-3. LOGO — erase the gray box labeled "{ LOGO AQUI }" completely and place Image ${logoImg ? imgOrder.logo : '(none provided)'} at that exact spot, blending seamlessly with the background — no box, no border, no white fill.
+3. LOGO — replace the logo area with Image ${logoImg ? imgOrder.logo : '(none provided)'}, blending it naturally with the existing background (no white box behind it).
 
-The final image must look like a professionally finished piece where none of the placeholders were ever visible.`;
+Everything else — layout, background, shapes, decorative elements, colors, typography style — must be pixel-perfect identical to the original. The final result must look like this template was always designed with this specific content.`;
 
 
     const content = [];

@@ -89,7 +89,6 @@ function renderTemplates(templates) {
       </div>
       <div class="template-row-actions">
         <button class="btn-ghost btn-sm"  onclick="abrirEdicao(${t.id})">✏️ Editar</button>
-        <button class="btn-ia btn-sm"     onclick="abrirEditarIA(${t.id})">✨ Editar com IA</button>
         <button class="btn-danger btn-sm" onclick="deletarTemplate(${t.id}, '${t.nome.replace(/'/g,"\\'")}')">🗑 Excluir</button>
       </div>
     </div>`).join('');
@@ -214,227 +213,16 @@ async function deletarTemplate(id, nome) {
   await carregarTemplates();
 }
 
-// ── Editar com IA (templates existentes) ─────────────────────────────────────
-const IA_COLORS = { logo: '#8b5cf6', localizacao: '#3b82f6' };
-const IA_LABELS = { logo: '{ LOGO AQUI }', localizacao: '{ ENDEREÇO DO IMÓVEL }' };
-let iaId        = null;
-let iaMarcador  = 'logo';
-let iaMarcacoes = {};
-let iaDrawing   = false;
-let iaStart     = null;
-
-function abrirEditarIA(id) {
-  const t = allTemplates.find(t => t.id == id);
-  if (!t) return;
-  iaId        = id;
-  iaMarcacoes = {};
-  iaMarcador  = 'logo';
-
-  document.getElementById('btnIAMarkLogo').classList.add('active');
-  document.getElementById('btnIAMarkLoc').classList.remove('active');
-  document.getElementById('editIAStatus').textContent = '';
-
-  const img = document.getElementById('editIAImage');
-  img.onload = () => {
-    const canvas = document.getElementById('editIACanvas');
-    canvas.width  = img.offsetWidth;
-    canvas.height = img.offsetHeight;
-    canvas.style.width  = img.offsetWidth  + 'px';
-    canvas.style.height = img.offsetHeight + 'px';
-    redrawIAMarcacoes();
-  };
-  img.src = t.imageUrl;
-  document.getElementById('editIAModal').style.display = 'flex';
-}
-
-function fecharEditIA() {
-  document.getElementById('editIAModal').style.display = 'none';
-}
-
-function setIAMarcador(campo) {
-  iaMarcador = campo;
-  document.getElementById('btnIAMarkLogo').classList.toggle('active', campo === 'logo');
-  document.getElementById('btnIAMarkLoc').classList.toggle('active', campo === 'localizacao');
-}
-
-function limparIAMarcacao() {
-  iaMarcacoes = {};
-  redrawIAMarcacoes();
-}
-
-function iaMarkPos(e) {
-  const canvas = document.getElementById('editIACanvas');
-  const rect   = canvas.getBoundingClientRect();
-  const touch  = e.touches?.[0] || e;
-  return {
-    x: (touch.clientX - rect.left) * (canvas.width  / rect.width),
-    y: (touch.clientY - rect.top)  * (canvas.height / rect.height),
-  };
-}
-
-function iaMarkStart(e) {
-  e.preventDefault();
-  iaDrawing = true;
-  iaStart   = iaMarkPos(e);
-}
-
-function iaMarkMove(e) {
-  e.preventDefault();
-  if (!iaDrawing) return;
-  const cur    = iaMarkPos(e);
-  const canvas = document.getElementById('editIACanvas');
-  const ctx    = canvas.getContext('2d');
-  redrawIAMarcacoes();
-  const color = IA_COLORS[iaMarcador];
-  const x = Math.min(iaStart.x, cur.x), y = Math.min(iaStart.y, cur.y);
-  const w = Math.abs(cur.x - iaStart.x), h = Math.abs(cur.y - iaStart.y);
-  ctx.fillStyle = hexToRgba(color, 0.25);
-  ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = color; ctx.lineWidth = 2;
-  ctx.setLineDash([6, 3]); ctx.strokeRect(x, y, w, h); ctx.setLineDash([]);
-}
-
-function iaMarkEnd(e) {
-  e.preventDefault();
-  if (!iaDrawing || !iaStart) return;
-  iaDrawing = false;
-  const cur = iaMarkPos(e.changedTouches?.[0] || e);
-  const x = Math.min(iaStart.x, cur.x), y = Math.min(iaStart.y, cur.y);
-  const w = Math.abs(cur.x - iaStart.x), h = Math.abs(cur.y - iaStart.y);
-  if (w > 10 && h > 10) {
-    iaMarcacoes[iaMarcador] = { x, y, w, h };
-    if (iaMarcador === 'logo' && !iaMarcacoes.localizacao) setIAMarcador('localizacao');
-  }
-  iaStart = null;
-  redrawIAMarcacoes();
-}
-
-function redrawIAMarcacoes() {
-  const canvas = document.getElementById('editIACanvas');
-  const ctx    = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  for (const [campo, z] of Object.entries(iaMarcacoes)) {
-    const color = IA_COLORS[campo];
-    const label = IA_LABELS[campo];
-    ctx.fillStyle = hexToRgba(color, 0.35);
-    ctx.fillRect(z.x, z.y, z.w, z.h);
-    ctx.strokeStyle = color; ctx.lineWidth = 2;
-    ctx.setLineDash([]); ctx.strokeRect(z.x, z.y, z.w, z.h);
-    const fs = Math.max(11, Math.min(22, Math.round(z.h * 0.35)));
-    ctx.font = `700 ${fs}px Arial, sans-serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 3;
-    ctx.strokeText(label, z.x + z.w / 2, z.y + z.h / 2);
-    ctx.fillStyle = '#fff';
-    ctx.fillText(label, z.x + z.w / 2, z.y + z.h / 2);
-  }
-}
-
-async function confirmarEditIA() {
-  if (!Object.keys(iaMarcacoes).length) {
-    toast('Marque pelo menos uma área antes de salvar.', 'error');
-    return;
-  }
-
-  const img    = document.getElementById('editIAImage');
-  const canvas = document.getElementById('editIACanvas');
-  const final  = document.createElement('canvas');
-  final.width  = img.naturalWidth;
-  final.height = img.naturalHeight;
-  const ctx    = final.getContext('2d');
-
-  // Desenha imagem original
-  ctx.drawImage(img, 0, 0, final.width, final.height);
-
-  // Desenha placeholders em resolução natural (retângulo branco + texto)
-  const scaleX = final.width / canvas.width;
-  const scaleY = final.height / canvas.height;
-  for (const [campo, z] of Object.entries(iaMarcacoes)) {
-    const label = IA_LABELS[campo];
-    const rx = z.x * scaleX, ry = z.y * scaleY;
-    const rw = z.w * scaleX, rh = z.h * scaleY;
-
-    // Sem retângulo — desenha só o texto sobre o fundo original
-    // Assim a IA vê o fundo real e consegue igualar o estilo do texto adjacente
-    const fs = Math.max(14, Math.min(48, Math.round(rh * 0.38)));
-    ctx.font = `700 ${fs}px Arial, sans-serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    // Stroke branco para legibilidade sobre qualquer fundo
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.lineWidth = Math.max(3, fs * 0.12);
-    ctx.strokeText(label, rx + rw / 2, ry + rh / 2);
-    // Texto magenta bem vivo — sinaliza claramente onde está o placeholder
-    ctx.fillStyle = '#e600c8';
-    ctx.fillText(label, rx + rw / 2, ry + rh / 2);
-  }
-
-  const status = document.getElementById('editIAStatus');
-  status.textContent = '⏳ Salvando…';
-  document.querySelector('#editIAModal .btn-ia').disabled = true;
-
-  try {
-    const blob = await new Promise(resolve => final.toBlob(resolve, 'image/png'));
-    const fd   = new FormData();
-    fd.append('imagem', blob, 'template.png');
-
-    const res  = await fetch(`/api/admin/templates/${iaId}/editar-ia`, {
-      method: 'POST',
-      headers: { 'x-admin-password': adminPassword },
-      body: fd,
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-
-    fecharEditIA();
-    toast('Template salvo com placeholders!', 'success');
-    await carregarTemplates();
-  } catch (err) {
-    toast('Erro: ' + err.message, 'error');
-    status.textContent = '';
-  } finally {
-    document.querySelector('#editIAModal .btn-ia').disabled = false;
-  }
-}
-
-function hexToRgba(hex, alpha) {
-  const r = parseInt(hex.slice(1,3), 16);
-  const g = parseInt(hex.slice(3,5), 16);
-  const b = parseInt(hex.slice(5,7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
-// ── Upload & editor de marcação ───────────────────────────────────────────────
-const MARK_COLORS = { logo: '#8b5cf6', localizacao: '#3b82f6' };
-const MARK_LABELS = { logo: '{ LOGO AQUI }', localizacao: '{ ENDEREÇO DO IMÓVEL }' };
-let marcador   = 'logo';   // campo ativo
-let marcacoes  = {};       // { logo: {x,y,w,h}, localizacao: {x,y,w,h} }
-let markDrawing = false;
-let markStart_  = null;
-
+// ── Upload ────────────────────────────────────────────────────────────────────
 function handleFile(file) {
   if (!file) return;
   selectedFile = file;
-  if (!document.getElementById('nomeInput').value)
-    document.getElementById('nomeInput').value = file.name.replace(/\.[^.]+$/, '');
-
-  const reader = new FileReader();
-  reader.onload = e => {
-    // Vai para o passo 2 com o editor de marcação
-    document.getElementById('uploadStep1').style.display = 'none';
-    document.getElementById('uploadStep2').style.display = 'block';
-
-    const img = document.getElementById('uploadPreviewImg');
-    img.onload = () => {
-      const canvas = document.getElementById('uploadMarkCanvas');
-      canvas.width  = img.offsetWidth;
-      canvas.height = img.offsetHeight;
-      canvas.style.width  = img.offsetWidth  + 'px';
-      canvas.style.height = img.offsetHeight + 'px';
-      redrawMarcacoes();
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+  const nomeInput = document.getElementById('nomeInput');
+  if (!nomeInput.value)
+    nomeInput.value = file.name.replace(/\.[^.]+$/, '');
+  const img = document.getElementById('uploadPreviewImg');
+  img.src = URL.createObjectURL(file);
+  document.getElementById('uploadPreview').style.display = 'block';
 }
 
 function handleDrop(e) {
@@ -444,148 +232,24 @@ function handleDrop(e) {
   if (file && file.type.startsWith('image/')) handleFile(file);
 }
 
-function voltarStep1() {
+function cancelarUpload() {
   selectedFile = null;
-  marcacoes    = {};
-  document.getElementById('uploadStep2').style.display = 'none';
-  document.getElementById('uploadStep1').style.display = 'block';
   document.getElementById('fileInput').value = '';
-}
-
-function setMarcador(campo) {
-  marcador = campo;
-  document.getElementById('btnMarkLogo').classList.toggle('active', campo === 'logo');
-  document.getElementById('btnMarkLoc').classList.toggle('active', campo === 'localizacao');
-}
-
-function limparMarcacao() {
-  marcacoes = {};
-  redrawMarcacoes();
-}
-
-function markPos(e) {
-  const canvas = document.getElementById('uploadMarkCanvas');
-  const rect   = canvas.getBoundingClientRect();
-  const touch  = e.touches?.[0] || e;
-  return {
-    x: (touch.clientX - rect.left) * (canvas.width  / rect.width),
-    y: (touch.clientY - rect.top)  * (canvas.height / rect.height),
-  };
-}
-
-function markStart(e) {
-  e.preventDefault();
-  markDrawing = true;
-  markStart_  = markPos(e);
-}
-
-function markMove(e) {
-  e.preventDefault();
-  if (!markDrawing) return;
-  const cur = markPos(e);
-  redrawMarcacoes();
-  // Desenha retângulo em progresso
-  const canvas = document.getElementById('uploadMarkCanvas');
-  const ctx    = canvas.getContext('2d');
-  const color  = MARK_COLORS[marcador];
-  const x = Math.min(markStart_.x, cur.x);
-  const y = Math.min(markStart_.y, cur.y);
-  const w = Math.abs(cur.x - markStart_.x);
-  const h = Math.abs(cur.y - markStart_.y);
-  ctx.fillStyle   = hexToRgba(color, 0.25);
-  ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = color;
-  ctx.lineWidth   = 2;
-  ctx.setLineDash([6, 3]);
-  ctx.strokeRect(x, y, w, h);
-  ctx.setLineDash([]);
-}
-
-function markEnd(e) {
-  e.preventDefault();
-  if (!markDrawing || !markStart_) return;
-  markDrawing = false;
-  const cur = markPos(e.changedTouches?.[0] || e);
-  const x = Math.min(markStart_.x, cur.x);
-  const y = Math.min(markStart_.y, cur.y);
-  const w = Math.abs(cur.x - markStart_.x);
-  const h = Math.abs(cur.y - markStart_.y);
-  if (w > 10 && h > 10) {
-    marcacoes[marcador] = { x, y, w, h };
-    // Avança automaticamente para o próximo campo se só marcou um
-    if (marcador === 'logo' && !marcacoes.localizacao) setMarcador('localizacao');
-  }
-  markStart_ = null;
-  redrawMarcacoes();
-}
-
-function redrawMarcacoes() {
-  const canvas = document.getElementById('uploadMarkCanvas');
-  const ctx    = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  for (const [campo, z] of Object.entries(marcacoes)) {
-    const color = MARK_COLORS[campo];
-    const label = MARK_LABELS[campo];
-    // Fundo
-    ctx.fillStyle = hexToRgba(color, 0.35);
-    ctx.fillRect(z.x, z.y, z.w, z.h);
-    // Borda
-    ctx.strokeStyle = color;
-    ctx.lineWidth   = 2;
-    ctx.setLineDash([]);
-    ctx.strokeRect(z.x, z.y, z.w, z.h);
-    // Label
-    const fs = Math.max(11, Math.min(22, Math.round(z.h * 0.35)));
-    ctx.font         = `700 ${fs}px Arial, sans-serif`;
-    ctx.textAlign    = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.strokeStyle  = 'rgba(0,0,0,0.8)';
-    ctx.lineWidth    = 3;
-    ctx.strokeText(label, z.x + z.w / 2, z.y + z.h / 2);
-    ctx.fillStyle = '#fff';
-    ctx.fillText(label, z.x + z.w / 2, z.y + z.h / 2);
-  }
+  document.getElementById('nomeInput').value = '';
+  document.getElementById('uploadPreview').style.display = 'none';
 }
 
 async function uploadTemplate() {
   if (!selectedFile) return;
-
   const nome = document.getElementById('nomeInput').value.trim();
-  document.getElementById('btnUpload').disabled = true;
+  const btn  = document.getElementById('btnUpload');
+  btn.disabled = true;
   document.getElementById('analyzingHint').style.display = 'block';
 
-  // Gera imagem anotada com as marcações desenhadas
-  const img    = document.getElementById('uploadPreviewImg');
-  const canvas = document.getElementById('uploadMarkCanvas');
-  const final  = document.createElement('canvas');
-  final.width  = img.naturalWidth;
-  final.height = img.naturalHeight;
-  const ctx    = final.getContext('2d');
-  ctx.drawImage(img, 0, 0, final.width, final.height);
-
-  // Re-escala e desenha placeholders em resolução natural
-  const scaleX = final.width  / canvas.width;
-  const scaleY = final.height / canvas.height;
-  for (const [campo, z] of Object.entries(marcacoes)) {
-    const label = MARK_LABELS[campo];
-    const rx = z.x * scaleX, ry = z.y * scaleY;
-    const rw = z.w * scaleX, rh = z.h * scaleY;
-    // Sem retângulo — desenha só o texto sobre o fundo original
-    const fs = Math.max(14, Math.min(48, Math.round(rh * 0.38)));
-    ctx.font = `700 ${fs}px Arial, sans-serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.lineWidth = Math.max(3, fs * 0.12);
-    ctx.strokeText(label, rx + rw / 2, ry + rh / 2);
-    ctx.fillStyle = '#e600c8';
-    ctx.fillText(label, rx + rw / 2, ry + rh / 2);
-  }
-
   try {
-    const blob = await new Promise(resolve => final.toBlob(resolve, 'image/png'));
     const fd = new FormData();
-    fd.append('imagem', blob, 'template.png');
-    fd.append('nome',   nome);
+    fd.append('imagem', selectedFile);
+    fd.append('nome', nome);
 
     const res  = await fetch('/api/admin/templates', {
       method: 'POST',
@@ -595,18 +259,13 @@ async function uploadTemplate() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
 
-    toast(`"${data.nome}" salvo com placeholders aplicados!`, 'success');
-    selectedFile = null;
-    marcacoes    = {};
-    document.getElementById('fileInput').value  = '';
-    document.getElementById('nomeInput').value  = '';
-    document.getElementById('uploadStep2').style.display = 'none';
-    document.getElementById('uploadStep1').style.display = 'block';
+    toast(`"${data.nome}" salvo!`, 'success');
+    cancelarUpload();
     await carregarTemplates();
   } catch (err) {
     toast('Erro: ' + err.message, 'error');
   } finally {
-    document.getElementById('btnUpload').disabled = false;
+    btn.disabled = false;
     document.getElementById('analyzingHint').style.display = 'none';
   }
 }
