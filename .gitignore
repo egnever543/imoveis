@@ -1,0 +1,8 @@
+node_modules/
+.env
+uploads/imoveis/*
+uploads/logos/*
+uploads/templates/*
+!uploads/imoveis/.gitkeep
+!uploads/logos/.gitkeep
+!uploads/templates/.gitkeep

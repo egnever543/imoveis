@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Criativos Imobiliários</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .admin-wrap { max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; }
+    .admin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 36px; }
+    .admin-header h1 { font-size: 1.6rem; font-weight: 700; }
+    .admin-header p  { color: var(--text-muted); font-size: 0.88rem; margin-top: 4px; }
+
+    /* Login */
+    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .login-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 40px 48px; width: 360px; text-align: center; }
+    .login-card h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
+    .login-card p  { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 28px; }
+    .login-card input { width: 100%; margin-bottom: 14px; }
+    .login-error { color: var(--danger); font-size: 0.82rem; margin-top: 10px; }
+
+    /* Upload card */
+    .upload-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 28px; margin-bottom: 32px; }
+    .upload-card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 20px; }
+    .upload-row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+    .upload-row .field { flex: 1; min-width: 160px; }
+    .drop-zone {
+      border: 2px dashed var(--border); border-radius: var(--radius);
+      padding: 28px 20px; text-align: center; cursor: pointer;
+      transition: border-color 0.15s; color: var(--text-muted); font-size: 0.85rem;
+      margin-bottom: 14px;
+    }
+    .drop-zone:hover, .drop-zone.over { border-color: var(--primary); }
+    .drop-zone .dz-icon { font-size: 2rem; margin-bottom: 8px; }
+    .drop-zone img { max-height: 120px; object-fit: contain; margin-bottom: 8px; }
+    .analyzing-hint { color: var(--text-muted); font-size: 0.8rem; margin-top: 8px; }
+
+    /* Template list */
+    .templates-list { display: flex; flex-direction: column; gap: 14px; }
+    .template-row {
+      display: flex; align-items: flex-start; gap: 18px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px 20px;
+    }
+    .template-row img { width: 90px; height: 90px; object-fit: cover; border-radius: 8px; flex-shrink: 0; border: 1px solid var(--border); }
+    .template-row-info { flex: 1; min-width: 0; }
+    .template-row-info h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 10px; }
+    .fields-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+    .field-badge {
+      font-size: 0.7rem; font-weight: 600; padding: 3px 10px;
+      border-radius: 20px; background: #1e3a5f; color: #93c5fd;
+      border: 1px solid #2563eb44;
+    }
+    .field-badge.media { background: #1a3a2f; color: #6ee7b7; border-color: #10b98144; }
+    .no-templates { text-align: center; padding: 40px; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="loginWrap" class="login-wrap">
+    <div class="login-card">
+      <div style="font-size:2rem;margin-bottom:12px">🔐</div>
+      <h2>Acesso Admin</h2>
+      <p>Entre com a senha de administrador</p>
+      <div class="field">
+        <input type="password" id="loginInput" placeholder="Senha" onkeydown="if(event.key==='Enter')fazerLogin()" />
+      </div>
+      <button class="btn-primary" style="width:100%" onclick="fazerLogin()">Entrar</button>
+      <div id="loginError" class="login-error"></div>
+    </div>
+  </div>
+
+  <!-- ADMIN AREA -->
+  <div id="adminArea" style="display:none">
+    <div class="admin-wrap">
+
+      <div class="admin-header">
+        <div>
+          <h1>🗂 Admin — Templates</h1>
+          <p>Faça upload de templates e a IA detecta automaticamente os campos presentes</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <a href="/" class="btn-ghost" style="text-decoration:none;font-size:0.85rem">← Voltar ao app</a>
+          <button class="btn-ghost" onclick="sair()" style="font-size:0.85rem">Sair</button>
+        </div>
+      </div>
+
+      <!-- Upload form -->
+      <div class="upload-card">
+        <h2>Adicionar template</h2>
+
+        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()"
+             ondragover="event.preventDefault();this.classList.add('over')"
+             ondragleave="this.classList.remove('over')"
+             ondrop="handleDrop(event)">
+          <div id="dropContent">
+            <div class="dz-icon">🖼</div>
+            <div>Clique ou arraste a imagem do template aqui</div>
+            <div style="font-size:0.75rem;margin-top:4px">PNG, JPG ou WEBP</div>
+          </div>
+          <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this.files[0])" />
+        </div>
+
+        <div class="upload-row">
+          <div class="field" style="flex:2">
+            <label>Nome do template</label>
+            <input type="text" id="nomeInput" placeholder="Ex: Litoral Premium" />
+          </div>
+          <button class="btn-primary" id="btnUpload" onclick="uploadTemplate()" disabled>
+            🔍 Analisar e salvar
+          </button>
+        </div>
+        <div id="analyzingHint" class="analyzing-hint" style="display:none">
+          ⏳ Analisando template com IA… pode levar alguns segundos.
+        </div>
+      </div>
+
+      <!-- Lista de templates -->
+      <h2 style="font-size:0.95rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px">
+        Templates cadastrados
+      </h2>
+      <div id="templatesList" class="templates-list">
+        <div class="no-templates">Carregando…</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
