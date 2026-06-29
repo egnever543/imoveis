@@ -289,6 +289,24 @@
         <label>Nome</label>
         <input type="text" id="editNome" />
       </div>
+
+      <!-- Trocar imagem -->
+      <div class="field" style="margin-bottom:16px">
+        <label>Imagem do template</label>
+        <div style="display:flex;align-items:center;gap:14px;margin-top:8px;flex-wrap:wrap">
+          <img id="editImgPreview" src="" alt="preview"
+               style="width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border);flex-shrink:0" />
+          <div>
+            <label class="upload-btn" style="cursor:pointer">
+              🖼️ Trocar imagem
+              <input type="file" id="editImgInput" accept="image/*" style="display:none"
+                     onchange="previewEditImg(this)" />
+            </label>
+            <p id="editImgNome" style="font-size:0.75rem;color:var(--text-muted);margin-top:6px"></p>
+          </div>
+        </div>
+      </div>
+
       <div class="field" style="margin-bottom:8px">
         <label>Campos detectados</label>
         <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px">Marque os campos presentes no template</p>

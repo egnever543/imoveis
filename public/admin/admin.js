@@ -102,6 +102,11 @@ function abrirEdicao(id) {
   editingId = id;
   document.getElementById('editNome').value = t.nome;
 
+  // Preview da imagem atual + limpar seleção anterior
+  document.getElementById('editImgPreview').src = t.imageUrl;
+  document.getElementById('editImgInput').value  = '';
+  document.getElementById('editImgNome').textContent = '';
+
   document.getElementById('editFieldsWrap').innerHTML = ALL_FIELDS.map(f => {
     const checked = (t.fields || []).includes(f);
     const isMedia = MEDIA_FIELDS.includes(f);
@@ -115,6 +120,13 @@ function abrirEdicao(id) {
 
   renderAngulosEdit((t.fields || []).includes('foto_imovel'), t.angulos || []);
   document.getElementById('editModal').style.display = 'flex';
+}
+
+function previewEditImg(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('editImgPreview').src = URL.createObjectURL(file);
+  document.getElementById('editImgNome').textContent = file.name;
 }
 
 function renderAngulosEdit(show, selectedAngulos) {
@@ -156,16 +168,40 @@ async function salvarEdicao() {
   const nome    = document.getElementById('editNome').value.trim();
   const fields  = [...document.querySelectorAll('#editFieldsWrap input:checked')].map(cb => cb.value);
   const angulos = [...document.querySelectorAll('#editAngulosWrap input:checked')].map(cb => cb.value);
+  const imgFile = document.getElementById('editImgInput').files[0];
 
-  const res = await fetch(`/api/admin/templates/${editingId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
-    body: JSON.stringify({ nome, fields, angulos }),
-  });
-  if (!res.ok) { toast('Erro ao salvar', 'error'); return; }
-  document.getElementById('editModal').style.display = 'none';
-  toast('Template atualizado!', 'success');
-  await carregarTemplates();
+  const btn = document.querySelector('#editModal .btn-primary');
+  btn.disabled = true;
+  btn.textContent = 'Salvando…';
+
+  try {
+    // 1. Se tiver nova imagem, envia primeiro
+    if (imgFile) {
+      const fd = new FormData();
+      fd.append('imagem', imgFile);
+      const imgRes = await fetch(`/api/admin/templates/${editingId}/editar-ia`, {
+        method: 'POST',
+        headers: { 'x-admin-password': adminPassword },
+        body: fd,
+      });
+      if (!imgRes.ok) { toast('Erro ao enviar imagem', 'error'); return; }
+    }
+
+    // 2. Salva nome/fields/angulos
+    const res = await fetch(`/api/admin/templates/${editingId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+      body: JSON.stringify({ nome, fields, angulos }),
+    });
+    if (!res.ok) { toast('Erro ao salvar', 'error'); return; }
+
+    document.getElementById('editModal').style.display = 'none';
+    toast('Template atualizado!', 'success');
+    await carregarTemplates();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Salvar';
+  }
 }
 
 async function deletarTemplate(id, nome) {
