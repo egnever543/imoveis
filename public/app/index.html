@@ -226,12 +226,11 @@
         </div>
 
         <div class="form-section">
-          <h3>Fotos</h3>
-          <div id="fotosPreview" class="fotos-preview"></div>
-          <label class="upload-btn">
-            📷 Adicionar fotos
-            <input type="file" name="fotos" accept="image/*" multiple onchange="previewFotos(this)" style="display:none" />
-          </label>
+          <h3>Fotos por ângulo</h3>
+          <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:16px">
+            Cada ângulo será usado automaticamente no template que o exigir. Todos são opcionais, mas o sistema avisará se algum template precisar de um ângulo não cadastrado.
+          </p>
+          <div id="fotoSlotsWrap" class="foto-slots-wrap"></div>
         </div>
 
         <div class="form-actions">

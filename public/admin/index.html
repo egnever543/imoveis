@@ -54,7 +54,8 @@
       border-radius: 20px; background: #1e3a5f; color: #93c5fd;
       border: 1px solid #2563eb44;
     }
-    .field-badge.media { background: #1a3a2f; color: #6ee7b7; border-color: #10b98144; }
+    .field-badge.media  { background: #1a3a2f; color: #6ee7b7; border-color: #10b98144; }
+    .field-badge.angle  { background: #2d1f4e; color: #c4b5fd; border-color: #7c3aed44; }
     .no-templates { text-align: center; padding: 40px; color: var(--text-muted); }
 
     /* Template row actions */
@@ -84,8 +85,12 @@
       transition: all 0.15s;
     }
     .field-toggle input { display: none; }
-    .field-toggle.checked { background: #1e3a5f; color: #93c5fd; border-color: #2563eb44; }
+    .field-toggle.checked       { background: #1e3a5f; color: #93c5fd; border-color: #2563eb44; }
     .field-toggle.checked.media { background: #1a3a2f; color: #6ee7b7; border-color: #10b98144; }
+    .field-toggle.checked.angle { background: #2d1f4e; color: #c4b5fd; border-color: #7c3aed44; }
+    .angulos-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .angulos-section label { font-size: 0.82rem; font-weight: 600; display: block; margin-bottom: 4px; }
+    .angulos-section p { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 10px; }
 
     @media (max-width: 600px) {
       .admin-wrap { padding: 20px 12px 60px; }
@@ -186,6 +191,12 @@
           Marque os campos presentes no template
         </p>
         <div id="editFieldsWrap" class="edit-fields-wrap"></div>
+      </div>
+
+      <div id="editAngulosSection" class="angulos-section" style="display:none">
+        <label>Ângulos de foto exigidos</label>
+        <p>Quais ângulos este template precisa para a foto do imóvel?</p>
+        <div id="editAngulosWrap" class="edit-fields-wrap"></div>
       </div>
 
       <div class="modal-actions">

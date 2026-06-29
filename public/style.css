@@ -393,6 +393,55 @@ textarea { resize: vertical; }
 .loading-box p { font-size: 1rem; font-weight: 600; }
 .loading-hint  { color: var(--text-muted); font-size: 0.8rem !important; font-weight: 400 !important; margin-top: 6px; }
 
+/* ── FOTO SLOTS ──────────────────────────────────────────────── */
+.foto-slots-wrap {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+.foto-slot { display: flex; flex-direction: column; gap: 6px; }
+.foto-slot-label {
+  font-size: 0.75rem; font-weight: 600; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.4px;
+}
+.foto-slot-preview {
+  position: relative; width: 100%; aspect-ratio: 1;
+  background: var(--bg); border: 1px dashed var(--border);
+  border-radius: var(--radius); overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.foto-slot-preview img { width: 100%; height: 100%; object-fit: cover; }
+.foto-slot-empty { font-size: 1.8rem; opacity: 0.4; }
+.foto-slot-remove {
+  position: absolute; top: 4px; right: 4px;
+  background: rgba(0,0,0,0.6); color: #fff; border: none;
+  border-radius: 50%; width: 22px; height: 22px; font-size: 0.7rem;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.foto-slot-btn {
+  font-size: 0.75rem; font-weight: 600; color: var(--primary);
+  cursor: pointer; text-align: center; padding: 4px 0;
+}
+
+/* ── RESUMO GERAR ─────────────────────────────────────────────── */
+.resumo-label {
+  font-size: 0.72rem; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+}
+.resumo-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+.resumo-badge {
+  font-size: 0.7rem; font-weight: 600; padding: 3px 9px;
+  border-radius: 20px; background: #1e3a5f; color: #93c5fd;
+  border: 1px solid #2563eb44;
+}
+.resumo-badge.ok      { background: #1a3a2f; color: #6ee7b7; border-color: #10b98144; }
+.resumo-badge.missing { background: #3a1f1f; color: #fca5a5; border-color: #ef444444; }
+.resumo-alerta {
+  margin-top: 12px; padding: 10px 14px;
+  background: #3a1f1f; border: 1px solid #ef444444;
+  border-radius: var(--radius); font-size: 0.82rem; color: #fca5a5;
+}
+
 /* ── TOAST ───────────────────────────────────────────────────── */
 .toast {
   position: fixed; bottom: 24px; right: 24px;

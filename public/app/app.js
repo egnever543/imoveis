@@ -2,22 +2,29 @@
 let templates    = [];
 let imoveis      = [];
 let fieldLabels  = {};
+let angleLabels  = {};
+let photoSlots   = [];
 let selectedTemplateId = null;
 let selectedImovelId   = null;
 let lastArteData       = null;
-let fotosNovas         = [];
 
 // ── Init ─────────────────────────────────────────────────────────
 async function init() {
   setupNav();
-  await Promise.all([loadTemplates(), loadImoveis(), loadPerfil(), loadFieldLabels()]);
+  await Promise.all([loadTemplates(), loadImoveis(), loadPerfil(), loadLabels()]);
   renderGerar();
   renderImoveisGrid();
 }
 
-async function loadFieldLabels() {
-  const res = await fetch('/api/field-labels');
-  fieldLabels = await res.json();
+async function loadLabels() {
+  const [fl, al, ps] = await Promise.all([
+    fetch('/api/field-labels').then(r => r.json()),
+    fetch('/api/angle-labels').then(r => r.json()),
+    fetch('/api/photo-slots').then(r => r.json()),
+  ]);
+  fieldLabels = fl;
+  angleLabels = al;
+  photoSlots  = ps;
 }
 
 // ── Navegação ─────────────────────────────────────────────────────
@@ -43,7 +50,7 @@ async function loadTemplates() {
 function renderTemplatesGrid() {
   const grid = document.getElementById('templatesGrid');
   if (!templates.length) {
-    grid.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">Nenhum template cadastrado. <a href="/admin.html" style="color:var(--primary)">Acesse o admin →</a></p>';
+    grid.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">Nenhum template cadastrado. <a href="/admin/" style="color:var(--primary)">Acesse o admin →</a></p>';
     return;
   }
   grid.innerHTML = templates.map(t => `
@@ -77,12 +84,12 @@ function renderImoveisGrid() {
   }
   empty.style.display = 'none';
   grid.innerHTML = imoveis.map(im => {
-    const foto  = im.fotos?.[0];
+    const foto  = Object.values(im.fotos || {})[0];
     const local = [im.bairro, im.cidade, im.estado].filter(Boolean).join(', ');
     const tags  = [];
-    if (im.area)      tags.push(`${im.area} m²`);
-    if (im.quartos)   tags.push(`${im.quartos} qtos`);
-    if (im.vagas)     tags.push(`${im.vagas} vaga${im.vagas > 1 ? 's' : ''}`);
+    if (im.area)    tags.push(`${im.area} m²`);
+    if (im.quartos) tags.push(`${im.quartos} qtos`);
+    if (im.vagas)   tags.push(`${im.vagas} vaga${im.vagas > 1 ? 's' : ''}`);
     return `
       <div class="imovel-card">
         <div class="imovel-card-thumb">
@@ -101,8 +108,7 @@ function renderImoveisGrid() {
             <button class="btn-danger btn-sm" onclick="deletarImovel('${im.id}')">🗑 Excluir</button>
           </div>
         </div>
-      </div>
-    `;
+      </div>`;
   }).join('');
 }
 
@@ -116,7 +122,7 @@ function renderImovelPicker() {
   }
   empty.style.display = 'none';
   picker.innerHTML = imoveis.map(im => {
-    const foto  = im.fotos?.[0];
+    const foto  = Object.values(im.fotos || {})[0];
     const local = [im.cidade, im.estado].filter(Boolean).join(' - ');
     return `
       <div class="picker-card ${selectedImovelId === im.id ? 'selected' : ''}" onclick="selecionarImovel('${im.id}')">
@@ -128,8 +134,7 @@ function renderImovelPicker() {
           <p>${[im.tipo, local].filter(Boolean).join(' • ') || '—'}</p>
         </div>
         <span class="picker-check">✓</span>
-      </div>
-    `;
+      </div>`;
   }).join('');
 }
 
@@ -151,21 +156,41 @@ function atualizarResumo() {
     return;
   }
 
+  // Verifica ângulos faltando
+  const angulos  = t.angulos || [];
+  const fotos    = im.fotos || {};
+  const faltando = angulos.filter(a => !fotos[a]);
+
   const fieldBadges = (t.fields || []).map(f =>
-    `<span style="font-size:0.7rem;padding:2px 8px;border-radius:20px;background:#1e3a5f;color:#93c5fd;border:1px solid #2563eb44">${fieldLabels[f] || f}</span>`
-  ).join(' ');
+    `<span class="resumo-badge">${fieldLabels[f] || f}</span>`
+  ).join('');
+
+  const angulosBadges = angulos.map(a => {
+    const falta = !fotos[a];
+    return `<span class="resumo-badge ${falta ? 'missing' : 'ok'}">${angleLabels[a] || a}${falta ? ' ⚠️' : ' ✓'}</span>`;
+  }).join('');
+
+  const avisoFalta = faltando.length
+    ? `<div class="resumo-alerta">⚠️ Este template precisa de: <strong>${faltando.map(a => angleLabels[a] || a).join(', ')}</strong>. Cadastre essas fotos no imóvel.</div>`
+    : '';
 
   resumo.innerHTML = `
     <div class="resumo-content">
       <strong>Template:</strong> ${t.nome}<br>
-      <strong>Imóvel:</strong> ${im.titulo}<br>
+      <strong>Imóvel:</strong> ${im.titulo}
       <div style="margin-top:10px">
-        <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Campos que serão preenchidos</div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px">${fieldBadges}</div>
+        <div class="resumo-label">Campos que serão preenchidos</div>
+        <div class="resumo-badges">${fieldBadges}</div>
       </div>
-    </div>
-  `;
-  btn.disabled = false;
+      ${angulos.length ? `
+      <div style="margin-top:10px">
+        <div class="resumo-label">Fotos necessárias</div>
+        <div class="resumo-badges">${angulosBadges}</div>
+      </div>` : ''}
+      ${avisoFalta}
+    </div>`;
+
+  btn.disabled = faltando.length > 0;
 }
 
 function renderGerar() {
@@ -212,9 +237,8 @@ function downloadArte() {
 function abrirFormImovel(id = null) {
   document.getElementById('imovelForm').reset();
   document.getElementById('imovelEditId').value = '';
-  document.getElementById('fotosPreview').innerHTML = '';
-  fotosNovas = [];
   document.getElementById('formImovelTitulo').textContent = 'Cadastrar Imóvel';
+  renderFotoSlots({});
 
   if (id) {
     const im = imoveis.find(i => i.id === id);
@@ -224,22 +248,79 @@ function abrirFormImovel(id = null) {
     const form = document.getElementById('imovelForm');
     Object.keys(im).forEach(k => {
       const el = form.elements[k];
-      if (el) el.value = im[k];
+      if (el && el.type !== 'file') el.value = im[k] || '';
     });
-    // Fotos existentes
-    if (im.fotos?.length) {
-      document.getElementById('fotosPreview').innerHTML = im.fotos.map(url => `
-        <div class="foto-thumb-wrap">
-          <img class="foto-thumb" src="${url}" />
-          <button type="button" class="foto-remove" onclick="removerFotoExistente('${id}', '${url}')">✕</button>
-        </div>
-      `).join('');
-    }
+    renderFotoSlots(im.fotos || {}, id);
   }
 
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-imovel-form').classList.add('active');
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+}
+
+function renderFotoSlots(fotos, imovelId = null) {
+  const wrap = document.getElementById('fotoSlotsWrap');
+  wrap.innerHTML = photoSlots.map(slot => {
+    const url = fotos[slot.key];
+    return `
+      <div class="foto-slot" id="slot-${slot.key}">
+        <div class="foto-slot-label">${slot.label}</div>
+        <div class="foto-slot-preview" id="slotpreview-${slot.key}">
+          ${url
+            ? `<img src="${url}" alt="${slot.label}" />
+               <button type="button" class="foto-slot-remove" onclick="removerFotoSlot('${imovelId}', '${slot.key}')">✕</button>`
+            : `<span class="foto-slot-empty">📷</span>`}
+        </div>
+        <label class="foto-slot-btn">
+          ${url ? '🔄 Trocar' : '+ Adicionar'}
+          <input type="file" accept="image/*" style="display:none"
+                 onchange="uploadFotoSlot(this, '${imovelId}', '${slot.key}')" />
+        </label>
+      </div>`;
+  }).join('');
+}
+
+async function uploadFotoSlot(input, imovelId, slot) {
+  const file = input.files[0];
+  if (!file) return;
+
+  // Se imóvel ainda não foi salvo, salva primeiro
+  let id = imovelId;
+  if (!id) {
+    const form = document.getElementById('imovelForm');
+    const titulo = form.elements['titulo']?.value?.trim();
+    if (!titulo) { toast('Salve o imóvel primeiro (preencha ao menos o título)', 'error'); return; }
+    const fd = new FormData(form);
+    const res = await fetch('/api/imoveis', { method: 'POST', body: fd });
+    if (!res.ok) { toast('Erro ao salvar imóvel', 'error'); return; }
+    const saved = await res.json();
+    id = saved.id;
+    document.getElementById('imovelEditId').value = id;
+    document.getElementById('formImovelTitulo').textContent = 'Editar Imóvel';
+    await loadImoveis();
+  }
+
+  const preview = document.getElementById(`slotpreview-${slot}`);
+  preview.innerHTML = `<div style="font-size:0.75rem;color:var(--text-muted);padding:8px">Enviando…</div>`;
+
+  const fd = new FormData();
+  fd.append('foto', file);
+  const res = await fetch(`/api/imoveis/${id}/foto/${slot}`, { method: 'POST', body: fd });
+  if (!res.ok) { toast('Erro ao enviar foto', 'error'); return; }
+  const updated = await res.json();
+
+  await loadImoveis();
+  renderFotoSlots(updated.fotos || {}, id);
+  toast('Foto salva!', 'success');
+}
+
+async function removerFotoSlot(imovelId, slot) {
+  if (!imovelId) return;
+  await fetch(`/api/imoveis/${imovelId}/foto/${slot}`, { method: 'DELETE' });
+  await loadImoveis();
+  const im = imoveis.find(i => i.id === imovelId);
+  renderFotoSlots(im?.fotos || {}, imovelId);
+  toast('Foto removida', 'success');
 }
 
 function editarImovel(id) { abrirFormImovel(id); }
@@ -254,18 +335,17 @@ async function salvarImovel(e) {
   const form = e.target;
   const id   = document.getElementById('imovelEditId').value;
   const fd   = new FormData(form);
-  // Adiciona arquivos novos selecionados
-  if (fotosNovas.length) {
-    fd.delete('fotos');
-    fotosNovas.forEach(f => fd.append('fotos', f));
-  }
   const url    = id ? `/api/imoveis/${id}` : '/api/imoveis';
   const method = id ? 'PUT' : 'POST';
   const res    = await fetch(url, { method, body: fd });
   if (!res.ok) { toast('Erro ao salvar', 'error'); return; }
+  const saved = await res.json();
+  // Atualiza o id caso seja novo cadastro (para que os slots de foto funcionem)
+  if (!id) document.getElementById('imovelEditId').value = saved.id;
   await loadImoveis();
-  toast(id ? 'Imóvel atualizado!' : 'Imóvel cadastrado!', 'success');
-  voltarImoveis();
+  toast(id ? 'Imóvel atualizado!' : 'Imóvel salvo! Agora adicione as fotos abaixo.', 'success');
+  if (id) voltarImoveis();
+  else renderFotoSlots(saved.fotos || {}, saved.id);
 }
 
 async function deletarImovel(id) {
@@ -275,35 +355,6 @@ async function deletarImovel(id) {
   renderImoveisGrid();
   if (selectedImovelId === id) { selectedImovelId = null; atualizarResumo(); }
   toast('Imóvel excluído', 'success');
-}
-
-async function removerFotoExistente(imovelId, url) {
-  await fetch(`/api/imoveis/${imovelId}/foto`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
-  });
-  await loadImoveis();
-  abrirFormImovel(imovelId);
-}
-
-function previewFotos(input) {
-  fotosNovas = Array.from(input.files);
-  const preview = document.getElementById('fotosPreview');
-  // Mantém fotos existentes (as do servidor já estão renderizadas)
-  const existentes = preview.querySelectorAll('.foto-thumb-wrap');
-  // Remove previews anteriores que foram adicionados por essa função
-  preview.querySelectorAll('.foto-preview-new').forEach(el => el.remove());
-  fotosNovas.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const wrap = document.createElement('div');
-      wrap.className = 'foto-thumb-wrap foto-preview-new';
-      wrap.innerHTML = `<img class="foto-thumb" src="${e.target.result}" />`;
-      preview.appendChild(wrap);
-    };
-    reader.readAsDataURL(file);
-  });
 }
 
 // ── Perfil ────────────────────────────────────────────────────────
