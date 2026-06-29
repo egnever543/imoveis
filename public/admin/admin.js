@@ -1,8 +1,14 @@
 const MEDIA_FIELDS = ['foto_imovel', 'logo'];
+const ALL_FIELDS   = [
+  'titulo','preco','entrada','parcela','financiamento',
+  'area','quartos','suites','banheiros','vagas','andar',
+  'localizacao','endereco','destaque','diferenciais','foto_imovel','logo'
+];
 
-let adminPassword = sessionStorage.getItem('adminPassword') || '';
-let selectedFile  = null;
-let fieldLabels   = {};
+let adminPassword  = sessionStorage.getItem('adminPassword') || '';
+let selectedFile   = null;
+let fieldLabels    = {};
+let editingId      = null;
 
 async function init() {
   if (adminPassword) {
@@ -75,7 +81,10 @@ function renderTemplates(templates) {
           `).join('')}
         </div>
       </div>
-      <button class="btn-danger btn-sm" onclick="deletarTemplate(${t.id}, '${t.nome}')">🗑</button>
+      <div class="template-row-actions">
+        <button class="btn-ghost btn-sm" onclick="abrirEdicao(${t.id}, '${t.nome.replace(/'/g,"\\'")}', ${JSON.stringify(t.fields || [])})">✏️ Editar</button>
+        <button class="btn-danger btn-sm" onclick="deletarTemplate(${t.id}, '${t.nome.replace(/'/g,"\\'")}')">🗑 Excluir</button>
+      </div>
     </div>
   `).join('');
 }
@@ -87,6 +96,56 @@ async function deletarTemplate(id, nome) {
     headers: { 'x-admin-password': adminPassword },
   });
   toast('Template excluído', 'success');
+  await carregarTemplates();
+}
+
+// ── Editar ────────────────────────────────────────────────────────────────────
+function abrirEdicao(id, nome, fields) {
+  editingId = id;
+  document.getElementById('editNome').value = nome;
+
+  const wrap = document.getElementById('editFieldsWrap');
+  wrap.innerHTML = ALL_FIELDS.map(f => {
+    const checked = fields.includes(f);
+    const isMedia = MEDIA_FIELDS.includes(f);
+    const label   = fieldLabels[f] || f;
+    return `
+      <label class="field-toggle ${checked ? 'checked' : ''} ${checked && isMedia ? 'media' : ''}"
+             onclick="toggleField(this, '${f}', ${isMedia})">
+        <input type="checkbox" value="${f}" ${checked ? 'checked' : ''} />
+        ${label}
+      </label>`;
+  }).join('');
+
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+function toggleField(label, field, isMedia) {
+  const cb = label.querySelector('input');
+  cb.checked = !cb.checked;
+  label.classList.toggle('checked', cb.checked);
+  if (cb.checked && isMedia) label.classList.add('media');
+  else label.classList.remove('media');
+}
+
+function fecharModal(e) {
+  if (e.target === document.getElementById('editModal'))
+    document.getElementById('editModal').style.display = 'none';
+}
+
+async function salvarEdicao() {
+  const nome   = document.getElementById('editNome').value.trim();
+  const fields = [...document.querySelectorAll('#editFieldsWrap input:checked')].map(cb => cb.value);
+
+  const res = await fetch(`/api/admin/templates/${editingId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+    body: JSON.stringify({ nome, fields }),
+  });
+  if (!res.ok) { toast('Erro ao salvar', 'error'); return; }
+
+  document.getElementById('editModal').style.display = 'none';
+  toast('Template atualizado!', 'success');
   await carregarTemplates();
 }
 

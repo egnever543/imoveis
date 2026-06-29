@@ -57,6 +57,36 @@
     .field-badge.media { background: #1a3a2f; color: #6ee7b7; border-color: #10b98144; }
     .no-templates { text-align: center; padding: 40px; color: var(--text-muted); }
 
+    /* Template row actions */
+    .template-row-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 16px; box-sizing: border-box;
+    }
+    .modal-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 28px 24px; width: 100%; max-width: 560px;
+      max-height: 90vh; overflow-y: auto;
+    }
+    .modal-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+
+    /* Field checkboxes */
+    .edit-fields-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+    .field-toggle {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.78rem; font-weight: 600; padding: 5px 12px;
+      border-radius: 20px; cursor: pointer; user-select: none;
+      border: 1px solid var(--border); background: var(--bg); color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .field-toggle input { display: none; }
+    .field-toggle.checked { background: #1e3a5f; color: #93c5fd; border-color: #2563eb44; }
+    .field-toggle.checked.media { background: #1a3a2f; color: #6ee7b7; border-color: #10b98144; }
+
     @media (max-width: 600px) {
       .admin-wrap { padding: 20px 12px 60px; }
       .admin-header h1 { font-size: 1.15rem; }
@@ -137,6 +167,31 @@
         <div class="no-templates">Carregando…</div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- Modal Editar Template -->
+  <div id="editModal" class="modal-backdrop" style="display:none" onclick="fecharModal(event)">
+    <div class="modal-card">
+      <h2 class="modal-title">Editar template</h2>
+
+      <div class="field" style="margin-bottom:16px">
+        <label>Nome</label>
+        <input type="text" id="editNome" />
+      </div>
+
+      <div class="field" style="margin-bottom:8px">
+        <label>Campos detectados</label>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px">
+          Marque os campos presentes no template
+        </p>
+        <div id="editFieldsWrap" class="edit-fields-wrap"></div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-ghost" onclick="document.getElementById('editModal').style.display='none'">Cancelar</button>
+        <button class="btn-primary" onclick="salvarEdicao()">Salvar</button>
+      </div>
     </div>
   </div>
 

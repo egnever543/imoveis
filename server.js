@@ -179,6 +179,17 @@ app.post('/api/admin/templates', adminAuth, upload.single('imagem'), async (req,
   }
 });
 
+app.patch('/api/admin/templates/:id', adminAuth, async (req, res) => {
+  const { nome, fields } = req.body;
+  const update = {};
+  if (nome   !== undefined) update.nome   = nome;
+  if (fields !== undefined) update.fields = fields;
+  const { data, error } = await supabase
+    .from('templates').update(update).eq('id', req.params.id).select().single();
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(fromDb(data));
+});
+
 app.delete('/api/admin/templates/:id', adminAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('templates').delete().eq('id', req.params.id).select().single();
