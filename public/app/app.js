@@ -47,25 +47,70 @@ async function loadTemplates() {
   templates = await res.json();
 }
 
+const PREVIEW_COUNT = 5;
+
 function renderTemplatesGrid() {
   const grid = document.getElementById('templatesGrid');
   if (!templates.length) {
     grid.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">Nenhum template cadastrado. <a href="/admin/" style="color:var(--primary)">Acesse o admin →</a></p>';
     return;
   }
-  grid.innerHTML = templates.map(t => `
+  const preview = templates.slice(0, PREVIEW_COUNT);
+  let html = preview.map(t => templateCardHtml(t)).join('');
+  html += `
+    <div class="template-card more-card" onclick="abrirGaleria()">
+      <span class="more-card-icon">🖼️</span>
+      <span>Ver mais</span>
+    </div>`;
+  grid.innerHTML = html;
+}
+
+function templateCardHtml(t) {
+  return `
     <div class="template-card ${selectedTemplateId === t.id ? 'selected' : ''}" onclick="selecionarTemplate(${t.id})">
       <img src="${t.imageUrl}" alt="${t.nome}" loading="lazy" />
       <div class="template-card-name">${t.nome}</div>
       <span class="check-badge">✓</span>
-    </div>
-  `).join('');
+    </div>`;
 }
 
 function selecionarTemplate(id) {
   selectedTemplateId = id;
   renderTemplatesGrid();
+  if (document.getElementById('templateGallery').style.display !== 'none') renderGaleria();
   atualizarResumo();
+}
+
+// ── Galeria de templates ("ver mais") ───────────────────────────────
+function abrirGaleria() {
+  renderGaleria();
+  document.getElementById('templateGallery').style.display = 'flex';
+}
+
+function fecharGaleria() {
+  document.getElementById('templateGallery').style.display = 'none';
+}
+
+function renderGaleria() {
+  const track = document.getElementById('galleryTrack');
+  if (!templates.length) {
+    track.innerHTML = '<p style="color:var(--text-muted)">Nenhum template cadastrado.</p>';
+    return;
+  }
+  track.innerHTML = templates.map(t => `
+    <div class="gallery-card ${selectedTemplateId === t.id ? 'selected' : ''}" onclick="selecionarTemplate(${t.id})">
+      <img src="${t.imageUrl}" alt="${t.nome}" loading="lazy" />
+      <div class="gallery-card-name">${t.nome}</div>
+      <span class="check-badge">✓</span>
+    </div>
+  `).join('');
+  const selectedEl = track.querySelector('.gallery-card.selected');
+  if (selectedEl) selectedEl.scrollIntoView({ behavior: 'instant', inline: 'center', block: 'nearest' });
+}
+
+function scrollGaleria(dir) {
+  const track = document.getElementById('galleryTrack');
+  track.scrollBy({ left: dir * 260, behavior: 'smooth' });
 }
 
 // ── Imóveis ───────────────────────────────────────────────────────

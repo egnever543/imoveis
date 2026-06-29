@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Criativos Imobiliários</title>
+  <title>Estúdio do Corretor</title>
   <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="app-theme.css" />
 </head>
 <body>
 
   <nav class="sidebar">
-    <div class="sidebar-logo">🏠 Criativos</div>
+    <div class="sidebar-logo">🏠 Estúdio do Corretor</div>
     <button class="nav-item active" data-page="gerar">
       <span class="nav-icon">✨</span> Gerar Arte
     </button>
@@ -34,7 +35,7 @@
 
         <section class="gerar-section">
           <h2 class="section-title">1. Template</h2>
-          <div class="templates-grid" id="templatesGrid"></div>
+          <div class="templates-grid preview" id="templatesGrid"></div>
         </section>
 
         <section class="gerar-section">
@@ -309,6 +310,22 @@
     </div>
 
   </main>
+
+  <!-- Galeria de templates -->
+  <div id="templateGallery" class="gallery-overlay" style="display:none">
+    <div class="gallery-header">
+      <h2>Escolha um template</h2>
+      <button class="gallery-close" onclick="fecharGaleria()">✕</button>
+    </div>
+    <div class="gallery-body">
+      <button class="gallery-nav prev" onclick="scrollGaleria(-1)">‹</button>
+      <div class="gallery-track" id="galleryTrack"></div>
+      <button class="gallery-nav next" onclick="scrollGaleria(1)">›</button>
+    </div>
+    <div class="gallery-footer">
+      <button class="btn-primary" onclick="fecharGaleria()">Confirmar seleção</button>
+    </div>
+  </div>
 
   <!-- Loading overlay -->
   <div id="loadingOverlay" class="loading-overlay" style="display:none">
