@@ -32,5 +32,5 @@ INSERT INTO imoveis (
   'Frente Mar, Vista Permanente',
   'Piscina, Academia, Hidromassagem, +17 areas de laser.',
   '',
-  ARRAY[]::TEXT[] -- substitua pela URL do Cloudinary da foto
+  ARRAY['https://res.cloudinary.com/studio1one/image/upload/v1782760216/imagem_2026-06-29_160848272_lajpmy.png']::TEXT[]
 ) ON CONFLICT (id) DO NOTHING;
