@@ -1,20 +1,17 @@
--- Execute este arquivo no SQL Editor do seu projeto Supabase
+-- Execute no SQL Editor do Supabase
 
--- Perfil da imobiliária (uma única linha)
 CREATE TABLE IF NOT EXISTS perfil (
-  id      INTEGER PRIMARY KEY DEFAULT 1,
-  nome    TEXT DEFAULT '',
-  slogan  TEXT DEFAULT '',
-  creci   TEXT DEFAULT '',
+  id       INTEGER PRIMARY KEY DEFAULT 1,
+  nome     TEXT DEFAULT '',
+  slogan   TEXT DEFAULT '',
+  creci    TEXT DEFAULT '',
   telefone TEXT DEFAULT '',
   whatsapp TEXT DEFAULT '',
-  email   TEXT DEFAULT '',
-  site    TEXT DEFAULT '',
-  logo    TEXT DEFAULT ''
+  email    TEXT DEFAULT '',
+  site     TEXT DEFAULT '',
+  logo     TEXT DEFAULT ''
 );
-INSERT INTO perfil (id) VALUES (1) ON CONFLICT DO NOTHING;
 
--- Imóveis
 CREATE TABLE IF NOT EXISTS imoveis (
   id            TEXT PRIMARY KEY,
   criado_em     TIMESTAMPTZ DEFAULT NOW(),
@@ -42,7 +39,6 @@ CREATE TABLE IF NOT EXISTS imoveis (
   fotos         TEXT[] DEFAULT '{}'
 );
 
--- Templates (gerenciados pelo admin)
 CREATE TABLE IF NOT EXISTS templates (
   id        BIGINT PRIMARY KEY,
   nome      TEXT DEFAULT '',
@@ -50,3 +46,5 @@ CREATE TABLE IF NOT EXISTS templates (
   fields    TEXT[] DEFAULT '{}',
   criado_em TIMESTAMPTZ DEFAULT NOW()
 );
+
+INSERT INTO perfil (id) VALUES (1) ON CONFLICT DO NOTHING;
