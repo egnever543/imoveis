@@ -22,6 +22,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+const sharp  = require('sharp');
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(express.json());
@@ -93,6 +94,62 @@ function fromDb(row) {
   // fotos é JSONB — vem como objeto, garante {}
   if ('fotos' in r) r.fotos = r.fotos || {};
   return r;
+}
+
+// ── Geração do guia anotado ───────────────────────────────────────────────────
+const ZONE_COLORS = {
+  foto_imovel:  '#10b981',
+  logo:         '#8b5cf6',
+  titulo:       '#3b82f6',
+  preco:        '#f59e0b',
+  entrada:      '#f59e0b',
+  parcela:      '#f59e0b',
+  financiamento:'#f59e0b',
+  destaque:     '#ec4899',
+  _default:     '#64748b',
+};
+
+function hexToRgb(hex) {
+  return [
+    parseInt(hex.slice(1,3),16),
+    parseInt(hex.slice(3,5),16),
+    parseInt(hex.slice(5,7),16),
+  ];
+}
+
+async function gerarGuia(imageUrl, zonas, labels) {
+  const buf  = await fetchBuffer(imageUrl);
+  const meta = await sharp(buf).metadata();
+  const W = meta.width, H = meta.height;
+
+  const rects = Object.entries(zonas).map(([field, z]) => {
+    const x = Math.round(z.xPct / 100 * W);
+    const y = Math.round(z.yPct / 100 * H);
+    const w = Math.round(z.wPct / 100 * W);
+    const h = Math.round(z.hPct / 100 * H);
+    const color = ZONE_COLORS[field] || ZONE_COLORS._default;
+    const [r,g,b] = hexToRgb(color);
+    const label   = `[ ${(labels[field] || field).toUpperCase()} ]`;
+    const fs      = Math.max(14, Math.min(36, Math.round(h * 0.32)));
+    return `
+      <rect x="${x}" y="${y}" width="${w}" height="${h}"
+            fill="rgb(${r},${g},${b})" fill-opacity="0.42"
+            stroke="rgb(${r},${g},${b})" stroke-width="3" rx="4"/>
+      <text x="${x + w/2}" y="${y + h/2}"
+            font-family="Arial Black, Arial, sans-serif"
+            font-size="${fs}" font-weight="900"
+            fill="white" text-anchor="middle" dominant-baseline="middle"
+            stroke="black" stroke-width="2" paint-order="stroke">
+        ${label}
+      </text>`;
+  }).join('');
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${rects}</svg>`;
+
+  return sharp(buf)
+    .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
+    .png()
+    .toBuffer();
 }
 
 // ── Labels ────────────────────────────────────────────────────────────────────
@@ -192,11 +249,12 @@ app.post('/api/admin/templates', adminAuth, upload.single('imagem'), async (req,
 });
 
 app.patch('/api/admin/templates/:id', adminAuth, async (req, res) => {
-  const { nome, fields, angulos } = req.body;
+  const { nome, fields, angulos, zonas } = req.body;
   const update = {};
   if (nome    !== undefined) update.nome    = nome;
   if (fields  !== undefined) update.fields  = fields;
   if (angulos !== undefined) update.angulos = angulos;
+  if (zonas   !== undefined) update.zonas   = zonas;
   const { data, error } = await supabase
     .from('templates').update(update).eq('id', req.params.id).select().single();
   if (error) return res.status(400).json({ error: error.message });
@@ -404,7 +462,16 @@ app.post('/api/gerar', async (req, res) => {
 
     const { data: perfil } = await supabase.from('perfil').select('*').eq('id', 1).single();
 
-    const templateImg = await imageB64FromUrl(template.imageUrl);
+    // Gera guia anotado se houver zonas mapeadas, senão usa o original
+    const zonas = template.zonas || {};
+    let templateImg;
+    if (Object.keys(zonas).length > 0) {
+      const guiaBuf = await gerarGuia(template.imageUrl, zonas, FIELD_LABELS_PT);
+      const b64     = guiaBuf.toString('base64');
+      templateImg   = { b64, mime: 'image/png' };
+    } else {
+      templateImg = await imageB64FromUrl(template.imageUrl);
+    }
     if (!templateImg) return res.status(500).json({ error: 'Não foi possível carregar o template' });
 
     // Seleciona fotos pelos ângulos exigidos pelo template
