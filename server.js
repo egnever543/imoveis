@@ -211,84 +211,69 @@ app.get('/api/admin/templates', adminAuth, async (_, res) => {
   res.json(data.map(fromDb));
 });
 
-app.post('/api/admin/templates', adminAuth, upload.single('imagem'), async (req, res) => {
+app.post('/api/admin/templates', adminAuth,
+  upload.fields([{ name: 'imagem', maxCount: 1 }, { name: 'anotada', maxCount: 1 }]),
+  async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'Imagem obrigatória' });
+    const original = req.files?.imagem?.[0];
+    const anotada  = req.files?.anotada?.[0];
+    if (!original) return res.status(400).json({ error: 'Imagem obrigatória' });
 
-    const imgBuf = req.file.buffer;
-    const b64    = imgBuf.toString('base64');
-    const mime   = req.file.mimetype;
+    const origBuf  = original.buffer;
+    const origMime = original.mimetype;
+    const origB64  = origBuf.toString('base64');
 
-    // 1. Analisa campos presentes no template
+    // 1. Analisa campos na imagem original
     const analysis = await openai.chat.completions.create({
       model: 'gpt-4o',
       response_format: { type: 'json_object' },
       messages: [{
         role: 'user',
         content: [
-          { type: 'image_url', image_url: { url: `data:${mime};base64,${b64}` } },
+          { type: 'image_url', image_url: { url: `data:${origMime};base64,${origB64}` } },
           { type: 'text', text: ANALYZE_PROMPT },
         ],
       }],
     });
-
     const parsed = JSON.parse(analysis.choices[0].message.content);
     const fields = Array.isArray(parsed.fields) ? parsed.fields : [];
 
-    // 2. IA edita a imagem: substitui logo e textos por placeholders, mantém fotos
-    const PLACEHOLDER_MAP = {
-      logo:          '{ LOGO AQUI }',
-      titulo:        '{ TÍTULO DO IMÓVEL }',
-      preco:         '{ PREÇO }',
-      entrada:       '{ ENTRADA }',
-      parcela:       '{ PARCELA }',
-      financiamento: '{ FINANCIAMENTO }',
-      localizacao:   '{ LOCALIZAÇÃO }',
-      endereco:      '{ ENDEREÇO }',
-      destaque:      '{ CHAMADA PRINCIPAL }',
-      diferenciais:  '{ DIFERENCIAIS }',
-      area:          '{ ÁREA }',
-      quartos:       '{ QUARTOS }',
-      suites:        '{ SUÍTES }',
-      banheiros:     '{ BANHEIROS }',
-      vagas:         '{ VAGAS }',
-      andar:         '{ ANDAR }',
-    };
+    // 2. IA edita usando a imagem anotada como referência
+    const refBuf  = anotada?.buffer || origBuf;
+    const refMime = anotada?.mimetype || origMime;
+    const refB64  = refBuf.toString('base64');
 
-    const textFields  = fields.filter(f => f !== 'foto_imovel');
-    const placeholders = textFields.map(f =>
-      `- Replace the "${f}" element with the placeholder text: ${PLACEHOLDER_MAP[f] || `{ ${f.toUpperCase()} }`}`
-    ).join('\n');
+    const temMarcacoes = !!anotada;
+    const editPrompt = temMarcacoes
+      ? `You are editing a Brazilian real estate marketing template image.
 
-    const editPrompt = `You are editing a Brazilian real estate marketing template image.
+Image 1 is the ORIGINAL template. Image 2 is the same template with colored rectangles drawn by the user marking exactly which areas to replace:
+- Purple rectangle labeled "{ LOGO AQUI }" → replace that area with a clean flat rectangle (matching the background tone) containing the bold text "{ LOGO AQUI }"
+- Blue rectangle labeled "{ LOCALIZAÇÃO }" → replace that area with the bold text "{ LOCALIZAÇÃO }" in the same style as the original text
 
-Your task: replace logo and text content with visible placeholder labels, keeping the exact layout, colors, shapes, and design intact.
+CRITICAL RULES:
+- Only modify the areas inside the colored rectangles — leave EVERYTHING else pixel-perfect
+- Do NOT touch property photos, background graphics, decorative elements, or any other text
+- The result must look identical to the original except those two marked areas`
 
-Instructions:
-${placeholders || '- Replace any visible logo or brand with a gray rectangle labeled { LOGO AQUI }\n- Replace any address, price, or name text with an appropriate placeholder label'}
-
-IMPORTANT RULES:
-- DO NOT touch or alter any property photo areas — leave them exactly as they are
-- Keep ALL background graphics, decorative shapes, colors, and overall layout exactly as-is
-- Replace logo/brand images with a flat gray or white rectangle containing the placeholder text in bold
-- Replace all real text (names, addresses, prices, phone numbers, slogans) with the corresponding placeholder text in the same position and approximate size
-- Write placeholder text in a clean bold font, contrasting with the background
-- Do NOT add any new elements or change spacing/layout in any way
-- The result must look like the same template but with placeholder labels instead of real content`;
+      : `You are editing a Brazilian real estate marketing template image.
+Replace any visible logo or brand mark with a flat rectangle labeled "{ LOGO AQUI }" and any address or location text with "{ LOCALIZAÇÃO }".
+Keep everything else — photos, backgrounds, colors, layout — exactly as-is.`;
 
     const editResponse = await openai.responses.create({
       model: 'gpt-4o',
       input: [{
         role: 'user',
         content: [
-          { type: 'input_image', image_url: `data:${mime};base64,${b64}` },
+          { type: 'input_image', image_url: `data:${origMime};base64,${origB64}` },
+          ...(temMarcacoes ? [{ type: 'input_image', image_url: `data:${refMime};base64,${refB64}` }] : []),
           { type: 'input_text', text: editPrompt },
         ],
       }],
       tools: [{ type: 'image_generation', quality: 'high', size: '1024x1024' }],
     });
 
-    let editedBuf = imgBuf; // fallback: usa original se IA falhar
+    let editedBuf = origBuf;
     for (const item of editResponse.output || []) {
       if (item.type === 'image_generation_call' && item.result) {
         editedBuf = Buffer.from(item.result, 'base64');
@@ -296,12 +281,11 @@ IMPORTANT RULES:
       }
     }
 
-    // 3. Salva imagem editada no Cloudinary
+    // 3. Salva imagem editada
     const result = await cloudinaryUpload(editedBuf, 'templates');
-
     const { data, error } = await supabase.from('templates').insert({
       id:        Date.now(),
-      nome:      req.body.nome || req.file.originalname,
+      nome:      req.body.nome || original.originalname,
       image_url: result.secure_url,
       fields,
       angulos:   [],

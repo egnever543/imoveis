@@ -37,6 +37,17 @@
     .drop-zone .dz-icon { font-size: 2rem; margin-bottom: 8px; }
     .analyzing-hint { color: var(--text-muted); font-size: 0.8rem; margin-top: 8px; }
 
+    /* Marcador de zonas */
+    .mark-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 6px 14px; font-size: 0.82rem;
+      color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+    }
+    .mark-btn:hover { border-color: var(--primary); color: var(--text); }
+    .mark-btn.active { border-color: var(--primary); color: var(--text); background: var(--bg-card); font-weight: 600; }
+    .mark-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
     /* Template list */
     .templates-list { display: flex; flex-direction: column; gap: 12px; }
     .template-row {
@@ -161,28 +172,61 @@
       <!-- Upload form -->
       <div class="upload-card">
         <h2>Adicionar template</h2>
-        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()"
-             ondragover="event.preventDefault();this.classList.add('over')"
-             ondragleave="this.classList.remove('over')"
-             ondrop="handleDrop(event)">
-          <div id="dropContent">
-            <div class="dz-icon">🖼</div>
-            <div>Clique ou arraste a imagem do template aqui</div>
-            <div style="font-size:0.75rem;margin-top:4px">PNG, JPG ou WEBP</div>
+
+        <!-- Passo 1: selecionar imagem -->
+        <div id="uploadStep1">
+          <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()"
+               ondragover="event.preventDefault();this.classList.add('over')"
+               ondragleave="this.classList.remove('over')"
+               ondrop="handleDrop(event)">
+            <div id="dropContent">
+              <div class="dz-icon">🖼</div>
+              <div>Clique ou arraste a imagem do template aqui</div>
+              <div style="font-size:0.75rem;margin-top:4px">PNG, JPG ou WEBP</div>
+            </div>
+            <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this.files[0])" />
           </div>
-          <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this.files[0])" />
         </div>
-        <div class="upload-row">
-          <div class="field" style="flex:2">
-            <label>Nome do template</label>
-            <input type="text" id="nomeInput" placeholder="Ex: Litoral Premium" />
+
+        <!-- Passo 2: marcar zonas -->
+        <div id="uploadStep2" style="display:none">
+          <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px">
+            Arraste para marcar as áreas de <strong>Logo</strong> e <strong>Localização</strong> na imagem. A IA substituirá só essas regiões.
+          </p>
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+            <button id="btnMarkLogo" class="mark-btn active" onclick="setMarcador('logo')">
+              <span class="mark-dot" style="background:#8b5cf6"></span> Logo
+            </button>
+            <button id="btnMarkLoc" class="mark-btn" onclick="setMarcador('localizacao')">
+              <span class="mark-dot" style="background:#3b82f6"></span> Localização
+            </button>
+            <button class="mark-btn" onclick="limparMarcacao()" style="margin-left:auto;opacity:.6">✕ Limpar</button>
           </div>
-          <button class="btn-primary" id="btnUpload" onclick="uploadTemplate()" disabled>
-            ✨ Analisar e editar com IA
-          </button>
-        </div>
-        <div id="analyzingHint" class="analyzing-hint" style="display:none">
-          ⏳ Analisando campos e editando imagem com IA… pode levar ~30 segundos.
+          <div style="position:relative;display:inline-block;max-width:100%">
+            <img id="uploadPreviewImg" src="" alt="" draggable="false"
+                 style="display:block;max-width:100%;border-radius:8px;user-select:none" />
+            <canvas id="uploadMarkCanvas"
+                    style="position:absolute;top:0;left:0;cursor:crosshair;border-radius:8px"
+                    onmousedown="markStart(event)"
+                    onmousemove="markMove(event)"
+                    onmouseup="markEnd(event)"
+                    ontouchstart="markStart(event)"
+                    ontouchmove="markMove(event)"
+                    ontouchend="markEnd(event)"></canvas>
+          </div>
+          <div class="upload-row" style="margin-top:12px">
+            <div class="field" style="flex:2">
+              <label>Nome do template</label>
+              <input type="text" id="nomeInput" placeholder="Ex: Litoral Premium" />
+            </div>
+            <button class="btn-ghost" onclick="voltarStep1()">← Trocar imagem</button>
+            <button class="btn-primary" id="btnUpload" onclick="uploadTemplate()">
+              ✨ Analisar e editar com IA
+            </button>
+          </div>
+          <div id="analyzingHint" class="analyzing-hint" style="display:none">
+            ⏳ Analisando e editando com IA… pode levar ~30 segundos.
+          </div>
         </div>
       </div>
 

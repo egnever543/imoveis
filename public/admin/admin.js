@@ -616,20 +616,38 @@ async function salvarGuia() {
   }, 'image/png');
 }
 
-// ── Upload ────────────────────────────────────────────────────────────────────
+// ── Upload & editor de marcação ───────────────────────────────────────────────
+const MARK_COLORS = { logo: '#8b5cf6', localizacao: '#3b82f6' };
+const MARK_LABELS = { logo: '{ LOGO AQUI }', localizacao: '{ LOCALIZAÇÃO }' };
+let marcador   = 'logo';   // campo ativo
+let marcacoes  = {};       // { logo: {x,y,w,h}, localizacao: {x,y,w,h} }
+let markDrawing = false;
+let markStart_  = null;
+
 function handleFile(file) {
   if (!file) return;
   selectedFile = file;
-  const reader = new FileReader();
-  reader.onload = e => {
-    document.getElementById('dropContent').innerHTML = `
-      <img src="${e.target.result}" style="max-height:120px;object-fit:contain;border-radius:8px;margin-bottom:6px" />
-      <div style="font-size:0.8rem">${file.name}</div>`;
-  };
-  reader.readAsDataURL(file);
-  document.getElementById('btnUpload').disabled = false;
   if (!document.getElementById('nomeInput').value)
     document.getElementById('nomeInput').value = file.name.replace(/\.[^.]+$/, '');
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    // Vai para o passo 2 com o editor de marcação
+    document.getElementById('uploadStep1').style.display = 'none';
+    document.getElementById('uploadStep2').style.display = 'block';
+
+    const img = document.getElementById('uploadPreviewImg');
+    img.onload = () => {
+      const canvas = document.getElementById('uploadMarkCanvas');
+      canvas.width  = img.offsetWidth;
+      canvas.height = img.offsetHeight;
+      canvas.style.width  = img.offsetWidth  + 'px';
+      canvas.style.height = img.offsetHeight + 'px';
+      redrawMarcacoes();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 function handleDrop(e) {
@@ -639,17 +657,158 @@ function handleDrop(e) {
   if (file && file.type.startsWith('image/')) handleFile(file);
 }
 
+function voltarStep1() {
+  selectedFile = null;
+  marcacoes    = {};
+  document.getElementById('uploadStep2').style.display = 'none';
+  document.getElementById('uploadStep1').style.display = 'block';
+  document.getElementById('fileInput').value = '';
+}
+
+function setMarcador(campo) {
+  marcador = campo;
+  document.getElementById('btnMarkLogo').classList.toggle('active', campo === 'logo');
+  document.getElementById('btnMarkLoc').classList.toggle('active', campo === 'localizacao');
+}
+
+function limparMarcacao() {
+  marcacoes = {};
+  redrawMarcacoes();
+}
+
+function markPos(e) {
+  const canvas = document.getElementById('uploadMarkCanvas');
+  const rect   = canvas.getBoundingClientRect();
+  const touch  = e.touches?.[0] || e;
+  return {
+    x: (touch.clientX - rect.left) * (canvas.width  / rect.width),
+    y: (touch.clientY - rect.top)  * (canvas.height / rect.height),
+  };
+}
+
+function markStart(e) {
+  e.preventDefault();
+  markDrawing = true;
+  markStart_  = markPos(e);
+}
+
+function markMove(e) {
+  e.preventDefault();
+  if (!markDrawing) return;
+  const cur = markPos(e);
+  redrawMarcacoes();
+  // Desenha retângulo em progresso
+  const canvas = document.getElementById('uploadMarkCanvas');
+  const ctx    = canvas.getContext('2d');
+  const color  = MARK_COLORS[marcador];
+  const x = Math.min(markStart_.x, cur.x);
+  const y = Math.min(markStart_.y, cur.y);
+  const w = Math.abs(cur.x - markStart_.x);
+  const h = Math.abs(cur.y - markStart_.y);
+  ctx.fillStyle   = hexToRgba(color, 0.25);
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = 2;
+  ctx.setLineDash([6, 3]);
+  ctx.strokeRect(x, y, w, h);
+  ctx.setLineDash([]);
+}
+
+function markEnd(e) {
+  e.preventDefault();
+  if (!markDrawing || !markStart_) return;
+  markDrawing = false;
+  const cur = markPos(e.changedTouches?.[0] || e);
+  const x = Math.min(markStart_.x, cur.x);
+  const y = Math.min(markStart_.y, cur.y);
+  const w = Math.abs(cur.x - markStart_.x);
+  const h = Math.abs(cur.y - markStart_.y);
+  if (w > 10 && h > 10) {
+    marcacoes[marcador] = { x, y, w, h };
+    // Avança automaticamente para o próximo campo se só marcou um
+    if (marcador === 'logo' && !marcacoes.localizacao) setMarcador('localizacao');
+  }
+  markStart_ = null;
+  redrawMarcacoes();
+}
+
+function redrawMarcacoes() {
+  const canvas = document.getElementById('uploadMarkCanvas');
+  const ctx    = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const [campo, z] of Object.entries(marcacoes)) {
+    const color = MARK_COLORS[campo];
+    const label = MARK_LABELS[campo];
+    // Fundo
+    ctx.fillStyle = hexToRgba(color, 0.35);
+    ctx.fillRect(z.x, z.y, z.w, z.h);
+    // Borda
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 2;
+    ctx.setLineDash([]);
+    ctx.strokeRect(z.x, z.y, z.w, z.h);
+    // Label
+    const fs = Math.max(11, Math.min(22, Math.round(z.h * 0.35)));
+    ctx.font         = `700 ${fs}px Arial, sans-serif`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.strokeStyle  = 'rgba(0,0,0,0.8)';
+    ctx.lineWidth    = 3;
+    ctx.strokeText(label, z.x + z.w / 2, z.y + z.h / 2);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, z.x + z.w / 2, z.y + z.h / 2);
+  }
+}
+
 async function uploadTemplate() {
   if (!selectedFile) return;
+
   const nome = document.getElementById('nomeInput').value.trim();
   document.getElementById('btnUpload').disabled = true;
   document.getElementById('analyzingHint').style.display = 'block';
 
-  const fd = new FormData();
-  fd.append('imagem', selectedFile);
-  fd.append('nome', nome);
+  // Gera imagem anotada com as marcações desenhadas
+  const img    = document.getElementById('uploadPreviewImg');
+  const canvas = document.getElementById('uploadMarkCanvas');
+  const final  = document.createElement('canvas');
+  final.width  = img.naturalWidth;
+  final.height = img.naturalHeight;
+  const ctx    = final.getContext('2d');
+  ctx.drawImage(img, 0, 0, final.width, final.height);
+
+  // Re-escala e desenha marcações em resolução natural
+  const scaleX = final.width  / canvas.width;
+  const scaleY = final.height / canvas.height;
+  for (const [campo, z] of Object.entries(marcacoes)) {
+    const color = MARK_COLORS[campo];
+    const label = MARK_LABELS[campo];
+    const rx = z.x * scaleX, ry = z.y * scaleY;
+    const rw = z.w * scaleX, rh = z.h * scaleY;
+    ctx.fillStyle = hexToRgba(color, 0.55);
+    ctx.fillRect(rx, ry, rw, rh);
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 3;
+    ctx.strokeRect(rx, ry, rw, rh);
+    const fs = Math.max(14, Math.min(36, Math.round(rh * 0.35)));
+    ctx.font         = `800 ${fs}px "Arial Black", Arial, sans-serif`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.strokeStyle  = 'rgba(0,0,0,0.9)';
+    ctx.lineWidth    = 4;
+    ctx.strokeText(label, rx + rw / 2, ry + rh / 2);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, rx + rw / 2, ry + rh / 2);
+  }
 
   try {
+    const blob = await new Promise(resolve => final.toBlob(resolve, 'image/png'));
+    const fd   = new FormData();
+    // Envia imagem original para análise de campos + anotada para edição
+    fd.append('imagem',    selectedFile);
+    fd.append('anotada',   blob, 'anotada.png');
+    fd.append('nome',      nome);
+    fd.append('marcacoes', JSON.stringify(marcacoes));
+
     const res  = await fetch('/api/admin/templates', {
       method: 'POST',
       headers: { 'x-admin-password': adminPassword },
@@ -658,14 +817,13 @@ async function uploadTemplate() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
 
-    toast(`"${data.nome}" salvo! Agora clique em 🗺 Mapear para definir as zonas.`, 'success');
+    toast(`"${data.nome}" salvo com placeholders aplicados!`, 'success');
     selectedFile = null;
-    document.getElementById('fileInput').value = '';
-    document.getElementById('nomeInput').value = '';
-    document.getElementById('dropContent').innerHTML = `
-      <div class="dz-icon">🖼</div>
-      <div>Clique ou arraste a imagem do template aqui</div>
-      <div style="font-size:0.75rem;margin-top:4px">PNG, JPG ou WEBP</div>`;
+    marcacoes    = {};
+    document.getElementById('fileInput').value  = '';
+    document.getElementById('nomeInput').value  = '';
+    document.getElementById('uploadStep2').style.display = 'none';
+    document.getElementById('uploadStep1').style.display = 'block';
     await carregarTemplates();
   } catch (err) {
     toast('Erro: ' + err.message, 'error');
