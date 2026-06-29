@@ -466,16 +466,17 @@ app.post('/api/gerar', async (req, res) => {
       `Image ${imgOrder[`foto_${i}`]}: property photo (${ANGLE_LABELS_PT[s.ang] || s.ang}) — place in the photo area of the template.`
     ).join('\n');
 
-    const mensagem = `Image ${imgOrder.template} is a real estate marketing template. Your only job is to keep the entire design intact and swap out three things:
+    const mensagem = `Image ${imgOrder.template} is a real estate marketing template. Keep the entire design pixel-perfect and make exactly three changes:
 
-1. TEXT — replace each gray placeholder box with the value below, using the exact same font, size, weight and color as the surrounding text in that area:
+1. TEXT — The template contains gray rectangular placeholder boxes with labels like "{ ENDEREÇO DO IMÓVEL }", "{ LOGO AQUI }", etc. Each gray box defines the EXACT POSITION and SIZE where content must be placed. For text placeholders: render the replacement text centered INSIDE that gray rectangle, at that exact location on the image, fully covering the gray box. Use the same font style, size, weight and color as other text in that region of the template. Do NOT move the text to a different part of the image — the gray box IS the target location.
+Replacement values:
 ${dados || '(none)'}
 
-2. PROPERTY PHOTO — replace the property photo area with Image ${fotoSlots.length ? imgOrder['foto_0'] : '(none provided)'}, maintaining the exact same crop, size and position.
+2. PROPERTY PHOTO — replace the property photo area with Image ${fotoSlots.length ? imgOrder['foto_0'] : '(none provided)'}, keeping the exact same crop, size and position.
 
-3. LOGO — replace the "{ LOGO AQUI }" gray box with Image ${logoImg ? imgOrder.logo : '(none provided)'}, blending it naturally with the existing background (no white box behind it).
+3. LOGO — the gray box labeled "{ LOGO AQUI }" marks the exact position and size for the logo. Place Image ${logoImg ? imgOrder.logo : '(none provided)'} centered inside that box, blending it naturally with the background (no white rectangle behind it).
 
-Everything else — layout, background, shapes, decorative elements, colors, typography style — must be pixel-perfect identical to the original. The final result must look like this template was always designed with this specific content.`;
+Everything else — layout, colors, shapes, typography, decorative elements — must remain pixel-perfect identical to the original template.`;
 
 
     const content = [];
