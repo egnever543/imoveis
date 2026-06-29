@@ -466,15 +466,24 @@ app.post('/api/gerar', async (req, res) => {
       `Image ${imgOrder[`foto_${i}`]}: property photo (${ANGLE_LABELS_PT[s.ang] || s.ang}) — place in the photo area of the template.`
     ).join('\n');
 
-    const mensagem = `Image ${imgOrder.template}: design template with placeholder labels. Each gray box with text like "{ LOGO AQUI }" or "{ ENDEREÇO DO IMÓVEL }" marks exactly where real content must be placed.
+    const mensagem = `Image ${imgOrder.template}: a real estate marketing template with gray placeholder boxes marking where content must go.
 
 ${fotoLines}
-${logoImg ? `Image ${imgOrder.logo}: agency logo — place it covering the "{ LOGO AQUI }" gray box exactly. Do not redraw or recreate it.` : ''}
+${logoImg ? `Image ${imgOrder.logo}: the agency logo to place in the "{ LOGO AQUI }" area.` : ''}
 
-Replace each placeholder gray box with the corresponding value below (keep the same position and style):
-${dados || '(no text placeholders — only place photo and/or logo)'}
+Your task: replace each gray placeholder box with the corresponding value below.
 
-CRITICAL: replace ONLY the gray placeholder boxes. Do not change any other element.`;
+TYPOGRAPHY RULES (critical):
+- For text placeholders: remove the gray box completely and write the new text AS IF it was always part of the original design — match the exact font family, weight, size, color and style of the surrounding text in that area. The result must look native, not pasted.
+- For "{ ENDEREÇO DO IMÓVEL }": write the address in the same font, size and color as the original location text next to it.
+
+LOGO RULES (critical):
+- For "{ LOGO AQUI }": remove the gray box, reveal the original background behind it, then composite the logo image naturally over that background. The logo must blend with the background color/texture — do NOT add a white rectangle or any container behind it.
+
+Values to insert:
+${dados || '(no text fields)'}
+
+DO NOT change anything outside the placeholder boxes. Every other element — photo, background, shapes, colors, other texts — must remain pixel-perfect.`;
 
 
     const content = [];
