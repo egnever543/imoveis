@@ -6,27 +6,29 @@
   <title>Admin — Criativos Imobiliários</title>
   <link rel="stylesheet" href="style.css" />
   <style>
-    .admin-wrap { max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; }
-    .admin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 36px; }
-    .admin-header h1 { font-size: 1.6rem; font-weight: 700; }
-    .admin-header p  { color: var(--text-muted); font-size: 0.88rem; margin-top: 4px; }
+    .admin-wrap { max-width: 900px; margin: 0 auto; padding: 32px 16px 80px; }
+    .admin-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; }
+    .admin-header h1 { font-size: 1.4rem; font-weight: 700; }
+    .admin-header p  { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
+    .admin-header-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 
     /* Login */
-    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-    .login-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 40px 48px; width: 360px; text-align: center; }
-    .login-card h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
-    .login-card p  { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 28px; }
-    .login-card input { width: 100%; margin-bottom: 14px; }
+    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+    .login-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 32px 28px; width: 100%; max-width: 360px; text-align: center; box-sizing: border-box; }
+    .login-card h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; }
+    .login-card p  { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 24px; }
+    .login-card input { width: 100%; margin-bottom: 14px; box-sizing: border-box; }
     .login-error { color: var(--danger); font-size: 0.82rem; margin-top: 10px; }
 
     /* Upload card */
-    .upload-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 28px; margin-bottom: 32px; }
-    .upload-card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 20px; }
-    .upload-row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
-    .upload-row .field { flex: 1; min-width: 160px; }
+    .upload-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 28px; }
+    .upload-card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 16px; }
+    .upload-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+    .upload-row .field { flex: 1; min-width: 140px; }
+    .upload-row button { flex-shrink: 0; width: 100%; }
     .drop-zone {
       border: 2px dashed var(--border); border-radius: var(--radius);
-      padding: 28px 20px; text-align: center; cursor: pointer;
+      padding: 24px 16px; text-align: center; cursor: pointer;
       transition: border-color 0.15s; color: var(--text-muted); font-size: 0.85rem;
       margin-bottom: 14px;
     }
@@ -36,23 +38,31 @@
     .analyzing-hint { color: var(--text-muted); font-size: 0.8rem; margin-top: 8px; }
 
     /* Template list */
-    .templates-list { display: flex; flex-direction: column; gap: 14px; }
+    .templates-list { display: flex; flex-direction: column; gap: 12px; }
     .template-row {
-      display: flex; align-items: flex-start; gap: 18px;
+      display: flex; align-items: flex-start; gap: 14px;
       background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 16px 20px;
+      border-radius: var(--radius); padding: 14px 16px;
     }
-    .template-row img { width: 90px; height: 90px; object-fit: cover; border-radius: 8px; flex-shrink: 0; border: 1px solid var(--border); }
+    .template-row img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; flex-shrink: 0; border: 1px solid var(--border); }
     .template-row-info { flex: 1; min-width: 0; }
-    .template-row-info h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 10px; }
-    .fields-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+    .template-row-info h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; word-break: break-word; }
+    .fields-wrap { display: flex; flex-wrap: wrap; gap: 5px; }
     .field-badge {
-      font-size: 0.7rem; font-weight: 600; padding: 3px 10px;
+      font-size: 0.68rem; font-weight: 600; padding: 3px 9px;
       border-radius: 20px; background: #1e3a5f; color: #93c5fd;
       border: 1px solid #2563eb44;
     }
     .field-badge.media { background: #1a3a2f; color: #6ee7b7; border-color: #10b98144; }
     .no-templates { text-align: center; padding: 40px; color: var(--text-muted); }
+
+    @media (max-width: 480px) {
+      .admin-wrap { padding: 20px 12px 60px; }
+      .admin-header h1 { font-size: 1.15rem; }
+      .admin-header-actions { width: 100%; justify-content: flex-end; }
+      .upload-row button { flex: 1; }
+      .template-row img { width: 64px; height: 64px; }
+    }
   </style>
 </head>
 <body>
@@ -80,7 +90,7 @@
           <h1>🗂 Admin — Templates</h1>
           <p>Faça upload de templates e a IA detecta automaticamente os campos presentes</p>
         </div>
-        <div style="display:flex;gap:10px;align-items:center">
+        <div class="admin-header-actions">
           <a href="/" class="btn-ghost" style="text-decoration:none;font-size:0.85rem">← Voltar ao app</a>
           <button class="btn-ghost" onclick="sair()" style="font-size:0.85rem">Sair</button>
         </div>
