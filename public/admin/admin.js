@@ -1,4 +1,4 @@
-﻿const MEDIA_FIELDS = ['foto_imovel', 'logo'];
+const MEDIA_FIELDS = ['foto_imovel', 'logo'];
 const ALL_FIELDS   = [
   'titulo','preco','entrada','parcela','financiamento',
   'area','quartos','suites','banheiros','vagas','andar',
