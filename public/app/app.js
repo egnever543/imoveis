@@ -342,24 +342,41 @@ async function gerarArte(textosPrevia = null) {
  if (!selectedTemplateId || !selectedImovelId) return;
  document.getElementById('loadingOverlay').style.display = 'flex';
  document.getElementById('resultadoWrap').style.display = 'none';
+ document.getElementById('previaWrap').style.display = 'none';
 
  try {
- const res = await authFetch('/api/gerar', {
- method: 'POST',
- headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify({ templateId: selectedTemplateId, imovelId: selectedImovelId, textosPrevia }),
- });
- const data = await res.json();
- if (!res.ok || data.error) throw new Error(data.error);
+  const res = await authFetch('/api/gerar', {
+   method: 'POST',
+   headers: { 'Content-Type': 'application/json' },
+   body: JSON.stringify({ templateId: selectedTemplateId, imovelId: selectedImovelId, textosPrevia }),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error);
 
- lastArteData = data.imageData;
- document.getElementById('resultadoImg').src = data.imageData;
- document.getElementById('resultadoWrap').style.display = 'block';
- document.getElementById('resultadoWrap').scrollIntoView({ behavior: 'smooth' });
+  lastArteData = data.imageData;
+
+  // Salva automaticamente na galeria
+  const t  = templates.find(t => t.id === selectedTemplateId);
+  const im = imoveis.find(i => i.id === selectedImovelId);
+  await authFetch('/api/galeria', {
+   method: 'POST',
+   headers: { 'Content-Type': 'application/json' },
+   body: JSON.stringify({
+    imageData: lastArteData,
+    templateNome: t?.nome || null,
+    imovelTitulo: im?.titulo || null,
+   }),
+  });
+  await loadGaleria();
+
+  document.getElementById('resultadoImg').src = data.imageData;
+  document.getElementById('resultadoWrap').style.display = 'block';
+  document.getElementById('resultadoWrap').scrollIntoView({ behavior: 'smooth' });
+  toast('Arte gerada e salva na galeria!', 'success');
  } catch (err) {
- toast('Erro: ' + err.message, 'error');
+  toast('Erro: ' + err.message, 'error');
  } finally {
- document.getElementById('loadingOverlay').style.display = 'none';
+  document.getElementById('loadingOverlay').style.display = 'none';
  }
 }
 
