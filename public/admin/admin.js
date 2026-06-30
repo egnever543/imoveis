@@ -110,9 +110,9 @@ function abrirEdicao(id) {
     const checked = (t.fields || []).includes(f);
     const isMedia = MEDIA_FIELDS.includes(f);
     return `
-      <label class="field-toggle ${checked ? 'checked' : ''} ${checked && isMedia ? 'media' : ''}"
-             onclick="toggleToggle(this, ${isMedia})">
-        <input type="checkbox" value="${f}" ${checked ? 'checked' : ''} />
+      <label class="field-toggle ${checked ? 'checked' : ''} ${checked && isMedia ? 'media' : ''}">
+        <input type="checkbox" value="${f}" ${checked ? 'checked' : ''}
+               onchange="toggleToggle(this.closest('label'), ${isMedia})" />
         ${fieldLabels[f] || f}
       </label>`;
   }).join('');
@@ -149,9 +149,9 @@ function renderAngulosEdit(show, selectedAngulos) {
   document.getElementById('editAngulosWrap').innerHTML = photoSlots.map(s => {
     const checked = selectedAngulos.includes(s.key);
     return `
-      <label class="field-toggle ${checked ? 'checked angle' : ''}"
-             onclick="toggleToggle(this, false)">
-        <input type="checkbox" value="${s.key}" ${checked ? 'checked' : ''} />
+      <label class="field-toggle ${checked ? 'checked angle' : ''}">
+        <input type="checkbox" value="${s.key}" ${checked ? 'checked' : ''}
+               onchange="toggleToggle(this.closest('label'), false)" />
         ${s.label}
       </label>`;
   }).join('');
@@ -159,7 +159,6 @@ function renderAngulosEdit(show, selectedAngulos) {
 
 function toggleToggle(label, isMedia) {
   const cb = label.querySelector('input');
-  cb.checked = !cb.checked;
   label.classList.toggle('checked', cb.checked);
   if (isMedia) label.classList.toggle('media', cb.checked);
   else if (label.closest('#editAngulosWrap')) label.classList.toggle('angle', cb.checked);
