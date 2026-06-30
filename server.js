@@ -273,7 +273,8 @@ app.post('/api/admin/templates/gerar-transcricoes', adminAuth, async (req, res) 
         });
 
         const transcricao = completion.choices[0].message.content.trim();
-        await supabase.from('templates').update({ transcricao }).eq('id', t.id);
+        const { error: upErr } = await supabase.from('templates').update({ transcricao }).eq('id', t.id);
+        if (upErr) throw new Error('Supabase update: ' + upErr.message);
         resultados.push({ id: t.id, nome: t.nome, ok: true, transcricao });
       } catch (err) {
         resultados.push({ id: t.id, nome: t.nome, erro: err.message });

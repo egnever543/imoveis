@@ -317,11 +317,16 @@ async function gerarTranscricoes() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    if (data.atualizados === 0) {
+    const erros = (data.resultados || []).filter(r => r.erro);
+    if (data.atualizados === 0 && !erros.length) {
       toast(data.msg || 'Nenhum template para analisar.', 'success');
+    } else if (erros.length) {
+      const msgs = erros.map(r => r.nome + ': ' + r.erro).join(' | ');
+      toast('Erros: ' + msgs, 'error');
     } else {
       toast(data.atualizados + ' de ' + data.total + ' template(s) analisado(s).', 'success');
     }
+    console.log('Resultado transcricoes:', data);
     await carregarTemplates();
   } catch (err) {
     toast('Erro: ' + err.message, 'error');
