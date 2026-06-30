@@ -127,6 +127,16 @@ a, .btn-link { color: #fff; }
 .login-wrap input[type="text"] {
  width: 100%;
  box-sizing: border-box;
+ background: var(--bg-input) !important;
+ color: var(--text) !important;
+ border: 1px solid var(--border);
+ border-radius: var(--radius);
+ padding: 10px 14px;
+ font-size: 0.95rem;
+}
+.login-wrap input:-webkit-autofill {
+ -webkit-box-shadow: 0 0 0 100px var(--bg-input) inset !important;
+ -webkit-text-fill-color: var(--text) !important;
 }
 
 /* ── Auth tabs ───────────────────────────────────────────────── */
