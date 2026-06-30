@@ -470,15 +470,18 @@ app.post('/api/gerar', async (req, res) => {
 
 Meus dados:
 ${dados || '(nenhum)'}
+- Para a foto do imóvel: Imagem ${fotoSlots.length ? imgOrder['foto_0'] : '(não fornecida)'}
+- Para o logo: Imagem ${logoImg ? imgOrder.logo : '(não fornecida)'}
 
 Instruções:
 - Entenda na imagem onde estão os textos de localização, valores, endereço, chamada principal e logo, e substitua pelos meus dados acima.
 - Mantenha exatamente a mesma fonte, cor e tamanho de cada texto — só o conteúdo muda, o estilo visual permanece idêntico.
-- É uma troca simples de valores: "São Paulo" vira "${localizacao || 'minha cidade'}", "Entrada: 10" vira "Entrada: ${imovel.entrada || 'X'}", e assim por diante.
+- É uma troca simples de valores: "São Paulo" vira "Itapoá" ou "Palmeiras, Itapoá, SC" dependendo do contexto do template, "Entrada: 10 mil" vira "Entrada: 300.000,00", e assim por diante.
 - Não adicione nenhum texto novo nem remova textos existentes que não tenham substituto nos meus dados.
-- Para a foto do imóvel: use exatamente a Imagem ${fotoSlots.length ? imgOrder['foto_0'] : '(não fornecida)'} no lugar da foto atual, sem recriar nem gerar um novo prédio.
-- Para o logo: use exatamente a Imagem ${logoImg ? imgOrder.logo : '(não fornecida)'} no lugar do logo atual, integrando naturalmente ao fundo sem caixa branca.
-- Todo o resto — layout, cores de fundo, formas decorativas, espaçamentos — deve ser pixel a pixel igual ao original.`;
+- Para a foto: use exatamente a imagem fornecida, sem recriar nem gerar um novo prédio.
+- Para o logo: use exatamente a imagem fornecida, integrando naturalmente ao fundo sem caixa branca.
+- Todo o resto — layout, cores de fundo, formas decorativas, espaçamentos — deve ser pixel a pixel igual ao original.
+- OBS: Pode ser que eu tenha enviado informação a mais. Você não precisa usar tudo — se no template não houver um campo correspondente, ignore esse dado.`;
 
 
     const content = [];
