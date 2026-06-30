@@ -22,6 +22,16 @@
 .resumo-badge { background: #1f1f1f; color: #d4d4d4; border-color: #ffffff22; }
 a, .btn-link { color: #fff; }
 
+/* ── Foto slots — contraste no tema escuro ── */
+.foto-slot-btn { color: #d4d4d4; }
+.foto-slot-btn:hover { color: #fff; }
+.foto-slot-preview {
+  background: #1a1a1a;
+  border-color: #3d3d3d;
+}
+.foto-slot-empty { color: #6b6b6b; opacity: 1; }
+.foto-slot-label { color: #8a8a8a; }
+
 /* ── Templates: prévia + "ver mais" galeria ─────────────────────── */
 .templates-grid.preview { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 .template-card.more-card {
