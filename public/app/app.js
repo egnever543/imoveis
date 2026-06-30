@@ -8,14 +8,87 @@ let galeria = [];
 let selectedTemplateId = null;
 let selectedImovelId = null;
 let lastArteData = null;
+let authToken = localStorage.getItem('authToken') || null;
+let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+
+// ── Auth helpers ─────────────────────────────────────────────────
+function authHeaders(extra = {}) {
+ return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}`, ...extra };
+}
+
+function authFetch(url, opts = {}) {
+ const headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${authToken}` };
+ return fetch(url, { ...opts, headers });
+}
 
 // ── Init ─────────────────────────────────────────────────────────
 async function init() {
+ if (!authToken) { mostrarLogin(); return; }
+ document.getElementById('loginWrap').style.display = 'none';
+ document.getElementById('appWrap').style.display = 'block';
+ if (currentUser?.nome || currentUser?.email) {
+  document.getElementById('userLabel').textContent = currentUser.nome || currentUser.email;
+ }
  setupNav();
  await Promise.all([loadTemplates(), loadImoveis(), loadPerfil(), loadLabels()]);
  renderGerar();
  renderImoveisGrid();
  loadGaleria();
+}
+
+function mostrarLogin(tab = 'login') {
+ document.getElementById('loginWrap').style.display = 'flex';
+ document.getElementById('appWrap').style.display = 'none';
+ mudarTabAuth(tab);
+}
+
+function mudarTabAuth(tab) {
+ document.getElementById('formLogin').style.display    = tab === 'login'    ? 'block' : 'none';
+ document.getElementById('formCadastro').style.display = tab === 'cadastro' ? 'block' : 'none';
+ document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
+ document.getElementById('tabCadastro').classList.toggle('active', tab === 'cadastro');
+ document.getElementById('authError').textContent = '';
+}
+
+async function fazerLogin() {
+ const email    = document.getElementById('loginEmail').value.trim();
+ const password = document.getElementById('loginSenha').value;
+ const errEl    = document.getElementById('authError');
+ errEl.textContent = '';
+ if (!email || !password) { errEl.textContent = 'Preencha email e senha.'; return; }
+ const res  = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+ const data = await res.json();
+ if (!res.ok) { errEl.textContent = data.error; return; }
+ authToken   = data.token;
+ currentUser = data.user;
+ localStorage.setItem('authToken', authToken);
+ localStorage.setItem('currentUser', JSON.stringify(currentUser));
+ init();
+}
+
+async function fazerCadastro() {
+ const nome     = document.getElementById('cadNome').value.trim();
+ const email    = document.getElementById('cadEmail').value.trim();
+ const password = document.getElementById('cadSenha').value;
+ const errEl    = document.getElementById('authError');
+ errEl.textContent = '';
+ if (!email || !password) { errEl.textContent = 'Preencha email e senha.'; return; }
+ const res  = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, nome }) });
+ const data = await res.json();
+ if (!res.ok) { errEl.textContent = data.error; return; }
+ authToken   = data.token;
+ currentUser = data.user;
+ localStorage.setItem('authToken', authToken);
+ localStorage.setItem('currentUser', JSON.stringify(currentUser));
+ init();
+}
+
+function sair() {
+ authToken   = null;
+ currentUser = null;
+ localStorage.removeItem('authToken');
+ localStorage.removeItem('currentUser');
+ mostrarLogin();
 }
 
 async function loadLabels() {
@@ -45,7 +118,7 @@ function navegarPara(page) {
 
 // ── Templates ─────────────────────────────────────────────────────
 async function loadTemplates() {
- const res = await fetch('/api/templates');
+ const res = await fetch('/api/templates'); // público
  templates = await res.json();
 }
 
@@ -117,7 +190,7 @@ function scrollGaleria(dir) {
 
 // ── Imóveis ───────────────────────────────────────────────────────
 async function loadImoveis() {
- const res = await fetch('/api/imoveis');
+ const res = await authFetch('/api/imoveis');
  imoveis = await res.json();
 }
 
@@ -254,7 +327,7 @@ async function gerarPrevia() {
  btn.textContent = 'Gerando...';
  document.getElementById('previaWrap').style.display = 'none';
  try {
-  const res  = await fetch('/api/previa', {
+  const res  = await authFetch('/api/previa', {
    method: 'POST',
    headers: { 'Content-Type': 'application/json' },
    body: JSON.stringify({ templateId: selectedTemplateId, imovelId: selectedImovelId }),
@@ -299,7 +372,7 @@ async function gerarArte(textosPrevia = null) {
  document.getElementById('resultadoWrap').style.display = 'none';
 
  try {
- const res = await fetch('/api/gerar', {
+ const res = await authFetch('/api/gerar', {
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
  body: JSON.stringify({ templateId: selectedTemplateId, imovelId: selectedImovelId, textosPrevia }),
@@ -388,7 +461,7 @@ async function uploadFotoSlot(input, imovelId, slot) {
  'endereco','bairro','cidade','estado','destaque','diferenciais','descricao'];
  const body = {};
  campos.forEach(c => { body[c] = form.elements[c]?.value || ''; });
- const res = await fetch('/api/imoveis', {
+ const res = await authFetch('/api/imoveis', {
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
  body: JSON.stringify(body),
@@ -406,7 +479,7 @@ async function uploadFotoSlot(input, imovelId, slot) {
 
  const fd = new FormData();
  fd.append('foto', file);
- const res = await fetch(`/api/imoveis/${id}/foto/${slot}`, { method: 'POST', body: fd });
+ const res = await authFetch(`/api/imoveis/${id}/foto/${slot}`, { method: 'POST', body: fd });
  if (!res.ok) { toast('Erro ao enviar foto', 'error'); return; }
  const updated = await res.json();
 
@@ -417,7 +490,7 @@ async function uploadFotoSlot(input, imovelId, slot) {
 
 async function removerFotoSlot(imovelId, slot) {
  if (!imovelId) return;
- await fetch(`/api/imoveis/${imovelId}/foto/${slot}`, { method: 'DELETE' });
+ await authFetch(`/api/imoveis/${imovelId}/foto/${slot}`, { method: 'DELETE' });
  await loadImoveis();
  const im = imoveis.find(i => i.id === imovelId);
  renderFotoSlots(im?.fotos || {}, imovelId);
@@ -444,7 +517,7 @@ async function salvarImovel(e) {
 
  const url = id ? `/api/imoveis/${id}` : '/api/imoveis';
  const method = id ? 'PUT' : 'POST';
- const res = await fetch(url, {
+ const res = await authFetch(url, {
  method,
  headers: { 'Content-Type': 'application/json' },
  body: JSON.stringify(body),
@@ -460,7 +533,7 @@ async function salvarImovel(e) {
 
 async function deletarImovel(id) {
  if (!confirm('Excluir este imóvel?')) return;
- await fetch(`/api/imoveis/${id}`, { method: 'DELETE' });
+ await authFetch(`/api/imoveis/${id}`, { method: 'DELETE' });
  await loadImoveis();
  renderImoveisGrid();
  if (selectedImovelId === id) { selectedImovelId = null; atualizarResumo(); }
@@ -469,7 +542,7 @@ async function deletarImovel(id) {
 
 // ── Perfil ────────────────────────────────────────────────────────
 async function loadPerfil() {
- const res = await fetch('/api/perfil');
+ const res = await authFetch('/api/perfil');
  const perfil = await res.json();
  const form = document.getElementById('perfilForm');
  Object.keys(perfil).forEach(k => {
@@ -486,7 +559,7 @@ async function loadPerfil() {
 async function salvarPerfil(e) {
  e.preventDefault();
  const fd = new FormData(e.target);
- const res = await fetch('/api/perfil', { method: 'PUT', body: fd });
+ const res = await authFetch('/api/perfil', { method: 'PUT', body: fd });
  if (!res.ok) { toast('Erro ao salvar perfil', 'error'); return; }
  toast('Perfil salvo!', 'success');
 }
@@ -512,7 +585,7 @@ async function salvarNaGaleria() {
  const t = templates.find(t => t.id === selectedTemplateId);
  const im = imoveis.find(i => i.id === selectedImovelId);
  try {
- const res = await fetch('/api/galeria', {
+ const res = await authFetch('/api/galeria', {
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
  body: JSON.stringify({
@@ -534,7 +607,7 @@ async function salvarNaGaleria() {
 
 async function loadGaleria() {
  try {
- const res = await fetch('/api/galeria');
+ const res = await authFetch('/api/galeria');
  galeria = await res.json();
  renderGaleriaGrid();
  } catch { /* silencioso */ }
@@ -568,7 +641,7 @@ function renderGaleriaGrid() {
 async function deletarDaGaleria(id) {
  if (!confirm('Remover esta arte da galeria?')) return;
  try {
- await fetch(`/api/galeria/${id}`, { method: 'DELETE' });
+ await authFetch(`/api/galeria/${id}`, { method: 'DELETE' });
  galeria = galeria.filter(i => i.id !== id);
  renderGaleriaGrid();
  toast('Arte removida', 'success');

@@ -7,6 +7,10 @@ const http       = require('http');
 const OpenAI     = require('openai');
 const { createClient } = require('@supabase/supabase-js');
 const cloudinary = require('cloudinary').v2;
+const bcrypt     = require('bcryptjs');
+const jwt        = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'imoveis-secret-key-change-in-prod';
 
 const app    = express();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -159,11 +163,71 @@ function adminAuth(req, res, next) {
   next();
 }
 
+// ── User auth middleware ──────────────────────────────────────────────────────
+function userAuth(req, res, next) {
+  const header = req.headers['authorization'] || '';
+  const token  = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!token) return res.status(401).json({ error: 'Não autenticado' });
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    res.status(401).json({ error: 'Token inválido ou expirado' });
+  }
+}
+
 // ── ADMIN: Login ──────────────────────────────────────────────────────────────
 app.post('/api/admin/login', (req, res) => {
   if (req.body.password !== process.env.ADMIN_PASSWORD)
     return res.status(401).json({ error: 'Senha incorreta' });
   res.json({ ok: true });
+});
+
+// ── AUTH: Cadastro e Login ────────────────────────────────────────────────────
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password, nome } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email e senha obrigatórios' });
+    if (password.length < 6)  return res.status(400).json({ error: 'Senha deve ter ao menos 6 caracteres' });
+
+    const { data: existing } = await supabase.from('usuarios').select('id').eq('email', email.toLowerCase()).single();
+    if (existing) return res.status(400).json({ error: 'Email já cadastrado' });
+
+    const senha_hash = await bcrypt.hash(password, 10);
+    const { data, error } = await supabase.from('usuarios').insert({
+      email: email.toLowerCase(),
+      senha_hash,
+      nome: nome || '',
+    }).select('id, email, nome').single();
+
+    if (error) throw new Error(error.message);
+
+    // Cria perfil vazio para o novo usuário
+    await supabase.from('perfil').insert({ user_id: data.id });
+
+    const token = jwt.sign({ id: data.id, email: data.email }, JWT_SECRET, { expiresIn: '30d' });
+    res.status(201).json({ token, user: { id: data.id, email: data.email, nome: data.nome } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email e senha obrigatórios' });
+
+    const { data: user } = await supabase.from('usuarios').select('*').eq('email', email.toLowerCase()).single();
+    if (!user) return res.status(401).json({ error: 'Email ou senha incorretos' });
+
+    const ok = await bcrypt.compare(password, user.senha_hash);
+    if (!ok) return res.status(401).json({ error: 'Email ou senha incorretos' });
+
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ token, user: { id: user.id, email: user.email, nome: user.nome } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── ADMIN: Templates ──────────────────────────────────────────────────────────
@@ -337,19 +401,18 @@ app.get('/api/angle-labels',  (_, res) => res.json(ANGLE_LABELS_PT));
 app.get('/api/photo-slots',   (_, res) => res.json(PHOTO_SLOTS));
 
 // ── PERFIL ────────────────────────────────────────────────────────────────────
-app.get('/api/perfil', async (_, res) => {
-  const { data, error } = await supabase.from('perfil').select('*').eq('id', 1).single();
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+app.get('/api/perfil', userAuth, async (req, res) => {
+  const { data } = await supabase.from('perfil').select('*').eq('user_id', req.user.id).single();
+  res.json(data || {});
 });
 
-app.put('/api/perfil', upload.single('logo'), async (req, res) => {
+app.put('/api/perfil', userAuth, upload.single('logo'), async (req, res) => {
   const campos = ['nome','slogan','creci','telefone','whatsapp','email','site'];
   const updates = {};
   campos.forEach(c => { if (req.body[c] !== undefined) updates[c] = req.body[c]; });
 
   if (req.file) {
-    const { data: old } = await supabase.from('perfil').select('logo').eq('id', 1).single();
+    const { data: old } = await supabase.from('perfil').select('logo').eq('user_id', req.user.id).single();
     if (old?.logo) {
       const pid = cloudinaryPublicId(old.logo);
       if (pid) await cloudinary.uploader.destroy(pid).catch(() => {});
@@ -358,29 +421,34 @@ app.put('/api/perfil', upload.single('logo'), async (req, res) => {
     updates.logo = result.secure_url;
   }
 
-  const { data, error } = await supabase
-    .from('perfil').update(updates).eq('id', 1).select().single();
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  const { data: existing } = await supabase.from('perfil').select('id').eq('user_id', req.user.id).single();
+  let result;
+  if (existing) {
+    result = await supabase.from('perfil').update(updates).eq('user_id', req.user.id).select().single();
+  } else {
+    result = await supabase.from('perfil').insert({ ...updates, user_id: req.user.id }).select().single();
+  }
+  if (result.error) return res.status(500).json({ error: result.error.message });
+  res.json(result.data);
 });
 
 // ── IMÓVEIS ───────────────────────────────────────────────────────────────────
-app.get('/api/imoveis', async (_, res) => {
+app.get('/api/imoveis', userAuth, async (req, res) => {
   const { data, error } = await supabase
-    .from('imoveis').select('*').order('criado_em', { ascending: false });
+    .from('imoveis').select('*').eq('user_id', req.user.id).order('criado_em', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
   res.json(data.map(fromDb));
 });
 
-app.get('/api/imoveis/:id', async (req, res) => {
+app.get('/api/imoveis/:id', userAuth, async (req, res) => {
   const { data, error } = await supabase
-    .from('imoveis').select('*').eq('id', req.params.id).single();
+    .from('imoveis').select('*').eq('id', req.params.id).eq('user_id', req.user.id).single();
   if (error) return res.status(404).json({ error: 'Não encontrado' });
   res.json(fromDb(data));
 });
 
 // Upload de foto por slot: POST /api/imoveis/:id/foto/:slot
-app.post('/api/imoveis/:id/foto/:slot', upload.single('foto'), async (req, res) => {
+app.post('/api/imoveis/:id/foto/:slot', userAuth, upload.single('foto'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Foto obrigatória' });
     const slot = req.params.slot;
@@ -411,7 +479,7 @@ app.post('/api/imoveis/:id/foto/:slot', upload.single('foto'), async (req, res) 
 });
 
 // Remove foto de um slot: DELETE /api/imoveis/:id/foto/:slot
-app.delete('/api/imoveis/:id/foto/:slot', async (req, res) => {
+app.delete('/api/imoveis/:id/foto/:slot', userAuth, async (req, res) => {
   const { data: existing } = await supabase
     .from('imoveis').select('fotos').eq('id', req.params.id).single();
   if (!existing) return res.status(404).json({ error: 'Não encontrado' });
@@ -438,16 +506,16 @@ const IMOVEL_CAMPOS = [
   'endereco','bairro','cidade','estado','destaque','diferenciais','descricao',
 ];
 
-app.post('/api/imoveis', async (req, res) => {
+app.post('/api/imoveis', userAuth, async (req, res) => {
   try {
     const fields = {};
     IMOVEL_CAMPOS.forEach(c => { fields[c] = req.body[c] || ''; });
     if (req.body.totalAndares !== undefined) fields.total_andares = req.body.totalAndares;
 
     const { data, error } = await supabase.from('imoveis').insert({
-      id: Date.now().toString(),
       ...fields,
       fotos: {},
+      user_id: req.user.id,
     }).select().single();
 
     if (error) throw new Error(error.message);
@@ -457,7 +525,7 @@ app.post('/api/imoveis', async (req, res) => {
   }
 });
 
-app.put('/api/imoveis/:id', async (req, res) => {
+app.put('/api/imoveis/:id', userAuth, async (req, res) => {
   try {
     const updates = {};
     IMOVEL_CAMPOS.forEach(c => { if (req.body[c] !== undefined) updates[c] = req.body[c]; });
@@ -472,9 +540,9 @@ app.put('/api/imoveis/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/imoveis/:id', async (req, res) => {
+app.delete('/api/imoveis/:id', userAuth, async (req, res) => {
   const { data, error } = await supabase
-    .from('imoveis').delete().eq('id', req.params.id).select().single();
+    .from('imoveis').delete().eq('id', req.params.id).eq('user_id', req.user.id).select().single();
   if (error) return res.status(404).json({ error: 'Não encontrado' });
   for (const url of Object.values(data.fotos || {})) {
     const pid = cloudinaryPublicId(url);
@@ -484,7 +552,7 @@ app.delete('/api/imoveis/:id', async (req, res) => {
 });
 
 // ── PRÉVIA DE TEXTO ───────────────────────────────────────────────────────────
-app.post('/api/previa', async (req, res) => {
+app.post('/api/previa', userAuth, async (req, res) => {
   try {
     const { templateId, imovelId } = req.body;
 
@@ -496,7 +564,7 @@ app.post('/api/previa', async (req, res) => {
     if (!imRow) return res.status(400).json({ error: 'Imóvel não encontrado' });
     const imovel = fromDb(imRow);
 
-    const { data: perfil } = await supabase.from('perfil').select('*').eq('id', 1).single();
+    const { data: perfil } = await supabase.from('perfil').select('*').eq('user_id', req.user.id).single();
 
     const fieldData = FIELD_DATA(imovel);
     const mapa = template.mapa || {};
@@ -571,7 +639,7 @@ const FIELD_DATA = (imovel) => {
   };
 };
 
-app.post('/api/gerar', async (req, res) => {
+app.post('/api/gerar', userAuth, async (req, res) => {
   try {
     const { templateId, imovelId, textosPrevia } = req.body;
 
@@ -579,11 +647,11 @@ app.post('/api/gerar', async (req, res) => {
     if (!tRow) return res.status(400).json({ error: 'Template inválido' });
     const template = fromDb(tRow);
 
-    const { data: imRow } = await supabase.from('imoveis').select('*').eq('id', imovelId).single();
+    const { data: imRow } = await supabase.from('imoveis').select('*').eq('id', imovelId).eq('user_id', req.user.id).single();
     if (!imRow) return res.status(400).json({ error: 'Imóvel não encontrado' });
     const imovel = fromDb(imRow);
 
-    const { data: perfil } = await supabase.from('perfil').select('*').eq('id', 1).single();
+    const { data: perfil } = await supabase.from('perfil').select('*').eq('user_id', req.user.id).single();
 
     const templateImg = await imageB64FromUrl(template.imageUrl);
     if (!templateImg) return res.status(500).json({ error: 'Não foi possível carregar o template' });
@@ -694,14 +762,14 @@ Regras:
 });
 
 // ── Galeria ───────────────────────────────────────────────────────────────────
-app.get('/api/galeria', async (req, res) => {
+app.get('/api/galeria', userAuth, async (req, res) => {
   const { data, error } = await supabase
-    .from('galeria').select('*').order('criado_em', { ascending: false });
+    .from('galeria').select('*').eq('user_id', req.user.id).order('criado_em', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
   res.json(data.map(fromDb));
 });
 
-app.post('/api/galeria', async (req, res) => {
+app.post('/api/galeria', userAuth, async (req, res) => {
   try {
     const { imageData, templateNome, imovelTitulo } = req.body;
     if (!imageData) return res.status(400).json({ error: 'imageData obrigatório' });
@@ -714,6 +782,7 @@ app.post('/api/galeria', async (req, res) => {
       image_url:     result.secure_url,
       template_nome: templateNome || null,
       imovel_titulo: imovelTitulo || null,
+      user_id:       req.user.id,
     }).select().single();
 
     if (error) throw new Error(error.message);
@@ -723,13 +792,13 @@ app.post('/api/galeria', async (req, res) => {
   }
 });
 
-app.delete('/api/galeria/:id', async (req, res) => {
-  const { data } = await supabase.from('galeria').select('image_url').eq('id', req.params.id).single();
+app.delete('/api/galeria/:id', userAuth, async (req, res) => {
+  const { data } = await supabase.from('galeria').select('image_url').eq('id', req.params.id).eq('user_id', req.user.id).single();
   if (data?.image_url) {
     const pid = cloudinaryPublicId(data.image_url);
     if (pid) await cloudinary.uploader.destroy(pid).catch(() => {});
   }
-  await supabase.from('galeria').delete().eq('id', req.params.id);
+  await supabase.from('galeria').delete().eq('id', req.params.id).eq('user_id', req.user.id);
   res.json({ ok: true });
 });
 

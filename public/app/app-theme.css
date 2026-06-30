@@ -111,6 +111,19 @@ a, .btn-link { color: #fff; }
  .gallery-card { width: 72vw; }
 }
 
+/* ── Auth tabs ───────────────────────────────────────────────── */
+#tabLogin.active, #tabCadastro.active {
+ color: var(--text);
+ border-bottom-color: #fff !important;
+}
+#tabLogin:not(.active), #tabCadastro:not(.active) {
+ color: var(--text-muted);
+ border-bottom-color: transparent !important;
+}
+
+/* ── Sidebar: usuário + sair ─────────────────────────────────── */
+.sidebar { display: flex; flex-direction: column; }
+
 /* ── Botao outline (Ver previa) ──────────────────────────────── */
 .btn-outline {
  width: 100%; padding: 14px; border-radius: var(--radius);
