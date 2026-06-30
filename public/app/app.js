@@ -193,14 +193,12 @@ function selecionarImovel(id) {
 
 function atualizarResumo() {
  const resumo = document.getElementById('gerarResumo');
- const btn = document.getElementById('btnGerar');
  const btnP = document.getElementById('btnPrevia');
  const t = templates.find(t => t.id === selectedTemplateId);
  const im = imoveis.find(i => i.id === selectedImovelId);
 
  if (!t || !im) {
  resumo.innerHTML = '<p class="resumo-hint">Selecione template e imóvel para continuar</p>';
- btn.disabled = true;
  if (btnP) btnP.disabled = true;
  return;
  }
@@ -239,7 +237,6 @@ function atualizarResumo() {
  ${avisoFalta}
  </div>`;
 
- btn.disabled = faltando.length > 0;
  if (btnP) btnP.disabled = faltando.length > 0;
 }
 

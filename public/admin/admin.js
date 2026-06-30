@@ -305,6 +305,28 @@ async function uploadTemplate() {
 
 // â”€â”€ Toast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+// ── Analisar transcrição de um template específico ──────────────────
+async function analisarEsteTemplate() {
+  const btn = document.getElementById('btnAnalisarEste');
+  btn.disabled = true;
+  btn.textContent = 'Analisando...';
+  try {
+    const res = await fetch(`/api/admin/templates/${editingId}/gerar-transcricao`, {
+      method: 'POST',
+      headers: { 'x-admin-password': adminPassword },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    document.getElementById('editTranscricao').value = data.transcricao;
+    toast('Transcricao gerada!', 'success');
+  } catch (err) {
+    toast('Erro: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Analisar com IA';
+  }
+}
+
 // ── Gerar transcrições em lote ──────────────────────────────────────
 async function gerarTranscricoes() {
   const btn = document.getElementById('btnGerarTranscricoes');
@@ -326,7 +348,6 @@ async function gerarTranscricoes() {
     } else {
       toast(data.atualizados + ' de ' + data.total + ' template(s) analisado(s).', 'success');
     }
-    console.log('Resultado transcricoes:', data);
     await carregarTemplates();
   } catch (err) {
     toast('Erro: ' + err.message, 'error');

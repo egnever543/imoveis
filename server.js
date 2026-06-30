@@ -22,7 +22,6 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const sharp  = require('sharp');
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(express.json());
@@ -240,6 +239,35 @@ app.post('/api/admin/templates/:id/editar-ia', adminAuth, upload.single('imagem'
       .eq('id', req.params.id).select().single();
     if (error) throw new Error(error.message);
     res.json(fromDb(data));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/templates/:id/gerar-transcricao', adminAuth, async (req, res) => {
+  try {
+    const { data: t } = await supabase.from('templates').select('id, nome, image_url').eq('id', req.params.id).single();
+    if (!t) return res.status(404).json({ error: 'Template não encontrado' });
+
+    const img = await imageB64FromUrl(t.image_url);
+    if (!img) return res.status(400).json({ error: 'Não foi possível carregar a imagem' });
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: `data:${img.mime};base64,${img.b64}` } },
+          { type: 'text', text: `Transcreva TODO o texto visível nesta imagem de marketing imobiliário, exatamente como aparece — incluindo headlines, labels, valores placeholder, slogans e qualquer outro texto. Preserve a capitalização original. Separe blocos de texto por linha. Não inclua descrições, apenas o texto em si.` },
+        ],
+      }],
+    });
+
+    const transcricao = completion.choices[0].message.content.trim();
+    const { error: upErr } = await supabase.from('templates').update({ transcricao }).eq('id', t.id);
+    if (upErr) throw new Error('Supabase update: ' + upErr.message);
+
+    res.json({ ok: true, transcricao });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

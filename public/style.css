@@ -65,8 +65,6 @@ body {
 }
 .nav-item:hover  { background: #334155; color: var(--text); }
 .nav-item.active { background: var(--primary); color: #fff; }
-.nav-icon { font-size: 1rem; }
-
 /* ── CONTENT ─────────────────────────────────────────────────── */
 .content {
   margin-left: var(--sidebar-w);
