@@ -111,6 +111,22 @@ a, .btn-link { color: #fff; }
  .gallery-card { width: 72vw; }
 }
 
+/* ── Login wrap ──────────────────────────────────────────────── */
+.login-wrap {
+ min-height: 100vh;
+ display: flex;
+ align-items: center;
+ justify-content: center;
+ padding: 16px;
+ background: var(--bg);
+}
+.login-wrap input[type="email"],
+.login-wrap input[type="password"],
+.login-wrap input[type="text"] {
+ width: 100%;
+ box-sizing: border-box;
+}
+
 /* ── Auth tabs ───────────────────────────────────────────────── */
 #tabLogin.active, #tabCadastro.active {
  color: var(--text);
