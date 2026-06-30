@@ -109,9 +109,10 @@ const ANGLE_LABELS_PT = Object.fromEntries(PHOTO_SLOTS.map(s => [s.key, s.label]
 
 // ── Prompt análise template ───────────────────────────────────────────────────
 const ANALYZE_PROMPT = `Analyze this real estate marketing banner template image carefully.
-Identify which data fields are visually present as content areas, text blocks, icons or placeholders.
 
-Return ONLY a valid JSON object with a "fields" array. Use exclusively these field names:
+Return ONLY a valid JSON object with two keys: "fields" and "mapa".
+
+1. "fields": array of field names present in the template. Use exclusively these names:
 - "titulo"        — property title or name
 - "preco"         — total sale price
 - "entrada"       — down payment amount
@@ -130,7 +131,16 @@ Return ONLY a valid JSON object with a "fields" array. Use exclusively these fie
 - "foto_imovel"   — area displaying a property photo
 - "logo"          — agency/brand logo area
 
-Example: {"fields": ["titulo", "preco", "parcela", "quartos", "localizacao", "foto_imovel", "logo"]}`;
+2. "mapa": a plain text description (in Portuguese) of exactly how each replaceable element appears in this specific template image — its literal current value and where/how it appears. This will be used later as a precise guide for substitution. Be specific: mention the actual text visible, its context and position.
+
+Example of "mapa":
+"- localizacao: a cidade 'Patos de Minas' aparece embutida na frase 'APARTAMENTOS EM PATOS DE MINAS' no topo esquerdo da imagem
+- entrada: o valor aparece após o label 'Entrada:' em destaque no centro
+- parcela: o valor aparece após o label 'Mensais:' logo abaixo da entrada
+- logo: logotipo da imobiliária no canto superior direito
+- foto_imovel: foto da fachada do empreendimento ocupando a metade inferior da imagem"
+
+Example output: {"fields": ["entrada", "parcela", "localizacao", "foto_imovel", "logo"], "mapa": "- localizacao: ...\\n- entrada: ..."}`;
 
 // ── Admin auth ────────────────────────────────────────────────────────────────
 function adminAuth(req, res, next) {
@@ -176,6 +186,7 @@ app.post('/api/admin/templates', adminAuth, upload.single('imagem'), async (req,
     });
     const parsed = JSON.parse(analysis.choices[0].message.content);
     const fields = Array.isArray(parsed.fields) ? parsed.fields : [];
+    const mapa   = typeof parsed.mapa === 'string' ? parsed.mapa : '';
 
     const result = await cloudinaryUpload(buf, 'templates');
     const { data, error } = await supabase.from('templates').insert({
@@ -184,6 +195,7 @@ app.post('/api/admin/templates', adminAuth, upload.single('imagem'), async (req,
       image_url: result.secure_url,
       fields,
       angulos:   [],
+      mapa,
     }).select().single();
 
     if (error) throw new Error(error.message);
@@ -195,11 +207,12 @@ app.post('/api/admin/templates', adminAuth, upload.single('imagem'), async (req,
 });
 
 app.patch('/api/admin/templates/:id', adminAuth, async (req, res) => {
-  const { nome, fields, angulos } = req.body;
+  const { nome, fields, angulos, mapa } = req.body;
   const update = {};
   if (nome    !== undefined) update.nome    = nome;
   if (fields  !== undefined) update.fields  = fields;
   if (angulos !== undefined) update.angulos = angulos;
+  if (mapa    !== undefined) update.mapa    = mapa;
   const { data, error } = await supabase
     .from('templates').update(update).eq('id', req.params.id).select().single();
   if (error) return res.status(400).json({ error: error.message });
@@ -466,18 +479,21 @@ app.post('/api/gerar', async (req, res) => {
       `Image ${imgOrder[`foto_${i}`]}: property photo (${ANGLE_LABELS_PT[s.ang] || s.ang}) — place in the photo area of the template.`
     ).join('\n');
 
-    const mensagem = `Você recebeu um template de marketing imobiliário (Imagem ${imgOrder.template}). Quero recriar a exata mesma imagem, porém com os meus dados abaixo.
+    const mapaStr = template.mapa
+      ? `\nMapa de elementos deste template (onde cada dado aparece na imagem):\n${template.mapa}\n`
+      : '';
 
+    const mensagem = `Você recebeu um template de marketing imobiliário (Imagem ${imgOrder.template}). Quero recriar a exata mesma imagem, porém com os meus dados abaixo.
+${mapaStr}
 Meus dados:
 ${dados || '(nenhum)'}
 - Para a foto do imóvel: Imagem ${fotoSlots.length ? imgOrder['foto_0'] : '(não fornecida)'}
 - Para o logo: Imagem ${logoImg ? imgOrder.logo : '(não fornecida)'}
 
 Instruções:
-- Entenda na imagem onde estão os textos de localização, valores, endereço, chamada principal e logo, e substitua pelos meus dados acima.
+- Use o mapa acima para localizar com precisão onde cada elemento aparece neste template específico e substitua pelo meu dado correspondente.
 - Mantenha exatamente a mesma fonte, cor e tamanho de cada texto — só o conteúdo muda, o estilo visual permanece idêntico.
-- É uma troca simples de valores. Importante: nomes de cidade e localização podem aparecer embutidos dentro de frases do template, como "APARTAMENTOS EM [CIDADE]" ou "Imóveis em [CIDADE]" — nesse caso substitua só o nome da cidade, mantendo o restante da frase intacto. Nunca deixe a cidade original do template, sempre use a minha.
-- Não adicione linhas ou blocos de texto novos. Se o dado já existe em algum lugar do template, substitua-o lá — não crie um segundo lugar para ele.
+- Não adicione linhas ou blocos de texto novos. Substitua sempre no mesmo lugar onde o valor original está.
 - Para a foto: use exatamente a imagem fornecida, sem recriar nem gerar um novo prédio.
 - Para o logo: use exatamente a imagem fornecida, integrando naturalmente ao fundo sem caixa branca.
 - Todo o resto — layout, cores de fundo, formas decorativas, espaçamentos — deve ser pixel a pixel igual ao original.

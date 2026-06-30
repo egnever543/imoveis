@@ -118,6 +118,7 @@ function abrirEdicao(id) {
   }).join('');
 
   renderAngulosEdit((t.fields || []).includes('foto_imovel'), t.angulos || []);
+  document.getElementById('editMapa').value = t.mapa || '';
   document.getElementById('editModal').style.display = 'flex';
 }
 
@@ -167,6 +168,7 @@ async function salvarEdicao() {
   const nome    = document.getElementById('editNome').value.trim();
   const fields  = [...document.querySelectorAll('#editFieldsWrap input:checked')].map(cb => cb.value);
   const angulos = [...document.querySelectorAll('#editAngulosWrap input:checked')].map(cb => cb.value);
+  const mapa    = document.getElementById('editMapa').value.trim();
   const imgFile = document.getElementById('editImgInput').files[0];
 
   const btn = document.querySelector('#editModal .btn-primary');
@@ -190,7 +192,7 @@ async function salvarEdicao() {
     const res = await fetch(`/api/admin/templates/${editingId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
-      body: JSON.stringify({ nome, fields, angulos }),
+      body: JSON.stringify({ nome, fields, angulos, mapa }),
     });
     if (!res.ok) { toast('Erro ao salvar', 'error'); return; }
 
