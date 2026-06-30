@@ -98,6 +98,8 @@ function fromDb(row) {
     }
     r.mapa = r.mapa || {};
   }
+  if ('template_nome' in r) { r.templateNome = r.template_nome; delete r.template_nome; }
+  if ('imovel_titulo' in r) { r.imovelTitulo = r.imovel_titulo; delete r.imovel_titulo; }
   return r;
 }
 
@@ -216,12 +218,13 @@ app.post('/api/admin/templates', adminAuth, upload.single('imagem'), async (req,
 });
 
 app.patch('/api/admin/templates/:id', adminAuth, async (req, res) => {
-  const { nome, fields, angulos, mapa } = req.body;
+  const { nome, fields, angulos, mapa, transcricao } = req.body;
   const update = {};
-  if (nome    !== undefined) update.nome    = nome;
-  if (fields  !== undefined) update.fields  = fields;
-  if (angulos !== undefined) update.angulos = angulos;
-  if (mapa    !== undefined) update.mapa    = typeof mapa === 'object' ? JSON.stringify(mapa) : mapa;
+  if (nome        !== undefined) update.nome        = nome;
+  if (fields      !== undefined) update.fields      = fields;
+  if (angulos     !== undefined) update.angulos     = angulos;
+  if (mapa        !== undefined) update.mapa        = typeof mapa === 'object' ? JSON.stringify(mapa) : mapa;
+  if (transcricao !== undefined) update.transcricao = transcricao;
   const { data, error } = await supabase
     .from('templates').update(update).eq('id', req.params.id).select().single();
   if (error) return res.status(400).json({ error: error.message });
@@ -410,6 +413,71 @@ app.delete('/api/imoveis/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── PRÉVIA DE TEXTO ───────────────────────────────────────────────────────────
+app.post('/api/previa', async (req, res) => {
+  try {
+    const { templateId, imovelId } = req.body;
+
+    const { data: tRow } = await supabase.from('templates').select('*').eq('id', templateId).single();
+    if (!tRow) return res.status(400).json({ error: 'Template inválido' });
+    const template = fromDb(tRow);
+
+    const { data: imRow } = await supabase.from('imoveis').select('*').eq('id', imovelId).single();
+    if (!imRow) return res.status(400).json({ error: 'Imóvel não encontrado' });
+    const imovel = fromDb(imRow);
+
+    const { data: perfil } = await supabase.from('perfil').select('*').eq('id', 1).single();
+
+    const fieldData = FIELD_DATA(imovel);
+    const mapa = template.mapa || {};
+    const camposTexto = (template.fields || []).filter(f => !['foto_imovel', 'logo'].includes(f));
+
+    const dadosImovel = camposTexto
+      .map(f => { const v = fieldData[f]; return v ? `- ${FIELD_LABELS_PT[f] || f}: ${v.split(' → ')[1]?.replace(/"/g,'') || v}` : null; })
+      .filter(Boolean).join('\n');
+
+    const mapaDesc = camposTexto
+      .filter(f => mapa[f])
+      .map(f => `- ${FIELD_LABELS_PT[f] || f}: ${mapa[f]}`)
+      .join('\n');
+
+    const PREVIA_PROMPT = `Você é um especialista em marketing imobiliário. Sua tarefa é gerar os textos finais exatos para um banner/arte imobiliária.
+
+Você receberá:
+1. A transcrição do template (como os textos aparecem no original)
+2. Os dados do novo imóvel
+3. Onde cada elemento aparece no template
+
+Gere um JSON onde cada chave é o nome do campo e o valor é o texto final EXATO e completo como deve aparecer na imagem — já com capitalização correta, preposições ajustadas, formatação e contexto da frase completa.
+
+Transcrição do template:
+${template.transcricao || '(não informada)'}
+
+Dados do novo imóvel:
+${dadosImovel || '(nenhum)'}
+
+Localização de cada campo no template:
+${mapaDesc || '(não informado)'}
+
+Imobiliária: ${perfil?.nome || ''}
+
+Retorne SOMENTE um JSON válido com os campos: ${camposTexto.join(', ')}
+Exemplo: {"cidade": "TERRENOS EM ITAPOÁ, SC", "entrada": "ENTRADA: R$ 80 mil", "parcela": "MENSAIS: R$ 4.200"}`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      response_format: { type: 'json_object' },
+      messages: [{ role: 'user', content: PREVIA_PROMPT }],
+    });
+
+    const textos = JSON.parse(completion.choices[0].message.content);
+    res.json({ textos, campos: camposTexto.map(f => ({ key: f, label: FIELD_LABELS_PT[f] || f })) });
+  } catch (err) {
+    console.error('Erro prévia:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── GERAÇÃO DE ARTE ───────────────────────────────────────────────────────────
 const FIELD_DATA = (imovel) => {
   const localizacao = [imovel.bairro, imovel.estado].filter(Boolean).join(', ');
@@ -435,7 +503,7 @@ const FIELD_DATA = (imovel) => {
 
 app.post('/api/gerar', async (req, res) => {
   try {
-    const { templateId, imovelId } = req.body;
+    const { templateId, imovelId, textosPrevia } = req.body;
 
     const { data: tRow } = await supabase.from('templates').select('*').eq('id', templateId).single();
     if (!tRow) return res.status(400).json({ error: 'Template inválido' });
@@ -491,19 +559,20 @@ app.post('/api/gerar', async (req, res) => {
       `Image ${imgOrder[`foto_${i}`]}: property photo (${ANGLE_LABELS_PT[s.ang] || s.ang}) — place in the photo area of the template.`
     ).join('\n');
 
-    // Monta substituições precisas usando o mapa do template
+    // Monta substituições — usa textosPrevia (pré-aprovados) se fornecidos
     const mapa = template.mapa || {};
     const substituicoes = template.fields
       .filter(f => !['foto_imovel', 'logo'].includes(f))
       .map(f => {
-        const valor = fieldData[f];
-        if (!valor) return null;
+        const textoFinal = textosPrevia?.[f];
+        const valorBruto = fieldData[f];
+        if (!textoFinal && !valorBruto) return null;
         const onde = mapa[f] ? `Localização no template: ${mapa[f]}` : `Campo: ${FIELD_LABELS_PT[f] || f}`;
-        const novoValor = valor.split(' → ')[1]?.replace(/"/g, '') || valor;
-        const instrucao = mapa[f]
-          ? `Reescreva a frase/título inteiro onde este elemento aparece, integrando "${novoValor}" de forma natural — ajuste preposições, capitalização e concordância conforme necessário, mantendo o mesmo estilo visual.`
-          : `Substitua pelo valor: "${novoValor}"`;
-        return `• ${onde}\n  ${instrucao}`;
+        if (textoFinal) {
+          return `• ${onde}\n  Substitua pelo texto exato: "${textoFinal}"`;
+        }
+        const novoValor = valorBruto.split(' → ')[1]?.replace(/"/g, '') || valorBruto;
+        return `• ${onde}\n  Reescreva a frase/título inteiro integrando "${novoValor}" de forma natural — ajuste preposições, capitalização e concordância.`;
       })
       .filter(Boolean)
       .join('\n\n');

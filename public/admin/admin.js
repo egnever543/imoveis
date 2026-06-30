@@ -115,6 +115,7 @@ function abrirEdicao(id) {
 
   renderAngulosEdit((t.fields || []).includes('foto_imovel'), t.angulos || []);
   renderMapaForm(t.fields || [], t.mapa || {}, t.angulos || []);
+  document.getElementById('editTranscricao').value = t.transcricao || '';
   document.getElementById('editModal').style.display = 'flex';
 }
 
@@ -192,8 +193,9 @@ function fecharModal(e) {
 
 async function salvarEdicao() {
   const nome    = document.getElementById('editNome').value.trim();
-  const fields  = [...document.querySelectorAll('#editFieldsWrap .checked')].map(d => d.dataset.value);
-  const angulos = [...document.querySelectorAll('#editAngulosWrap .checked')].map(d => d.dataset.value);
+  const fields      = [...document.querySelectorAll('#editFieldsWrap .checked')].map(d => d.dataset.value);
+  const angulos     = [...document.querySelectorAll('#editAngulosWrap .checked')].map(d => d.dataset.value);
+  const transcricao = document.getElementById('editTranscricao').value.trim();
   const mapa = {};
   document.querySelectorAll('#editMapaForm input[data-mapa-field]').forEach(inp => {
     if (inp.value.trim()) mapa[inp.dataset.mapaField] = inp.value.trim();
@@ -221,7 +223,7 @@ async function salvarEdicao() {
     const res = await fetch(`/api/admin/templates/${editingId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
-      body: JSON.stringify({ nome, fields, angulos, mapa }),
+      body: JSON.stringify({ nome, fields, angulos, mapa, transcricao }),
     });
     if (!res.ok) { toast('Erro ao salvar', 'error'); return; }
 

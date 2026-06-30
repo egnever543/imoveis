@@ -55,10 +55,23 @@
  <div class="gerar-resumo" id="gerarResumo">
  <p class="resumo-hint">Selecione template e imóvel para continuar</p>
  </div>
- <button class="btn-generate" id="btnGerar" disabled onclick="gerarArte()">Gerar Arte com IA
- </button>
+ <button class="btn-outline" id="btnPrevia" disabled onclick="gerarPrevia()">Ver previa de texto</button>
+ <button class="btn-generate" id="btnGerar" disabled onclick="gerarArte()">Gerar Arte com IA</button>
  </section>
 
+ </div>
+
+ <!-- Previa de texto -->
+ <div id="previaWrap" style="display:none" class="previa-wrap">
+ <div class="previa-header">
+ <h2 class="section-title">Previa de texto</h2>
+ <p class="previa-hint">Revise e edite os textos antes de gerar a arte.</p>
+ </div>
+ <div id="previaForm" class="previa-form"></div>
+ <div class="previa-actions">
+ <button class="btn-ghost" onclick="fecharPrevia()">Cancelar</button>
+ <button class="btn-generate" onclick="gerarArteComPrevia()">Gerar Arte com IA</button>
+ </div>
  </div>
 
  <!-- Resultado -->

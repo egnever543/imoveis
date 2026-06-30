@@ -111,6 +111,30 @@ a, .btn-link { color: #fff; }
  .gallery-card { width: 72vw; }
 }
 
+/* ── Botao outline (Ver previa) ──────────────────────────────── */
+.btn-outline {
+ width: 100%; padding: 14px; border-radius: var(--radius);
+ border: 1px solid var(--border-light); background: transparent;
+ color: var(--text); font-size: 1rem; font-weight: 600;
+ cursor: pointer; margin-bottom: 10px; transition: border-color 0.15s, color 0.15s;
+}
+.btn-outline:hover:not(:disabled) { border-color: #fff; color: #fff; }
+.btn-outline:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ── Previa de texto ─────────────────────────────────────────── */
+.previa-wrap {
+ margin-top: 28px; background: var(--bg-card);
+ border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;
+}
+.previa-header { margin-bottom: 16px; }
+.previa-hint { font-size: 0.83rem; color: var(--text-muted); margin-top: 4px; }
+.previa-form { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+.previa-actions {
+ display: flex; gap: 10px; padding-top: 16px; border-top: 1px solid var(--border);
+}
+.previa-actions .btn-generate { flex: 1; padding: 12px; font-size: 0.95rem; }
+.previa-actions .btn-ghost { flex-shrink: 0; }
+
 /* ── Galeria de artes salvas ─────────────────────────────────── */
 .galeria-grid {
  display: grid;

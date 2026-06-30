@@ -241,6 +241,14 @@
         <div id="editMapaForm" style="display:flex;flex-direction:column;gap:10px"></div>
       </div>
 
+      <div class="field" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+        <label>Transcricao do template</label>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin:6px 0 12px">Cole o texto exato como aparece na imagem — headlines, labels, valores placeholder. Sera usado para gerar a previa de texto antes de criar a arte.</p>
+        <textarea id="editTranscricao" rows="8"
+          style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:10px 12px;font-size:0.85rem;resize:vertical;line-height:1.5"
+          placeholder="Ex:&#10;TERRENOS NO CONTINENTAL, SC&#10;Sua casa de praia ou investimento AIRBNB no melhor destino do Brasil.&#10;LOTES DE ≋ 390 m²  |  ENTRADA: R$ 64 mil  |  MENSAIS: R$ 3.500"></textarea>
+      </div>
+
       <div class="modal-actions">
         <button class="btn-ghost" onclick="document.getElementById('editModal').style.display='none'">Cancelar</button>
         <button class="btn-primary" onclick="salvarEdicao()">Salvar</button>

@@ -194,12 +194,14 @@ function selecionarImovel(id) {
 function atualizarResumo() {
  const resumo = document.getElementById('gerarResumo');
  const btn = document.getElementById('btnGerar');
+ const btnP = document.getElementById('btnPrevia');
  const t = templates.find(t => t.id === selectedTemplateId);
  const im = imoveis.find(i => i.id === selectedImovelId);
 
  if (!t || !im) {
  resumo.innerHTML = '<p class="resumo-hint">Selecione template e imóvel para continuar</p>';
  btn.disabled = true;
+ if (btnP) btnP.disabled = true;
  return;
  }
 
@@ -238,6 +240,7 @@ function atualizarResumo() {
  </div>`;
 
  btn.disabled = faltando.length > 0;
+ if (btnP) btnP.disabled = faltando.length > 0;
 }
 
 function renderGerar() {
@@ -246,8 +249,54 @@ function renderGerar() {
  atualizarResumo();
 }
 
+// ── Previa de texto ───────────────────────────────────────────────
+async function gerarPrevia() {
+ if (!selectedTemplateId || !selectedImovelId) return;
+ const btn = document.getElementById('btnPrevia');
+ btn.disabled = true;
+ btn.textContent = 'Gerando...';
+ document.getElementById('previaWrap').style.display = 'none';
+ try {
+  const res  = await fetch('/api/previa', {
+   method: 'POST',
+   headers: { 'Content-Type': 'application/json' },
+   body: JSON.stringify({ templateId: selectedTemplateId, imovelId: selectedImovelId }),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error);
+  renderPreviaForm(data.campos, data.textos);
+  document.getElementById('previaWrap').style.display = 'block';
+  document.getElementById('previaWrap').scrollIntoView({ behavior: 'smooth' });
+ } catch (err) {
+  toast('Erro na previa: ' + err.message, 'error');
+ } finally {
+  btn.disabled = false;
+  btn.textContent = 'Ver previa de texto';
+ }
+}
+
+function renderPreviaForm(campos, textos) {
+ document.getElementById('previaForm').innerHTML = campos.map(({ key, label }) => `
+  <div class="field">
+   <label>${label}</label>
+   <input type="text" data-previa-key="${key}" value="${(textos[key] || '').replace(/"/g, '&quot;')}" />
+  </div>`).join('');
+}
+
+function fecharPrevia() {
+ document.getElementById('previaWrap').style.display = 'none';
+}
+
+async function gerarArteComPrevia() {
+ const textos = {};
+ document.querySelectorAll('#previaForm input[data-previa-key]').forEach(inp => {
+  if (inp.value.trim()) textos[inp.dataset.previaKey] = inp.value.trim();
+ });
+ await gerarArte(textos);
+}
+
 // ── Gerar Arte ────────────────────────────────────────────────────
-async function gerarArte() {
+async function gerarArte(textosPrevia = null) {
  if (!selectedTemplateId || !selectedImovelId) return;
  document.getElementById('loadingOverlay').style.display = 'flex';
  document.getElementById('resultadoWrap').style.display = 'none';
@@ -256,7 +305,7 @@ async function gerarArte() {
  const res = await fetch('/api/gerar', {
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify({ templateId: selectedTemplateId, imovelId: selectedImovelId }),
+ body: JSON.stringify({ templateId: selectedTemplateId, imovelId: selectedImovelId, textosPrevia }),
  });
  const data = await res.json();
  if (!res.ok || data.error) throw new Error(data.error);
