@@ -88,8 +88,8 @@ function renderTemplates(templates) {
         </div>
       </div>
       <div class="template-row-actions">
-        <button class="btn-ghost btn-sm"  onclick="abrirEdicao(${t.id})">âœï¸ Editar</button>
-        <button class="btn-danger btn-sm" onclick="deletarTemplate(${t.id}, '${t.nome.replace(/'/g,"\\'")}')">ðŸ—‘ Excluir</button>
+        <button class="btn-ghost btn-sm"  onclick="abrirEdicao(${t.id})">Editar</button>
+        <button class="btn-danger btn-sm" onclick="deletarTemplate(${t.id}, '${t.nome.replace(/'/g,"\\'")}')">Excluir</button>
       </div>
     </div>`).join('');
 }
