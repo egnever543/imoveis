@@ -124,7 +124,7 @@ function abrirEdicao(id) {
 
 function renderMapaForm(fields, mapa) {
   const wrap = document.getElementById('editMapaForm');
-  const editaveis = fields.filter(f => !['foto_imovel', 'logo'].includes(f));
+  const editaveis = fields.filter(f => f !== 'foto_imovel');
   if (!editaveis.length) { wrap.innerHTML = '<p style="font-size:0.8rem;color:var(--text-muted)">Nenhum campo de texto detectado.</p>'; return; }
   wrap.innerHTML = editaveis.map(f => `
     <div class="field">

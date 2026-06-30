@@ -512,7 +512,7 @@ ${substituicoes || '(nenhuma)'}
 
 • Foto do imóvel: substitua a foto atual pela Imagem ${fotoSlots.length ? imgOrder['foto_0'] : '(não fornecida)'} exatamente como fornecida — não gere nem recrie um prédio.
 
-• Logo: substitua o logo atual pela Imagem ${logoImg ? imgOrder.logo : '(não fornecida)'} exatamente como fornecida, integrando ao fundo sem caixa branca.
+• Logo: substitua o logo atual pela Imagem ${logoImg ? imgOrder.logo : '(não fornecida)'} exatamente como fornecida, integrando ao fundo sem caixa branca.${mapa['logo'] ? ` Localização no template: ${mapa['logo']}.` : ''}
 
 Regras:
 - Mantenha fonte, cor e tamanho de cada texto — só o conteúdo troca.
