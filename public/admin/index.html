@@ -3,130 +3,119 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin — Criativos Imobiliários</title>
+  <title>Admin — Templates</title>
   <link rel="stylesheet" href="../style.css" />
   <style>
+    /* ── Reset de tema para preto/branco ── */
+    :root {
+      --primary: #1a1a1a;
+      --primary-dark: #000;
+      --bg: #0a0a0a;
+      --bg-card: #161616;
+      --bg-input: #0a0a0a;
+      --border: #2a2a2a;
+      --border-light: #3d3d3d;
+      --text: #f5f5f5;
+      --text-muted: #8a8a8a;
+    }
+    .btn-primary { background: #fff; color: #000; }
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-ghost { border-color: var(--border-light); }
+
     body { display: block; }
     .admin-wrap { max-width: 900px; margin: 0 auto; padding: 32px 16px 80px; }
-    .admin-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; }
+
+    /* Header */
+    .admin-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 32px; flex-wrap: wrap; }
     .admin-header h1 { font-size: 1.4rem; font-weight: 700; }
     .admin-header p  { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
     .admin-header-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 
     /* Login */
-    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
-    .login-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 32px 28px; width: 100%; max-width: 360px; text-align: center; box-sizing: border-box; }
+    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .login-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 36px 28px; width: 100%; max-width: 360px; text-align: center; }
     .login-card h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; }
     .login-card p  { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 24px; }
-    .login-card input { width: 100%; margin-bottom: 14px; box-sizing: border-box; }
-    .login-error { color: var(--danger); font-size: 0.82rem; margin-top: 10px; }
+    .login-card input { width: 100%; margin-bottom: 14px; }
+    .login-error { color: var(--danger); font-size: 0.82rem; margin-top: 10px; min-height: 18px; }
 
-    /* Upload card */
+    /* Upload */
     .upload-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 28px; }
-    .upload-card h2 { font-size: 1rem; font-weight: 700; margin-bottom: 16px; }
-    .upload-row { display: flex; gap: 12px; align-items: flex-end; }
-    .upload-row .field { flex: 1; }
-    .upload-row button { flex-shrink: 0; white-space: nowrap; }
+    .upload-card h2 { font-size: 0.95rem; font-weight: 700; margin-bottom: 16px; }
     .drop-zone {
-      border: 2px dashed var(--border); border-radius: var(--radius);
-      padding: 24px 16px; text-align: center; cursor: pointer;
+      border: 2px dashed var(--border-light); border-radius: var(--radius);
+      padding: 28px 16px; text-align: center; cursor: pointer;
       transition: border-color 0.15s; color: var(--text-muted); font-size: 0.85rem;
       margin-bottom: 14px;
     }
-    .drop-zone:hover, .drop-zone.over { border-color: var(--primary); }
-    .drop-zone .dz-icon { font-size: 2rem; margin-bottom: 8px; }
+    .drop-zone:hover, .drop-zone.over { border-color: #fff; color: var(--text); }
+    .drop-zone .dz-label { font-size: 0.9rem; margin-bottom: 4px; }
+    .upload-row { display: flex; gap: 12px; align-items: flex-end; }
+    .upload-row .field { flex: 1; }
+    .upload-row button { flex-shrink: 0; white-space: nowrap; }
     .analyzing-hint { color: var(--text-muted); font-size: 0.8rem; margin-top: 8px; }
 
-    /* Marcador de zonas */
-    .mark-btn {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: var(--bg-input); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 6px 14px; font-size: 0.82rem;
-      color: var(--text-muted); cursor: pointer; transition: all 0.15s;
-    }
-    .mark-btn:hover { border-color: var(--primary); color: var(--text); }
-    .mark-btn.active { border-color: var(--primary); color: var(--text); background: var(--bg-card); font-weight: 600; }
-    .mark-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-
-    /* Template list */
-    .templates-list { display: flex; flex-direction: column; gap: 12px; }
+    /* Lista */
+    .section-label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+    .templates-list { display: flex; flex-direction: column; gap: 10px; }
     .template-row {
       display: flex; align-items: flex-start; gap: 14px;
       background: var(--bg-card); border: 1px solid var(--border);
       border-radius: var(--radius); padding: 14px 16px;
+      transition: border-color 0.15s;
     }
-    .template-row img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; flex-shrink: 0; border: 1px solid var(--border); }
+    .template-row:hover { border-color: var(--border-light); }
+    .template-row img { width: 76px; height: 76px; object-fit: cover; border-radius: 8px; flex-shrink: 0; border: 1px solid var(--border); }
     .template-row-info { flex: 1; min-width: 0; }
-    .template-row-info h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; word-break: break-word; }
+    .template-row-info h3 { font-size: 0.88rem; font-weight: 600; margin-bottom: 8px; word-break: break-word; }
     .fields-wrap { display: flex; flex-wrap: wrap; gap: 5px; }
-    .field-badge { font-size: 0.68rem; font-weight: 600; padding: 3px 9px; border-radius: 20px; background: #1e3a5f; color: #93c5fd; border: 1px solid #2563eb44; }
-    .field-badge.media  { background: #1a3a2f; color: #6ee7b7; border-color: #10b98144; }
-    .field-badge.angle  { background: #2d1f4e; color: #c4b5fd; border-color: #7c3aed44; }
-    .field-badge.mapped { background: #1c3a1c; color: #86efac; border-color: #22c55e44; }
-    .no-templates { text-align: center; padding: 40px; color: var(--text-muted); }
+    .field-badge { font-size: 0.68rem; font-weight: 600; padding: 3px 9px; border-radius: 20px; background: #1f1f1f; color: #d4d4d4; border: 1px solid #3d3d3d; }
+    .field-badge.media  { background: #1a1a1a; color: #a3a3a3; border-color: #525252; }
+    .field-badge.angle  { background: #262626; color: #e5e5e5; border-color: #404040; font-style: italic; }
+    .no-templates { text-align: center; padding: 48px; color: var(--text-muted); }
     .template-row-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
 
-    /* Modal editar */
+    /* Modal */
     .modal-backdrop {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
       display: flex; align-items: center; justify-content: center;
-      z-index: 100; padding: 16px; box-sizing: border-box;
+      z-index: 100; padding: 16px;
     }
-    .modal-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 28px 24px; width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; }
-    .modal-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+    .modal-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 28px 24px;
+      width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto;
+    }
+    .modal-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 20px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+
+    /* Toggles de campos */
     .edit-fields-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
-    .field-toggle { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 600; padding: 5px 12px; border-radius: 20px; cursor: pointer; user-select: none; border: 1px solid var(--border); background: var(--bg); color: var(--text-muted); transition: all 0.15s; }
+    .field-toggle {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.78rem; font-weight: 600; padding: 5px 12px;
+      border-radius: 20px; cursor: pointer; user-select: none;
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--text-muted); transition: all 0.15s;
+    }
     .field-toggle input { display: none; }
-    .field-toggle.checked       { background: #1e3a5f; color: #93c5fd; border-color: #2563eb44; }
-    .field-toggle.checked.media { background: #1a3a2f; color: #6ee7b7; border-color: #10b98144; }
-    .field-toggle.checked.angle { background: #2d1f4e; color: #c4b5fd; border-color: #7c3aed44; }
+    .field-toggle.checked       { background: #1f1f1f; color: #fff; border-color: #525252; }
+    .field-toggle.checked.media { background: #0a0a0a; color: #a3a3a3; border-color: #404040; }
+    .field-toggle.checked.angle { background: #262626; color: #d4d4d4; border-color: #525252; }
+    .field-toggle:hover { border-color: var(--border-light); color: var(--text); }
+
     .angulos-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
     .angulos-section > label { font-size: 0.82rem; font-weight: 600; display: block; margin-bottom: 4px; }
     .angulos-section > p { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 10px; }
 
-    /* Modal mapeamento */
-    .map-modal-card {
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: 14px; padding: 20px; width: 100%; max-width: 860px;
-      max-height: 95vh; display: flex; flex-direction: column; gap: 14px; overflow: hidden;
+    /* Upload btn */
+    .upload-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--bg); border: 1px solid var(--border-light);
+      border-radius: var(--radius); padding: 7px 14px; font-size: 0.82rem;
+      color: var(--text); cursor: pointer; transition: border-color 0.15s;
     }
-    .map-toolbar {
-      display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex-shrink: 0;
-    }
-    .map-toolbar select {
-      flex: 1; min-width: 160px;
-      background: var(--bg); border: 1px solid var(--border);
-      color: var(--text); padding: 8px 10px; border-radius: var(--radius); font-size: 0.85rem;
-    }
-    .map-hint { font-size: 0.78rem; color: var(--text-muted); flex: 1; }
-    .map-canvas-wrap {
-      position: relative; flex: 1; overflow: auto;
-      border: 1px solid var(--border); border-radius: var(--radius);
-      background: #0a0a0a; display: flex; align-items: flex-start; justify-content: center;
-    }
-    #mapImage  { display: block; max-width: 100%; user-select: none; }
-    #mapCanvas {
-      position: absolute; top: 0; left: 0;
-      cursor: crosshair; touch-action: none;
-    }
-    .map-legend { display: flex; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
-    .map-legend-item { font-size: 0.72rem; font-weight: 600; padding: 2px 10px; border-radius: 20px; }
-    .map-footer { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; gap: 10px; flex-wrap: wrap; }
-    .map-zones-count { font-size: 0.82rem; color: var(--text-muted); }
-
-    /* Editor de guia */
-    .guia-field-row {
-      display: flex; align-items: center; gap: 10px;
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 8px 12px;
-    }
-    .guia-field-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-    .guia-field-label { font-size: 0.78rem; font-weight: 600; min-width: 100px; color: var(--text-muted); }
-    .guia-field-input { flex: 1; background: transparent; border: none; border-bottom: 1px solid var(--border); color: var(--text); font-size: 0.85rem; padding: 2px 4px; outline: none; }
-    .guia-field-input:focus { border-bottom-color: var(--primary); }
-    .guia-field-media { font-size: 0.72rem; color: var(--text-muted); font-style: italic; }
-    .guide-badge { background: #1c3a2a; color: #4ade80; border-color: #22c55e44; }
+    .upload-btn:hover { border-color: #fff; }
 
     @media (max-width: 600px) {
       .admin-wrap { padding: 20px 12px 60px; }
@@ -134,7 +123,8 @@
       .admin-header-actions { width: 100%; justify-content: flex-end; }
       .upload-row { flex-wrap: wrap; }
       .upload-row button { width: 100%; }
-      .template-row img { width: 64px; height: 64px; }
+      .template-row img { width: 60px; height: 60px; }
+      .template-row-actions { flex-direction: row; flex-wrap: wrap; }
     }
   </style>
 </head>
@@ -143,63 +133,62 @@
   <!-- LOGIN -->
   <div id="loginWrap" class="login-wrap">
     <div class="login-card">
-      <div style="font-size:2rem;margin-bottom:12px">🔐</div>
-      <h2>Acesso Admin</h2>
+      <h2>Admin</h2>
       <p>Entre com a senha de administrador</p>
       <div class="field">
-        <input type="password" id="loginInput" placeholder="Senha" onkeydown="if(event.key==='Enter')fazerLogin()" />
+        <input type="password" id="loginInput" placeholder="Senha"
+               onkeydown="if(event.key==='Enter')fazerLogin()" />
       </div>
       <button class="btn-primary" style="width:100%" onclick="fazerLogin()">Entrar</button>
       <div id="loginError" class="login-error"></div>
     </div>
   </div>
 
-  <!-- ADMIN AREA -->
+  <!-- ADMIN -->
   <div id="adminArea" style="display:none">
     <div class="admin-wrap">
 
       <div class="admin-header">
         <div>
-          <h1>🗂 Admin — Templates</h1>
-          <p>Faça upload, mapeie as zonas e a IA usará o guia na geração</p>
+          <h1>Templates</h1>
+          <p>Gerencie os templates de arte</p>
         </div>
         <div class="admin-header-actions">
-          <a href="/app/" class="btn-ghost" style="text-decoration:none;font-size:0.85rem">← Voltar ao app</a>
+          <a href="/app/" class="btn-ghost" style="text-decoration:none;font-size:0.85rem">Voltar ao app</a>
           <button class="btn-ghost" onclick="sair()" style="font-size:0.85rem">Sair</button>
         </div>
       </div>
 
-      <!-- Upload form -->
+      <!-- Upload -->
       <div class="upload-card">
         <h2>Adicionar template</h2>
-
-        <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()"
+        <div class="drop-zone" id="dropZone"
+             onclick="document.getElementById('fileInput').click()"
              ondragover="event.preventDefault();this.classList.add('over')"
              ondragleave="this.classList.remove('over')"
              ondrop="handleDrop(event)">
-          <div class="dz-icon">🖼</div>
-          <div>Clique ou arraste a imagem do template aqui</div>
+          <div class="dz-label">Clique ou arraste a imagem do template aqui</div>
           <div style="font-size:0.75rem;margin-top:4px">PNG, JPG ou WEBP</div>
-          <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this.files[0])" />
+          <input type="file" id="fileInput" accept="image/*" style="display:none"
+                 onchange="handleFile(this.files[0])" />
         </div>
         <div id="uploadPreview" style="display:none;margin-top:12px">
-          <img id="uploadPreviewImg" src="" alt="" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border);display:block;margin-bottom:12px" />
+          <img id="uploadPreviewImg" src="" alt=""
+               style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border);display:block;margin-bottom:12px" />
           <div class="upload-row">
             <div class="field" style="flex:2">
               <label>Nome do template</label>
               <input type="text" id="nomeInput" placeholder="Ex: Litoral Premium" />
             </div>
-            <button class="btn-ghost" onclick="cancelarUpload()">✕ Cancelar</button>
-            <button class="btn-primary" id="btnUpload" onclick="uploadTemplate()">⬆ Salvar template</button>
+            <button class="btn-ghost" onclick="cancelarUpload()">Cancelar</button>
+            <button class="btn-primary" id="btnUpload" onclick="uploadTemplate()">Salvar template</button>
           </div>
-          <div id="analyzingHint" class="analyzing-hint" style="display:none">⏳ Salvando…</div>
+          <div id="analyzingHint" class="analyzing-hint" style="display:none">Salvando e analisando…</div>
         </div>
       </div>
 
       <!-- Lista -->
-      <h2 style="font-size:0.95rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px">
-        Templates cadastrados
-      </h2>
+      <div class="section-label">Templates cadastrados</div>
       <div id="templatesList" class="templates-list">
         <div class="no-templates">Carregando…</div>
       </div>
@@ -211,6 +200,7 @@
   <div id="editModal" class="modal-backdrop" style="display:none" onclick="fecharModal(event)">
     <div class="modal-card">
       <h2 class="modal-title">Editar template</h2>
+
       <div class="field" style="margin-bottom:16px">
         <label>Nome</label>
         <input type="text" id="editNome" />
@@ -221,10 +211,10 @@
         <label>Imagem do template</label>
         <div style="display:flex;align-items:center;gap:14px;margin-top:8px;flex-wrap:wrap">
           <img id="editImgPreview" src="" alt="preview"
-               style="width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--border);flex-shrink:0" />
+               style="width:88px;height:88px;object-fit:cover;border-radius:8px;border:1px solid var(--border);flex-shrink:0" />
           <div>
-            <label class="upload-btn" style="cursor:pointer">
-              🖼️ Trocar imagem
+            <label class="upload-btn">
+              Trocar imagem
               <input type="file" id="editImgInput" accept="image/*" style="display:none"
                      onchange="previewEditImg(this)" />
             </label>
@@ -238,16 +228,19 @@
         <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px">Marque os campos presentes no template</p>
         <div id="editFieldsWrap" class="edit-fields-wrap"></div>
       </div>
+
       <div id="editAngulosSection" class="angulos-section" style="display:none">
-        <label>Ângulos de foto exigidos</label>
-        <p>Quais ângulos este template precisa para a foto do imóvel?</p>
+        <label>Angulos de foto exigidos</label>
+        <p>Quais angulos este template precisa para a foto do imovel?</p>
         <div id="editAngulosWrap" class="edit-fields-wrap"></div>
       </div>
-      <div class="field" style="margin-bottom:8px">
-        <label>Como cada campo aparece neste template <span style="font-weight:400;text-transform:none;letter-spacing:0">(gerado automaticamente — pode corrigir)</span></label>
-        <p style="font-size:0.78rem;color:var(--text-muted);margin:6px 0 12px">Descreva onde/como cada valor está na imagem. Isso guia a IA na hora de substituir.</p>
+
+      <div class="field" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+        <label>Como cada campo aparece neste template <span style="font-weight:400">(editavel)</span></label>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin:6px 0 12px">Descreva onde e como cada valor esta na imagem. Isso guia a IA na substituicao.</p>
         <div id="editMapaForm" style="display:flex;flex-direction:column;gap:10px"></div>
       </div>
+
       <div class="modal-actions">
         <button class="btn-ghost" onclick="document.getElementById('editModal').style.display='none'">Cancelar</button>
         <button class="btn-primary" onclick="salvarEdicao()">Salvar</button>
