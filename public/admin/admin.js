@@ -109,12 +109,8 @@ function abrirEdicao(id) {
   document.getElementById('editFieldsWrap').innerHTML = ALL_FIELDS.map(f => {
     const checked = (t.fields || []).includes(f);
     const isMedia = MEDIA_FIELDS.includes(f);
-    return `
-      <label class="field-toggle ${checked ? 'checked' : ''} ${checked && isMedia ? 'media' : ''}">
-        <input type="checkbox" value="${f}" ${checked ? 'checked' : ''}
-               onchange="toggleToggle(this.closest('label'), ${isMedia})" />
-        ${fieldLabels[f] || f}
-      </label>`;
+    const cls = ['field-toggle', checked ? 'checked' : '', checked && isMedia ? 'media' : ''].filter(Boolean).join(' ');
+    return `<div class="${cls}" data-value="${f}" data-media="${isMedia}" onclick="toggleToggle(this)">${fieldLabels[f] || f}</div>`;
   }).join('');
 
   renderAngulosEdit((t.fields || []).includes('foto_imovel'), t.angulos || []);
@@ -148,25 +144,23 @@ function renderAngulosEdit(show, selectedAngulos) {
   wrap.style.display = 'block';
   document.getElementById('editAngulosWrap').innerHTML = photoSlots.map(s => {
     const checked = selectedAngulos.includes(s.key);
-    return `
-      <label class="field-toggle ${checked ? 'checked angle' : ''}">
-        <input type="checkbox" value="${s.key}" ${checked ? 'checked' : ''}
-               onchange="toggleToggle(this.closest('label'), false)" />
-        ${s.label}
-      </label>`;
+    const cls = ['field-toggle', checked ? 'checked' : '', checked ? 'angle' : ''].filter(Boolean).join(' ');
+    return `<div class="${cls}" data-value="${s.key}" data-media="false" onclick="toggleToggle(this)">${s.label}</div>`;
   }).join('');
 }
 
-function toggleToggle(label, isMedia) {
-  const cb = label.querySelector('input');
-  label.classList.toggle('checked', cb.checked);
-  if (isMedia) label.classList.toggle('media', cb.checked);
-  else if (label.closest('#editAngulosWrap')) label.classList.toggle('angle', cb.checked);
+function toggleToggle(el) {
+  const isChecked = !el.classList.contains('checked');
+  const isMedia   = el.dataset.media === 'true';
+  const inAngulos = !!el.closest('#editAngulosWrap');
 
-  if (label.closest('#editFieldsWrap')) {
-    const fotoChecked = [...document.querySelectorAll('#editFieldsWrap input')]
-      .find(c => c.value === 'foto_imovel')?.checked;
-    const currentAngulos = [...document.querySelectorAll('#editAngulosWrap input:checked')].map(c => c.value);
+  el.classList.toggle('checked', isChecked);
+  if (isMedia)   el.classList.toggle('media', isChecked);
+  if (inAngulos) el.classList.toggle('angle', isChecked);
+
+  if (el.closest('#editFieldsWrap')) {
+    const fotoChecked = !!document.querySelector('#editFieldsWrap [data-value="foto_imovel"].checked');
+    const currentAngulos = [...document.querySelectorAll('#editAngulosWrap .checked')].map(d => d.dataset.value);
     renderAngulosEdit(fotoChecked, currentAngulos);
   }
 }
@@ -178,8 +172,8 @@ function fecharModal(e) {
 
 async function salvarEdicao() {
   const nome    = document.getElementById('editNome').value.trim();
-  const fields  = [...document.querySelectorAll('#editFieldsWrap input:checked')].map(cb => cb.value);
-  const angulos = [...document.querySelectorAll('#editAngulosWrap input:checked')].map(cb => cb.value);
+  const fields  = [...document.querySelectorAll('#editFieldsWrap .checked')].map(d => d.dataset.value);
+  const angulos = [...document.querySelectorAll('#editAngulosWrap .checked')].map(d => d.dataset.value);
   const mapa = {};
   document.querySelectorAll('#editMapaForm input[data-mapa-field]').forEach(inp => {
     if (inp.value.trim()) mapa[inp.dataset.mapaField] = inp.value.trim();
