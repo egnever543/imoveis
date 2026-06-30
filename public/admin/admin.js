@@ -114,20 +114,27 @@ function abrirEdicao(id) {
   }).join('');
 
   renderAngulosEdit((t.fields || []).includes('foto_imovel'), t.angulos || []);
-  renderMapaForm(t.fields || [], t.mapa || {});
+  renderMapaForm(t.fields || [], t.mapa || {}, t.angulos || []);
   document.getElementById('editModal').style.display = 'flex';
 }
 
-function renderMapaForm(fields, mapa) {
+function renderMapaForm(fields, mapa, angulos = []) {
   const wrap = document.getElementById('editMapaForm');
-  const editaveis = fields.filter(f => f !== 'foto_imovel');
-  if (!editaveis.length) { wrap.innerHTML = '<p style="font-size:0.8rem;color:var(--text-muted)">Nenhum campo de texto detectado.</p>'; return; }
-  wrap.innerHTML = editaveis.map(f => `
+  const textos  = fields.filter(f => f !== 'foto_imovel');
+  const entries = [
+    ...textos.map(f => ({ key: f, label: fieldLabels[f] || f })),
+    ...angulos.map(a => ({ key: `ang:${a}`, label: `Foto — ${angleLabels[a] || a}` })),
+  ];
+  if (!entries.length) {
+    wrap.innerHTML = '<p style="font-size:0.8rem;color:var(--text-muted)">Nenhum campo detectado.</p>';
+    return;
+  }
+  wrap.innerHTML = entries.map(({ key, label }) => `
     <div class="field">
-      <label style="font-size:0.75rem">${fieldLabels[f] || f}</label>
-      <input type="text" data-mapa-field="${f}"
-             value="${(mapa[f] || '').replace(/"/g, '&quot;')}"
-             placeholder="Ex: como este campo aparece na imagem do template..." />
+      <label style="font-size:0.75rem">${label}</label>
+      <input type="text" data-mapa-field="${key}"
+             value="${(mapa[key] || '').replace(/"/g, '&quot;')}"
+             placeholder="Ex: onde este elemento aparece na imagem do template..." />
     </div>`).join('');
 }
 
@@ -158,18 +165,24 @@ function toggleToggle(el) {
   if (isMedia)   el.classList.toggle('media', isChecked);
   if (inAngulos) el.classList.toggle('angle', isChecked);
 
-  if (el.closest('#editFieldsWrap')) {
-    const fotoChecked = !!document.querySelector('#editFieldsWrap [data-value="foto_imovel"].checked');
-    const currentAngulos = [...document.querySelectorAll('#editAngulosWrap .checked')].map(d => d.dataset.value);
-    renderAngulosEdit(fotoChecked, currentAngulos);
-
-    const activeFields = [...document.querySelectorAll('#editFieldsWrap .checked')].map(d => d.dataset.value);
-    const currentMapa  = {};
+  function refreshMapa() {
+    const activeFields  = [...document.querySelectorAll('#editFieldsWrap .checked')].map(d => d.dataset.value);
+    const activeAngulos = [...document.querySelectorAll('#editAngulosWrap .checked')].map(d => d.dataset.value);
+    const currentMapa   = {};
     document.querySelectorAll('#editMapaForm input[data-mapa-field]').forEach(inp => {
       if (inp.value.trim()) currentMapa[inp.dataset.mapaField] = inp.value.trim();
     });
-    renderMapaForm(activeFields, currentMapa);
+    renderMapaForm(activeFields, currentMapa, activeAngulos);
   }
+
+  if (el.closest('#editFieldsWrap')) {
+    const fotoChecked    = !!document.querySelector('#editFieldsWrap [data-value="foto_imovel"].checked');
+    const currentAngulos = [...document.querySelectorAll('#editAngulosWrap .checked')].map(d => d.dataset.value);
+    renderAngulosEdit(fotoChecked, currentAngulos);
+    refreshMapa();
+  }
+
+  if (inAngulos) refreshMapa();
 }
 
 function fecharModal(e) {

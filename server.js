@@ -512,9 +512,10 @@ ${substituicoes || '(nenhuma)'}
 
 ${fotoSlots.length === 0
       ? '• Foto do imóvel: nenhuma foto fornecida.'
-      : fotoSlots.length === 1
-        ? `• Foto do imóvel: substitua a foto atual pela Imagem ${imgOrder['foto_0']} exatamente como fornecida — não gere nem recrie um prédio.`
-        : fotoSlots.map((s, i) => `• Foto do imóvel (${ANGLE_LABELS_PT[s.ang] || s.ang}): substitua a área de foto correspondente pela Imagem ${imgOrder[`foto_${i}`]} exatamente como fornecida — não gere nem recrie um prédio.`).join('\n')}
+      : fotoSlots.map((s, i) => {
+          const onde = mapa[`ang:${s.ang}`] ? `Localização no template: ${mapa[`ang:${s.ang}`]}.` : '';
+          return `• Foto (${ANGLE_LABELS_PT[s.ang] || s.ang}): substitua pela Imagem ${imgOrder[`foto_${i}`]} exatamente como fornecida — não gere nem recrie. ${onde}`;
+        }).join('\n')}
 
 • Logo: substitua o logo atual pela Imagem ${logoImg ? imgOrder.logo : '(não fornecida)'} exatamente como fornecida, integrando ao fundo sem caixa branca.${mapa['logo'] ? ` Localização no template: ${mapa['logo']}.` : ''}
 
