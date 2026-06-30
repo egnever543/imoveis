@@ -728,7 +728,9 @@ ${fotoSlots.length === 0
           return `• Foto (${ANGLE_LABELS_PT[s.ang] || s.ang}): substitua pela Imagem ${imgOrder[`foto_${i}`]} exatamente como fornecida — não gere nem recrie. ${onde}`;
         }).join('\n')}
 
-• Logo: substitua o logo atual pela Imagem ${logoImg ? imgOrder.logo : '(não fornecida)'} exatamente como fornecida, integrando ao fundo sem caixa branca.${mapa['logo'] ? ` Localização no template: ${mapa['logo']}.` : ''}
+${logoImg
+      ? `• Logo: substitua o logo atual pela Imagem ${imgOrder.logo} exatamente como fornecida, integrando ao fundo sem caixa branca.${mapa['logo'] ? ` Localização no template: ${mapa['logo']}.` : ''}`
+      : `• Logo: não foi fornecida nenhuma logo — mantenha o logo original do template sem alterações.`}
 
 Regras:
 - Mantenha fonte, cor e tamanho de cada texto — só o conteúdo troca.
