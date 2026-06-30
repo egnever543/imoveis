@@ -451,7 +451,7 @@ async function uploadFotoSlot(input, imovelId, slot) {
  if (!file) return;
 
  // Se imóvel ainda não foi salvo, salva primeiro
- let id = imovelId;
+ let id = (!imovelId || imovelId === 'null') ? null : imovelId;
  if (!id) {
  const form = document.getElementById('imovelForm');
  const titulo = form.elements['titulo']?.value?.trim();
