@@ -711,7 +711,6 @@ app.post('/api/galeria', async (req, res) => {
     const result = await cloudinaryUpload(buf, 'galeria');
 
     const { data, error } = await supabase.from('galeria').insert({
-      id:            Date.now(),
       image_url:     result.secure_url,
       template_nome: templateNome || null,
       imovel_titulo: imovelTitulo || null,
