@@ -390,21 +390,21 @@ app.delete('/api/imoveis/:id', async (req, res) => {
 
 // ── GERAÇÃO DE ARTE ───────────────────────────────────────────────────────────
 const FIELD_DATA = (imovel, localizacao) => ({
-  titulo:        `Título do imóvel: ${imovel.titulo}`,
-  preco:         imovel.preco         ? `Preço: R$ ${imovel.preco}` : null,
-  entrada:       imovel.entrada       ? `Entrada: R$ ${imovel.entrada}` : null,
-  parcela:       imovel.parcela       ? `Mensais: R$ ${imovel.parcela}` : null,
-  financiamento: imovel.financiamento ? `Financiamento: ${imovel.financiamento}` : null,
-  area:          imovel.area          ? `Área: ${imovel.area} m²` : null,
-  quartos:       imovel.quartos       ? `Quartos: ${imovel.quartos}` : null,
-  suites:        imovel.suites        ? `Suítes: ${imovel.suites}` : null,
-  banheiros:     imovel.banheiros     ? `Banheiros: ${imovel.banheiros}` : null,
-  vagas:         imovel.vagas         ? `Vagas: ${imovel.vagas}` : null,
-  andar:         imovel.andar         ? `Andar: ${imovel.andar}º` : null,
-  localizacao:   localizacao          ? `Localização/cidade: ${localizacao}` : null,
-  endereco:      imovel.endereco      ? `Endereço: ${imovel.endereco}` : null,
-  destaque:      imovel.destaque      ? `Chamada principal: ${imovel.destaque}` : null,
-  diferenciais:  imovel.diferenciais  ? `Diferenciais: ${imovel.diferenciais}` : null,
+  titulo:        `property name/title → "${imovel.titulo}"`,
+  preco:         imovel.preco         ? `total price → "R$ ${imovel.preco}"` : null,
+  entrada:       imovel.entrada       ? `down payment (entrada) → "R$ ${imovel.entrada}"` : null,
+  parcela:       imovel.parcela       ? `monthly installment (mensais/parcela) → "R$ ${imovel.parcela}"` : null,
+  financiamento: imovel.financiamento ? `financing (financiamento) → "${imovel.financiamento}"` : null,
+  area:          imovel.area          ? `area (área) → "${imovel.area} m²"` : null,
+  quartos:       imovel.quartos       ? `bedrooms (quartos) → "${imovel.quartos}"` : null,
+  suites:        imovel.suites        ? `suites → "${imovel.suites}"` : null,
+  banheiros:     imovel.banheiros     ? `bathrooms (banheiros) → "${imovel.banheiros}"` : null,
+  vagas:         imovel.vagas         ? `parking spots (vagas) → "${imovel.vagas}"` : null,
+  andar:         imovel.andar         ? `floor (andar) → "${imovel.andar}º"` : null,
+  localizacao:   localizacao          ? `city/location → "${localizacao}"` : null,
+  endereco:      imovel.endereco      ? `street address (endereço) → "${imovel.endereco}"` : null,
+  destaque:      imovel.destaque      ? `headline/tagline → "${imovel.destaque}"` : null,
+  diferenciais:  imovel.diferenciais  ? `highlights/differentials → "${imovel.diferenciais}"` : null,
 });
 
 app.post('/api/gerar', async (req, res) => {
@@ -466,16 +466,18 @@ app.post('/api/gerar', async (req, res) => {
       `Image ${imgOrder[`foto_${i}`]}: property photo (${ANGLE_LABELS_PT[s.ang] || s.ang}) — place in the photo area of the template.`
     ).join('\n');
 
-    const mensagem = `Image ${imgOrder.template} is a real estate marketing template in Brazilian Portuguese. Reproduce this template exactly — same layout, colors, shapes, background, decorative elements — and make only these substitutions:
+    const mensagem = `You are filling in a real estate marketing template (Image ${imgOrder.template}) with specific client data. Think of it as a "find and replace" operation on the template — the design, layout, typography and all visual elements stay exactly the same; only certain content slots get new values.
 
-1. TEXT — Find each text element in the template and replace its content with the matching value below. Use the exact same font, size, weight and color as the original text in that spot. The labels below describe what each value is — identify the corresponding text area in the template visually and replace only the value, keeping the template's own typographic style:
+RULE: Never add new text blocks or new lines. Identify each existing text element in the template by its visual context, then replace only its value with what is listed below. Keep every label, prefix and structural word the template already has.
+
+Text slots to fill (format: "what it represents → new value to place there"):
 ${dados || '(none)'}
 
-2. PROPERTY PHOTO — The template has a photo of a building/property. Replace it with Image ${fotoSlots.length ? imgOrder['foto_0'] : '(none)'} exactly as provided — do NOT generate or recreate a building, use Image ${fotoSlots.length ? imgOrder['foto_0'] : '(none)'} pixel-for-pixel in that same area.
+RULE: For the property photo area — place Image ${fotoSlots.length ? imgOrder['foto_0'] : '(none provided)'} directly into that slot. Do not generate or redraw a building; use the provided image as-is, same crop and position as the original placeholder.
 
-3. LOGO — The template has a logo area. Replace it with Image ${logoImg ? imgOrder.logo : '(none)'} exactly as provided — do NOT generate or recreate a logo, use Image ${logoImg ? imgOrder.logo : '(none)'} as-is, blending naturally with the background (no white box).
+RULE: For the logo area — place Image ${logoImg ? imgOrder.logo : '(none provided)'} directly into that slot. Do not generate or redraw a logo; use the provided image as-is, blending with the background (no white fill behind it).
 
-Do not invent, generate or recreate any visual element. Every non-text element must come directly from Image ${imgOrder.template} (template) or the provided asset images.`;
+The output must look like the original template with the content slots filled in — not a new design inspired by it.`;
 
 
     const content = [];
