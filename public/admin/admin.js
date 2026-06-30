@@ -118,8 +118,21 @@ function abrirEdicao(id) {
   }).join('');
 
   renderAngulosEdit((t.fields || []).includes('foto_imovel'), t.angulos || []);
-  document.getElementById('editMapa').value = t.mapa || '';
+  renderMapaForm(t.fields || [], t.mapa || {});
   document.getElementById('editModal').style.display = 'flex';
+}
+
+function renderMapaForm(fields, mapa) {
+  const wrap = document.getElementById('editMapaForm');
+  const editaveis = fields.filter(f => !['foto_imovel', 'logo'].includes(f));
+  if (!editaveis.length) { wrap.innerHTML = '<p style="font-size:0.8rem;color:var(--text-muted)">Nenhum campo de texto detectado.</p>'; return; }
+  wrap.innerHTML = editaveis.map(f => `
+    <div class="field">
+      <label style="font-size:0.75rem">${fieldLabels[f] || f}</label>
+      <input type="text" data-mapa-field="${f}"
+             value="${(mapa[f] || '').replace(/"/g, '&quot;')}"
+             placeholder="Ex: como este campo aparece na imagem do template..." />
+    </div>`).join('');
 }
 
 function previewEditImg(input) {
@@ -168,7 +181,10 @@ async function salvarEdicao() {
   const nome    = document.getElementById('editNome').value.trim();
   const fields  = [...document.querySelectorAll('#editFieldsWrap input:checked')].map(cb => cb.value);
   const angulos = [...document.querySelectorAll('#editAngulosWrap input:checked')].map(cb => cb.value);
-  const mapa    = document.getElementById('editMapa').value.trim();
+  const mapa = {};
+  document.querySelectorAll('#editMapaForm input[data-mapa-field]').forEach(inp => {
+    if (inp.value.trim()) mapa[inp.dataset.mapaField] = inp.value.trim();
+  });
   const imgFile = document.getElementById('editImgInput').files[0];
 
   const btn = document.querySelector('#editModal .btn-primary');

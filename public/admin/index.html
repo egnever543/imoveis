@@ -244,8 +244,9 @@
         <div id="editAngulosWrap" class="edit-fields-wrap"></div>
       </div>
       <div class="field" style="margin-bottom:8px">
-        <label>Mapa de elementos <span style="font-weight:400;text-transform:none;letter-spacing:0">(gerado automaticamente na análise — pode editar)</span></label>
-        <textarea id="editMapa" rows="6" style="margin-top:8px;font-size:0.8rem;font-family:monospace;resize:vertical" placeholder="Será preenchido automaticamente ao salvar o template..."></textarea>
+        <label>Como cada campo aparece neste template <span style="font-weight:400;text-transform:none;letter-spacing:0">(gerado automaticamente — pode corrigir)</span></label>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin:6px 0 12px">Descreva onde/como cada valor está na imagem. Isso guia a IA na hora de substituir.</p>
+        <div id="editMapaForm" style="display:flex;flex-direction:column;gap:10px"></div>
       </div>
       <div class="modal-actions">
         <button class="btn-ghost" onclick="document.getElementById('editModal').style.display='none'">Cancelar</button>

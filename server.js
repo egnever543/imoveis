@@ -91,8 +91,13 @@ function fromDb(row) {
   if ('criado_em'     in r) { r.criadoEm     = r.criado_em;     delete r.criado_em; }
   if ('total_andares' in r) { r.totalAndares  = r.total_andares; delete r.total_andares; }
   if ('image_url'     in r) { r.imageUrl      = r.image_url;     delete r.image_url; }
-  // fotos é JSONB — vem como objeto, garante {}
   if ('fotos' in r) r.fotos = r.fotos || {};
+  if ('mapa'  in r) {
+    if (typeof r.mapa === 'string') {
+      try { r.mapa = JSON.parse(r.mapa); } catch { r.mapa = {}; }
+    }
+    r.mapa = r.mapa || {};
+  }
   return r;
 }
 
@@ -131,16 +136,18 @@ Return ONLY a valid JSON object with two keys: "fields" and "mapa".
 - "foto_imovel"   — area displaying a property photo
 - "logo"          — agency/brand logo area
 
-2. "mapa": a plain text description (in Portuguese) of exactly how each replaceable element appears in this specific template image — its literal current value and where/how it appears. This will be used later as a precise guide for substitution. Be specific: mention the actual text visible, its context and position.
+2. "mapa": a JSON object where each key is a field name from "fields" and the value is a short description (in Portuguese) of exactly how that element appears in this specific image — the literal text or context visible. This will be used to build precise find-and-replace instructions.
 
-Example of "mapa":
-"- localizacao: a cidade 'Patos de Minas' aparece embutida na frase 'APARTAMENTOS EM PATOS DE MINAS' no topo esquerdo da imagem
-- entrada: o valor aparece após o label 'Entrada:' em destaque no centro
-- parcela: o valor aparece após o label 'Mensais:' logo abaixo da entrada
-- logo: logotipo da imobiliária no canto superior direito
-- foto_imovel: foto da fachada do empreendimento ocupando a metade inferior da imagem"
+Example:
+{
+  "localizacao": "cidade 'Patos de Minas' dentro da frase 'APARTAMENTOS EM PATOS DE MINAS' no topo",
+  "entrada": "valor após o label 'Entrada:' em destaque no centro",
+  "parcela": "valor após o label 'Mensais:' abaixo da entrada",
+  "logo": "logotipo da imobiliária no canto superior direito",
+  "foto_imovel": "foto da fachada do empreendimento na metade inferior"
+}
 
-Example output: {"fields": ["entrada", "parcela", "localizacao", "foto_imovel", "logo"], "mapa": "- localizacao: ...\\n- entrada: ..."}`;
+Full example output: {"fields": ["entrada", "parcela", "localizacao", "foto_imovel", "logo"], "mapa": {"localizacao": "...", "entrada": "..."}}`;
 
 // ── Admin auth ────────────────────────────────────────────────────────────────
 function adminAuth(req, res, next) {
@@ -186,7 +193,7 @@ app.post('/api/admin/templates', adminAuth, upload.single('imagem'), async (req,
     });
     const parsed = JSON.parse(analysis.choices[0].message.content);
     const fields = Array.isArray(parsed.fields) ? parsed.fields : [];
-    const mapa   = typeof parsed.mapa === 'string' ? parsed.mapa : '';
+    const mapa   = (parsed.mapa && typeof parsed.mapa === 'object') ? parsed.mapa : {};
 
     const result = await cloudinaryUpload(buf, 'templates');
     const { data, error } = await supabase.from('templates').insert({
@@ -195,7 +202,7 @@ app.post('/api/admin/templates', adminAuth, upload.single('imagem'), async (req,
       image_url: result.secure_url,
       fields,
       angulos:   [],
-      mapa,
+      mapa: JSON.stringify(mapa),
     }).select().single();
 
     if (error) throw new Error(error.message);
@@ -212,7 +219,7 @@ app.patch('/api/admin/templates/:id', adminAuth, async (req, res) => {
   if (nome    !== undefined) update.nome    = nome;
   if (fields  !== undefined) update.fields  = fields;
   if (angulos !== undefined) update.angulos = angulos;
-  if (mapa    !== undefined) update.mapa    = mapa;
+  if (mapa    !== undefined) update.mapa    = typeof mapa === 'object' ? JSON.stringify(mapa) : mapa;
   const { data, error } = await supabase
     .from('templates').update(update).eq('id', req.params.id).select().single();
   if (error) return res.status(400).json({ error: error.message });
@@ -479,25 +486,33 @@ app.post('/api/gerar', async (req, res) => {
       `Image ${imgOrder[`foto_${i}`]}: property photo (${ANGLE_LABELS_PT[s.ang] || s.ang}) — place in the photo area of the template.`
     ).join('\n');
 
-    const mapaStr = template.mapa
-      ? `\nMapa de elementos deste template (onde cada dado aparece na imagem):\n${template.mapa}\n`
-      : '';
+    // Monta substituições precisas usando o mapa do template
+    const mapa = template.mapa || {};
+    const substituicoes = template.fields
+      .filter(f => !['foto_imovel', 'logo'].includes(f))
+      .map(f => {
+        const valor = fieldData[f];
+        if (!valor) return null;
+        const onde = mapa[f] ? `Localização no template: ${mapa[f]}` : `Campo: ${FIELD_LABELS_PT[f] || f}`;
+        const novoValor = valor.split(' → ')[1]?.replace(/"/g, '') || valor;
+        return `• ${onde}\n  Novo valor: "${novoValor}"`;
+      })
+      .filter(Boolean)
+      .join('\n\n');
 
-    const mensagem = `Você recebeu um template de marketing imobiliário (Imagem ${imgOrder.template}). Quero recriar a exata mesma imagem, porém com os meus dados abaixo.
-${mapaStr}
-Meus dados:
-${dados || '(nenhum)'}
-- Para a foto do imóvel: Imagem ${fotoSlots.length ? imgOrder['foto_0'] : '(não fornecida)'}
-- Para o logo: Imagem ${logoImg ? imgOrder.logo : '(não fornecida)'}
+    const mensagem = `Você recebeu um template de marketing imobiliário (Imagem ${imgOrder.template}). Quero recriar a exata mesma imagem substituindo apenas os valores abaixo.
 
-Instruções:
-- Use o mapa acima para localizar com precisão onde cada elemento aparece neste template específico e substitua pelo meu dado correspondente.
-- Mantenha exatamente a mesma fonte, cor e tamanho de cada texto — só o conteúdo muda, o estilo visual permanece idêntico.
-- Não adicione linhas ou blocos de texto novos. Substitua sempre no mesmo lugar onde o valor original está.
-- Para a foto: use exatamente a imagem fornecida, sem recriar nem gerar um novo prédio.
-- Para o logo: use exatamente a imagem fornecida, integrando naturalmente ao fundo sem caixa branca.
-- Todo o resto — layout, cores de fundo, formas decorativas, espaçamentos — deve ser pixel a pixel igual ao original.
-- OBS: Pode ser que eu tenha enviado informação a mais. Você não precisa usar tudo — se no template não houver um campo correspondente, ignore esse dado.`;
+Substituições a fazer:
+${substituicoes || '(nenhuma)'}
+
+• Foto do imóvel: substitua a foto atual pela Imagem ${fotoSlots.length ? imgOrder['foto_0'] : '(não fornecida)'} exatamente como fornecida — não gere nem recrie um prédio.
+
+• Logo: substitua o logo atual pela Imagem ${logoImg ? imgOrder.logo : '(não fornecida)'} exatamente como fornecida, integrando ao fundo sem caixa branca.
+
+Regras:
+- Mantenha fonte, cor e tamanho de cada texto — só o conteúdo troca.
+- Não adicione linhas novas. Substitua sempre no lugar exato onde o valor original está na imagem.
+- Todo o resto — layout, cores, formas decorativas, espaçamentos — pixel a pixel igual ao original.`;
 
 
     const content = [];
