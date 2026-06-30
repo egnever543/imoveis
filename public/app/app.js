@@ -265,15 +265,15 @@ function selecionarImovel(id) {
 }
 
 function atualizarResumo() {
- const resumo = document.getElementById('gerarResumo');
+ const hint = document.getElementById('previaHint');
  const btnP = document.getElementById('btnPrevia');
  const t = templates.find(t => t.id === selectedTemplateId);
  const im = imoveis.find(i => i.id === selectedImovelId);
 
  if (!t || !im) {
- resumo.innerHTML = '<p class="resumo-hint">Selecione template e imóvel para continuar</p>';
- if (btnP) btnP.disabled = true;
- return;
+  if (hint) hint.style.display = 'none';
+  if (btnP) btnP.disabled = true;
+  return;
  }
 
  // Verifica ângulos faltando
@@ -281,35 +281,7 @@ function atualizarResumo() {
  const fotos = im.fotos || {};
  const faltando = angulos.filter(a => !fotos[a]);
 
- const fieldBadges = (t.fields || []).map(f =>
- `<span class="resumo-badge">${fieldLabels[f] || f}</span>`
- ).join('');
-
- const angulosBadges = angulos.map(a => {
- const falta = !fotos[a];
- return `<span class="resumo-badge ${falta ? 'missing' : 'ok'}">${angleLabels[a] || a}${falta ? ' ' : ' '}</span>`;
- }).join('');
-
- const avisoFalta = faltando.length
- ? `<div class="resumo-alerta"> Este template precisa de: <strong>${faltando.map(a => angleLabels[a] || a).join(', ')}</strong>. Cadastre essas fotos no imóvel.</div>`
- : '';
-
- resumo.innerHTML = `
- <div class="resumo-content">
- <strong>Template:</strong> ${t.nome}<br>
- <strong>Imóvel:</strong> ${im.titulo}
- <div style="margin-top:10px">
- <div class="resumo-label">Campos que serão preenchidos</div>
- <div class="resumo-badges">${fieldBadges}</div>
- </div>
- ${angulos.length ? `
- <div style="margin-top:10px">
- <div class="resumo-label">Fotos necessárias</div>
- <div class="resumo-badges">${angulosBadges}</div>
- </div>` : ''}
- ${avisoFalta}
- </div>`;
-
+ if (hint) hint.style.display = faltando.length > 0 ? 'none' : 'block';
  if (btnP) btnP.disabled = faltando.length > 0;
 }
 
