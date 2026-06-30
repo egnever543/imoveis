@@ -101,6 +101,34 @@ a, .btn-link { color: #fff; }
   .gallery-card { width: 72vw; }
 }
 
+/* ── Galeria de artes salvas ─────────────────────────────────── */
+.galeria-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+.galeria-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s;
+}
+.galeria-card:hover { border-color: var(--border-light); }
+.galeria-card-img-wrap { aspect-ratio: 3/4; overflow: hidden; }
+.galeria-card-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.galeria-card-info { padding: 10px 12px; flex: 1; }
+.galeria-card-title { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.galeria-card-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.galeria-card-actions {
+  display: flex; gap: 6px; padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+.galeria-card-actions .btn-ghost,
+.galeria-card-actions .btn-danger { flex: 1; text-align: center; text-decoration: none; }
+
 /* ── Responsivo: mobile ───────────────────────────────────────── */
 @media (max-width: 768px) {
   body { display: flex; flex-direction: column; }

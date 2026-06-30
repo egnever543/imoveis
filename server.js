@@ -540,6 +540,47 @@ Regras:
   }
 });
 
+// ── Galeria ───────────────────────────────────────────────────────────────────
+app.get('/api/galeria', async (req, res) => {
+  const { data, error } = await supabase
+    .from('galeria').select('*').order('criado_em', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data.map(fromDb));
+});
+
+app.post('/api/galeria', async (req, res) => {
+  try {
+    const { imageData, templateNome, imovelTitulo } = req.body;
+    if (!imageData) return res.status(400).json({ error: 'imageData obrigatório' });
+
+    const base64 = imageData.replace(/^data:image\/\w+;base64,/, '');
+    const buf    = Buffer.from(base64, 'base64');
+    const result = await cloudinaryUpload(buf, 'galeria');
+
+    const { data, error } = await supabase.from('galeria').insert({
+      id:            Date.now(),
+      image_url:     result.secure_url,
+      template_nome: templateNome || null,
+      imovel_titulo: imovelTitulo || null,
+    }).select().single();
+
+    if (error) throw new Error(error.message);
+    res.status(201).json(fromDb(data));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/galeria/:id', async (req, res) => {
+  const { data } = await supabase.from('galeria').select('image_url').eq('id', req.params.id).single();
+  if (data?.image_url) {
+    const pid = cloudinaryPublicId(data.image_url);
+    if (pid) await cloudinary.uploader.destroy(pid).catch(() => {});
+  }
+  await supabase.from('galeria').delete().eq('id', req.params.id);
+  res.json({ ok: true });
+});
+
 if (require.main === module) {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => console.log(`Servidor rodando em http://localhost:${PORT}`));

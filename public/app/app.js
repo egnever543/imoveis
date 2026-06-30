@@ -4,6 +4,7 @@ let imoveis      = [];
 let fieldLabels  = {};
 let angleLabels  = {};
 let photoSlots   = [];
+let galeria      = [];
 let selectedTemplateId = null;
 let selectedImovelId   = null;
 let lastArteData       = null;
@@ -14,6 +15,7 @@ async function init() {
   await Promise.all([loadTemplates(), loadImoveis(), loadPerfil(), loadLabels()]);
   renderGerar();
   renderImoveisGrid();
+  loadGaleria();
 }
 
 async function loadLabels() {
@@ -453,6 +455,80 @@ function previewLogo(input) {
     document.getElementById('logoPlaceholder').style.display = 'none';
   };
   reader.readAsDataURL(file);
+}
+
+// ── Galeria ───────────────────────────────────────────────────────
+async function salvarNaGaleria() {
+  if (!lastArteData) return;
+  const btn = document.getElementById('btnSalvarGaleria');
+  btn.disabled = true;
+  btn.textContent = '⏳ Salvando…';
+  const t  = templates.find(t => t.id === selectedTemplateId);
+  const im = imoveis.find(i => i.id === selectedImovelId);
+  try {
+    const res = await fetch('/api/galeria', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageData:     lastArteData,
+        templateNome:  t?.nome || null,
+        imovelTitulo:  im?.titulo || null,
+      }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    toast('Arte salva na galeria!', 'success');
+    loadGaleria();
+  } catch (err) {
+    toast('Erro ao salvar: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🖼️ Salvar na galeria';
+  }
+}
+
+async function loadGaleria() {
+  try {
+    const res = await fetch('/api/galeria');
+    galeria = await res.json();
+    renderGaleriaGrid();
+  } catch { /* silencioso */ }
+}
+
+function renderGaleriaGrid() {
+  const grid  = document.getElementById('galeriaGrid');
+  const empty = document.getElementById('galeriaEmpty');
+  if (!galeria.length) {
+    empty.style.display = 'block';
+    grid.innerHTML = '';
+    return;
+  }
+  empty.style.display = 'none';
+  grid.innerHTML = galeria.map(item => `
+    <div class="galeria-card" id="gcrd-${item.id}">
+      <div class="galeria-card-img-wrap">
+        <img src="${item.imageUrl}" alt="${item.imovelTitulo || 'Arte'}" loading="lazy" />
+      </div>
+      <div class="galeria-card-info">
+        <div class="galeria-card-title">${item.imovelTitulo || '—'}</div>
+        <div class="galeria-card-sub">${item.templateNome || ''}</div>
+      </div>
+      <div class="galeria-card-actions">
+        <a href="${item.imageUrl}" download class="btn-ghost btn-sm">⬇ Baixar</a>
+        <button class="btn-danger btn-sm" onclick="deletarDaGaleria(${item.id})">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+async function deletarDaGaleria(id) {
+  if (!confirm('Remover esta arte da galeria?')) return;
+  try {
+    await fetch(`/api/galeria/${id}`, { method: 'DELETE' });
+    galeria = galeria.filter(i => i.id !== id);
+    renderGaleriaGrid();
+    toast('Arte removida', 'success');
+  } catch (err) {
+    toast('Erro ao remover', 'error');
+  }
 }
 
 // ── Toast ─────────────────────────────────────────────────────────

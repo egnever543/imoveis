@@ -17,6 +17,9 @@
     <button class="nav-item" data-page="imoveis">
       <span class="nav-icon">🏢</span> Imóveis
     </button>
+    <button class="nav-item" data-page="galeria">
+      <span class="nav-icon">🖼️</span> Galeria
+    </button>
     <button class="nav-item" data-page="perfil">
       <span class="nav-icon">🏷️</span> Perfil
     </button>
@@ -67,9 +70,26 @@
         </div>
         <div class="resultado-actions">
           <button class="btn-success" onclick="downloadArte()">⬇ Baixar</button>
+          <button class="btn-ghost" id="btnSalvarGaleria" onclick="salvarNaGaleria()">🖼️ Salvar na galeria</button>
           <button class="btn-primary" onclick="gerarArte()">🔄 Gerar novamente</button>
         </div>
       </div>
+    </div>
+
+    <!-- ===== GALERIA ===== -->
+    <div id="page-galeria" class="page">
+      <div class="page-header">
+        <div>
+          <h1>Galeria</h1>
+          <p>Artes geradas e salvas</p>
+        </div>
+      </div>
+      <div id="galeriaEmpty" class="empty-state" style="display:none">
+        <div class="empty-icon">🖼️</div>
+        <p>Nenhuma arte salva ainda.</p>
+        <button class="btn-primary" onclick="navegarPara('gerar')">Gerar primeira arte</button>
+      </div>
+      <div class="galeria-grid" id="galeriaGrid"></div>
     </div>
 
     <!-- ===== IMÓVEIS ===== -->
