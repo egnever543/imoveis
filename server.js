@@ -466,18 +466,19 @@ app.post('/api/gerar', async (req, res) => {
       `Image ${imgOrder[`foto_${i}`]}: property photo (${ANGLE_LABELS_PT[s.ang] || s.ang}) — place in the photo area of the template.`
     ).join('\n');
 
-    const mensagem = `You are filling in a real estate marketing template (Image ${imgOrder.template}) with specific client data. Think of it as a "find and replace" operation on the template — the design, layout, typography and all visual elements stay exactly the same; only certain content slots get new values.
+    const mensagem = `Você recebeu um template de marketing imobiliário (Imagem ${imgOrder.template}). Quero recriar a exata mesma imagem, porém com os meus dados abaixo.
 
-RULE: Never add new text blocks or new lines. Identify each existing text element in the template by its visual context, then replace only its value with what is listed below. Keep every label, prefix and structural word the template already has.
+Meus dados:
+${dados || '(nenhum)'}
 
-Text slots to fill (format: "what it represents → new value to place there"):
-${dados || '(none)'}
-
-RULE: For the property photo area — place Image ${fotoSlots.length ? imgOrder['foto_0'] : '(none provided)'} directly into that slot. Do not generate or redraw a building; use the provided image as-is, same crop and position as the original placeholder.
-
-RULE: For the logo area — place Image ${logoImg ? imgOrder.logo : '(none provided)'} directly into that slot. Do not generate or redraw a logo; use the provided image as-is, blending with the background (no white fill behind it).
-
-The output must look like the original template with the content slots filled in — not a new design inspired by it.`;
+Instruções:
+- Entenda na imagem onde estão os textos de localização, valores, endereço, chamada principal e logo, e substitua pelos meus dados acima.
+- Mantenha exatamente a mesma fonte, cor e tamanho de cada texto — só o conteúdo muda, o estilo visual permanece idêntico.
+- É uma troca simples de valores: "São Paulo" vira "${localizacao || 'minha cidade'}", "Entrada: 10" vira "Entrada: ${imovel.entrada || 'X'}", e assim por diante.
+- Não adicione nenhum texto novo nem remova textos existentes que não tenham substituto nos meus dados.
+- Para a foto do imóvel: use exatamente a Imagem ${fotoSlots.length ? imgOrder['foto_0'] : '(não fornecida)'} no lugar da foto atual, sem recriar nem gerar um novo prédio.
+- Para o logo: use exatamente a Imagem ${logoImg ? imgOrder.logo : '(não fornecida)'} no lugar do logo atual, integrando naturalmente ao fundo sem caixa branca.
+- Todo o resto — layout, cores de fundo, formas decorativas, espaçamentos — deve ser pixel a pixel igual ao original.`;
 
 
     const content = [];
