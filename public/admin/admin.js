@@ -1,8 +1,8 @@
-const MEDIA_FIELDS = ['foto_imovel', 'logo'];
+﻿const MEDIA_FIELDS = ['foto_imovel', 'logo'];
 const ALL_FIELDS   = [
   'titulo','preco','entrada','parcela','financiamento',
   'area','quartos','suites','banheiros','vagas','andar',
-  'localizacao','endereco','destaque','diferenciais','foto_imovel','logo',
+  'cidade','localizacao','endereco','destaque','diferenciais','foto_imovel','logo',
 ];
 
 let adminPassword = sessionStorage.getItem('adminPassword') || '';
@@ -13,7 +13,7 @@ let photoSlots    = [];
 let allTemplates  = [];
 let editingId     = null;
 
-// ── Init ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function init() {
   if (adminPassword) {
     const ok = await verificarSenha(adminPassword);
@@ -88,20 +88,20 @@ function renderTemplates(templates) {
         </div>
       </div>
       <div class="template-row-actions">
-        <button class="btn-ghost btn-sm"  onclick="abrirEdicao(${t.id})">✏️ Editar</button>
-        <button class="btn-danger btn-sm" onclick="deletarTemplate(${t.id}, '${t.nome.replace(/'/g,"\\'")}')">🗑 Excluir</button>
+        <button class="btn-ghost btn-sm"  onclick="abrirEdicao(${t.id})">âœï¸ Editar</button>
+        <button class="btn-danger btn-sm" onclick="deletarTemplate(${t.id}, '${t.nome.replace(/'/g,"\\'")}')">ðŸ—‘ Excluir</button>
       </div>
     </div>`).join('');
 }
 
-// ── Editar ────────────────────────────────────────────────────────────────────
+// â”€â”€ Editar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function abrirEdicao(id) {
   const t = allTemplates.find(t => t.id == id);
   if (!t) return;
   editingId = id;
   document.getElementById('editNome').value = t.nome;
 
-  // Preview da imagem atual + limpar seleção anterior
+  // Preview da imagem atual + limpar seleÃ§Ã£o anterior
   document.getElementById('editImgPreview').src = t.imageUrl;
   document.getElementById('editImgInput').value  = '';
   document.getElementById('editImgNome').textContent = '';
@@ -189,7 +189,7 @@ async function salvarEdicao() {
 
   const btn = document.querySelector('#editModal .btn-primary');
   btn.disabled = true;
-  btn.textContent = 'Salvando…';
+  btn.textContent = 'Salvandoâ€¦';
 
   try {
     // 1. Se tiver nova imagem, envia primeiro
@@ -227,11 +227,11 @@ async function deletarTemplate(id, nome) {
     method: 'DELETE',
     headers: { 'x-admin-password': adminPassword },
   });
-  toast('Template excluído', 'success');
+  toast('Template excluÃ­do', 'success');
   await carregarTemplates();
 }
 
-// ── Upload ────────────────────────────────────────────────────────────────────
+// â”€â”€ Upload â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function handleFile(file) {
   if (!file) return;
   selectedFile = file;
@@ -288,7 +288,7 @@ async function uploadTemplate() {
   }
 }
 
-// ── Toast ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Toast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function toast(msg, type = 'success') {
   const el = document.getElementById('toast');
   el.textContent = msg;
@@ -298,3 +298,4 @@ function toast(msg, type = 'success') {
 
 
 init();
+

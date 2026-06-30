@@ -106,7 +106,7 @@ const FIELD_LABELS_PT = {
   titulo: 'Título', preco: 'Preço', entrada: 'Entrada', parcela: 'Parcela',
   financiamento: 'Financiamento', area: 'Área (m²)', quartos: 'Quartos',
   suites: 'Suítes', banheiros: 'Banheiros', vagas: 'Vagas', andar: 'Andar',
-  localizacao: 'Localização', endereco: 'Endereço', destaque: 'Chamada principal',
+  cidade: 'Cidade', localizacao: 'Localização (bairro/região)', endereco: 'Endereço', destaque: 'Chamada principal',
   diferenciais: 'Diferenciais', foto_imovel: 'Foto do imóvel', logo: 'Logo',
 };
 
@@ -129,7 +129,8 @@ Return ONLY a valid JSON object with two keys: "fields" and "mapa".
 - "banheiros"     — number of bathrooms
 - "vagas"         — parking spots
 - "andar"         — floor number
-- "localizacao"   — city, neighborhood or region
+- "cidade"        — city name only (when the template shows just the city, e.g. "PATOS DE MINAS" or "APARTAMENTOS EM PATOS DE MINAS")
+- "localizacao"   — neighborhood, region or broader location (when separate from city)
 - "endereco"      — full street address
 - "destaque"      — main headline or highlight phrase
 - "diferenciais"  — amenities or differentials list (pool, gym, etc.)
@@ -140,14 +141,15 @@ Return ONLY a valid JSON object with two keys: "fields" and "mapa".
 
 Example:
 {
-  "localizacao": "cidade 'Patos de Minas' dentro da frase 'APARTAMENTOS EM PATOS DE MINAS' no topo",
+  "cidade": "nome da cidade 'PATOS DE MINAS' dentro da frase 'APARTAMENTOS EM PATOS DE MINAS' no topo",
+  "localizacao": "bairro 'Setor Bueno' abaixo do título no centro",
   "entrada": "valor após o label 'Entrada:' em destaque no centro",
   "parcela": "valor após o label 'Mensais:' abaixo da entrada",
   "logo": "logotipo da imobiliária no canto superior direito",
   "foto_imovel": "foto da fachada do empreendimento na metade inferior"
 }
 
-Full example output: {"fields": ["entrada", "parcela", "localizacao", "foto_imovel", "logo"], "mapa": {"localizacao": "...", "entrada": "..."}}`;
+Full example output: {"fields": ["entrada", "parcela", "cidade", "foto_imovel", "logo"], "mapa": {"cidade": "...", "entrada": "..."}}`;
 
 // ── Admin auth ────────────────────────────────────────────────────────────────
 function adminAuth(req, res, next) {
@@ -409,23 +411,27 @@ app.delete('/api/imoveis/:id', async (req, res) => {
 });
 
 // ── GERAÇÃO DE ARTE ───────────────────────────────────────────────────────────
-const FIELD_DATA = (imovel, localizacao) => ({
-  titulo:        `property name/title → "${imovel.titulo}"`,
-  preco:         imovel.preco         ? `total price → "R$ ${imovel.preco}"` : null,
-  entrada:       imovel.entrada       ? `down payment (entrada) → "R$ ${imovel.entrada}"` : null,
-  parcela:       imovel.parcela       ? `monthly installment (mensais/parcela) → "R$ ${imovel.parcela}"` : null,
-  financiamento: imovel.financiamento ? `financing (financiamento) → "${imovel.financiamento}"` : null,
-  area:          imovel.area          ? `area (área) → "${imovel.area} m²"` : null,
-  quartos:       imovel.quartos       ? `bedrooms (quartos) → "${imovel.quartos}"` : null,
-  suites:        imovel.suites        ? `suites → "${imovel.suites}"` : null,
-  banheiros:     imovel.banheiros     ? `bathrooms (banheiros) → "${imovel.banheiros}"` : null,
-  vagas:         imovel.vagas         ? `parking spots (vagas) → "${imovel.vagas}"` : null,
-  andar:         imovel.andar         ? `floor (andar) → "${imovel.andar}º"` : null,
-  localizacao:   localizacao          ? `city/location → "${localizacao}"` : null,
-  endereco:      imovel.endereco      ? `street address (endereço) → "${imovel.endereco}"` : null,
-  destaque:      imovel.destaque      ? `headline/tagline → "${imovel.destaque}"` : null,
-  diferenciais:  imovel.diferenciais  ? `highlights/differentials → "${imovel.diferenciais}"` : null,
-});
+const FIELD_DATA = (imovel) => {
+  const localizacao = [imovel.bairro, imovel.estado].filter(Boolean).join(', ');
+  return {
+    titulo:        `property name/title → "${imovel.titulo}"`,
+    preco:         imovel.preco         ? `total price → "R$ ${imovel.preco}"` : null,
+    entrada:       imovel.entrada       ? `down payment (entrada) → "R$ ${imovel.entrada}"` : null,
+    parcela:       imovel.parcela       ? `monthly installment (mensais/parcela) → "R$ ${imovel.parcela}"` : null,
+    financiamento: imovel.financiamento ? `financing (financiamento) → "${imovel.financiamento}"` : null,
+    area:          imovel.area          ? `area (área) → "${imovel.area} m²"` : null,
+    quartos:       imovel.quartos       ? `bedrooms (quartos) → "${imovel.quartos}"` : null,
+    suites:        imovel.suites        ? `suites → "${imovel.suites}"` : null,
+    banheiros:     imovel.banheiros     ? `bathrooms (banheiros) → "${imovel.banheiros}"` : null,
+    vagas:         imovel.vagas         ? `parking spots (vagas) → "${imovel.vagas}"` : null,
+    andar:         imovel.andar         ? `floor (andar) → "${imovel.andar}º"` : null,
+    cidade:        imovel.cidade        ? `city name (cidade) → "${imovel.cidade}"` : null,
+    localizacao:   localizacao          ? `neighborhood/region (localização) → "${localizacao}"` : null,
+    endereco:      imovel.endereco      ? `street address (endereço) → "${imovel.endereco}"` : null,
+    destaque:      imovel.destaque      ? `headline/tagline → "${imovel.destaque}"` : null,
+    diferenciais:  imovel.diferenciais  ? `highlights/differentials → "${imovel.diferenciais}"` : null,
+  };
+};
 
 app.post('/api/gerar', async (req, res) => {
   try {
@@ -469,8 +475,7 @@ app.post('/api/gerar', async (req, res) => {
       logoImg = await imageB64FromUrl(perfil.logo);
     }
 
-    const localizacao = [imovel.bairro, imovel.cidade, imovel.estado].filter(Boolean).join(', ');
-    const fieldData   = FIELD_DATA(imovel, localizacao);
+    const fieldData   = FIELD_DATA(imovel);
     const dados = template.fields
       .filter(f => !['foto_imovel', 'logo'].includes(f))
       .map(f => fieldData[f])
