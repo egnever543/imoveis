@@ -513,6 +513,7 @@ app.post('/api/imoveis', userAuth, async (req, res) => {
     if (req.body.totalAndares !== undefined) fields.total_andares = req.body.totalAndares;
 
     const { data, error } = await supabase.from('imoveis').insert({
+      id: Date.now().toString(),
       ...fields,
       fotos: {},
       user_id: req.user.id,
