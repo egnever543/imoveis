@@ -521,6 +521,7 @@ ${fotoSlots.length === 0
 
 Regras:
 - Mantenha fonte, cor e tamanho de cada texto — só o conteúdo troca.
+- Quando o valor faz parte de uma frase ou título maior (ex: "TERRENOS NO CONTINENTAL, SC"), reescreva a frase inteira de forma gramaticalmente correta e natural com o novo valor — ajuste preposições, capitalização e concordância conforme necessário, mas preserve o estilo visual (fonte, cor, tamanho, posição).
 - Não adicione linhas novas. Substitua sempre no lugar exato onde o valor original está na imagem.
 - Todo o resto — layout, cores, formas decorativas, espaçamentos — pixel a pixel igual ao original.`;
 
