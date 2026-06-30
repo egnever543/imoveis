@@ -162,6 +162,13 @@ function toggleToggle(el) {
     const fotoChecked = !!document.querySelector('#editFieldsWrap [data-value="foto_imovel"].checked');
     const currentAngulos = [...document.querySelectorAll('#editAngulosWrap .checked')].map(d => d.dataset.value);
     renderAngulosEdit(fotoChecked, currentAngulos);
+
+    const activeFields = [...document.querySelectorAll('#editFieldsWrap .checked')].map(d => d.dataset.value);
+    const currentMapa  = {};
+    document.querySelectorAll('#editMapaForm input[data-mapa-field]').forEach(inp => {
+      if (inp.value.trim()) currentMapa[inp.dataset.mapaField] = inp.value.trim();
+    });
+    renderMapaForm(activeFields, currentMapa);
   }
 }
 
