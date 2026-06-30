@@ -633,7 +633,7 @@ function renderGaleriaGrid() {
  </div>
  <div class="galeria-card-actions">
  <a href="${item.imageUrl}" download class="btn-ghost btn-sm">⬇ Baixar</a>
- <button class="btn-danger btn-sm" onclick="deletarDaGaleria(${item.id})"></button>
+ <button class="btn-danger btn-sm" onclick="deletarDaGaleria(${item.id})">Excluir</button>
  </div>
  </div>`).join('');
 }
