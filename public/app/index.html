@@ -384,13 +384,10 @@
  </div>
  </div>
 
- <!-- Loading overlay -->
- <div id="loadingOverlay" class="loading-overlay" style="display:none">
- <div class="loading-box">
- <div class="spinner"></div>
- <p>Gerando arte com IA...</p>
- <p class="loading-hint">Pode levar até 3 minutos</p>
- </div>
+ <!-- Aviso de geração em andamento -->
+ <div id="gerandoBanner" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:300;background:#1a1a1a;border:1px solid #3d3d3d;border-radius:12px;padding:14px 20px;display:none;align-items:center;gap:12px;box-shadow:0 4px 24px rgba(0,0,0,0.5);white-space:nowrap">
+  <div class="spinner" style="width:18px;height:18px;border-width:2px;flex-shrink:0"></div>
+  <span style="font-size:0.9rem;color:#f5f5f5">Sua arte esta sendo gerada — aparecera na galeria em ate 3 minutos.</span>
  </div>
 
  <!-- Toast -->

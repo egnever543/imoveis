@@ -340,8 +340,8 @@ async function gerarArteComPrevia() {
 // ── Gerar Arte ────────────────────────────────────────────────────
 async function gerarArte(textosPrevia = null) {
  if (!selectedTemplateId || !selectedImovelId) return;
- document.getElementById('loadingOverlay').style.display = 'flex';
- document.getElementById('resultadoWrap').style.display = 'none';
+ const banner = document.getElementById('gerandoBanner');
+ banner.style.display = 'flex';
  document.getElementById('previaWrap').style.display = 'none';
 
  try {
@@ -355,7 +355,6 @@ async function gerarArte(textosPrevia = null) {
 
   lastArteData = data.imageData;
 
-  // Salva automaticamente na galeria
   const t  = templates.find(t => t.id === selectedTemplateId);
   const im = imoveis.find(i => i.id === selectedImovelId);
   await authFetch('/api/galeria', {
@@ -368,15 +367,11 @@ async function gerarArte(textosPrevia = null) {
    }),
   });
   await loadGaleria();
-
-  document.getElementById('resultadoImg').src = data.imageData;
-  document.getElementById('resultadoWrap').style.display = 'block';
-  document.getElementById('resultadoWrap').scrollIntoView({ behavior: 'smooth' });
-  toast('Arte gerada e salva na galeria!', 'success');
+  toast('Arte salva na galeria!', 'success');
  } catch (err) {
   toast('Erro: ' + err.message, 'error');
  } finally {
-  document.getElementById('loadingOverlay').style.display = 'none';
+  banner.style.display = 'none';
  }
 }
 
