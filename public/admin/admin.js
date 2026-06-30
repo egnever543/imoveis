@@ -304,6 +304,33 @@ async function uploadTemplate() {
 }
 
 // â”€â”€ Toast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+// ── Gerar transcrições em lote ──────────────────────────────────────
+async function gerarTranscricoes() {
+  const btn = document.getElementById('btnGerarTranscricoes');
+  btn.disabled = true;
+  btn.textContent = 'Analisando...';
+  try {
+    const res = await fetch('/api/admin/templates/gerar-transcricoes', {
+      method: 'POST',
+      headers: { 'x-admin-password': adminPassword },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    if (data.atualizados === 0) {
+      toast(data.msg || 'Nenhum template para analisar.', 'success');
+    } else {
+      toast(data.atualizados + ' de ' + data.total + ' template(s) analisado(s).', 'success');
+    }
+    await carregarTemplates();
+  } catch (err) {
+    toast('Erro: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Analisar textos dos templates';
+  }
+}
+
 function toast(msg, type = 'success') {
   const el = document.getElementById('toast');
   el.textContent = msg;

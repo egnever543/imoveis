@@ -245,6 +245,47 @@ app.post('/api/admin/templates/:id/editar-ia', adminAuth, upload.single('imagem'
   }
 });
 
+app.post('/api/admin/templates/gerar-transcricoes', adminAuth, async (req, res) => {
+  try {
+    const { data: rows } = await supabase
+      .from('templates')
+      .select('id, nome, image_url, transcricao')
+      .order('criado_em', { ascending: true });
+
+    const semTranscricao = rows.filter(r => !r.transcricao || !r.transcricao.trim());
+    if (!semTranscricao.length) return res.json({ ok: true, atualizados: 0, msg: 'Todos os templates já têm transcrição.' });
+
+    const resultados = [];
+    for (const t of semTranscricao) {
+      try {
+        const img = await imageB64FromUrl(t.image_url);
+        if (!img) { resultados.push({ id: t.id, nome: t.nome, erro: 'Não foi possível carregar a imagem' }); continue; }
+
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'image_url', image_url: { url: `data:${img.mime};base64,${img.b64}` } },
+              { type: 'text', text: `Transcreva TODO o texto visível nesta imagem de marketing imobiliário, exatamente como aparece — incluindo headlines, labels, valores placeholder, slogans e qualquer outro texto. Preserve a capitalização original. Separe blocos de texto por linha. Não inclua descrições, apenas o texto em si.` },
+            ],
+          }],
+        });
+
+        const transcricao = completion.choices[0].message.content.trim();
+        await supabase.from('templates').update({ transcricao }).eq('id', t.id);
+        resultados.push({ id: t.id, nome: t.nome, ok: true, transcricao });
+      } catch (err) {
+        resultados.push({ id: t.id, nome: t.nome, erro: err.message });
+      }
+    }
+
+    res.json({ ok: true, atualizados: resultados.filter(r => r.ok).length, total: semTranscricao.length, resultados });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.delete('/api/admin/templates/:id', adminAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('templates').delete().eq('id', req.params.id).select().single();
