@@ -500,7 +500,10 @@ app.post('/api/gerar', async (req, res) => {
         if (!valor) return null;
         const onde = mapa[f] ? `Localização no template: ${mapa[f]}` : `Campo: ${FIELD_LABELS_PT[f] || f}`;
         const novoValor = valor.split(' → ')[1]?.replace(/"/g, '') || valor;
-        return `• ${onde}\n  Novo valor: "${novoValor}"`;
+        const instrucao = mapa[f]
+          ? `Reescreva a frase/título inteiro onde este elemento aparece, integrando "${novoValor}" de forma natural — ajuste preposições, capitalização e concordância conforme necessário, mantendo o mesmo estilo visual.`
+          : `Substitua pelo valor: "${novoValor}"`;
+        return `• ${onde}\n  ${instrucao}`;
       })
       .filter(Boolean)
       .join('\n\n');
