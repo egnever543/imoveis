@@ -476,8 +476,8 @@ ${dados || '(nenhum)'}
 Instruções:
 - Entenda na imagem onde estão os textos de localização, valores, endereço, chamada principal e logo, e substitua pelos meus dados acima.
 - Mantenha exatamente a mesma fonte, cor e tamanho de cada texto — só o conteúdo muda, o estilo visual permanece idêntico.
-- É uma troca simples de valores: "São Paulo" vira "Itapoá" ou "Palmeiras, Itapoá, SC" dependendo do contexto do template, "Entrada: 10 mil" vira "Entrada: 300.000,00", e assim por diante.
-- Não adicione nenhum texto novo nem remova textos existentes que não tenham substituto nos meus dados.
+- É uma troca simples de valores. Importante: nomes de cidade e localização podem aparecer embutidos dentro de frases do template, como "APARTAMENTOS EM [CIDADE]" ou "Imóveis em [CIDADE]" — nesse caso substitua só o nome da cidade, mantendo o restante da frase intacto. Nunca deixe a cidade original do template, sempre use a minha.
+- Não adicione linhas ou blocos de texto novos. Se o dado já existe em algum lugar do template, substitua-o lá — não crie um segundo lugar para ele.
 - Para a foto: use exatamente a imagem fornecida, sem recriar nem gerar um novo prédio.
 - Para o logo: use exatamente a imagem fornecida, integrando naturalmente ao fundo sem caixa branca.
 - Todo o resto — layout, cores de fundo, formas decorativas, espaçamentos — deve ser pixel a pixel igual ao original.
