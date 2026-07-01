@@ -117,6 +117,44 @@
     }
     .upload-btn:hover { border-color: #fff; }
 
+    /* ── Nav tabs ── */
+    .admin-tabs { display: flex; gap: 4px; margin-bottom: 28px; border-bottom: 1px solid var(--border); }
+    .admin-tab {
+      padding: 9px 18px; font-size: 0.88rem; font-weight: 600; cursor: pointer;
+      border: none; background: none; color: var(--text-muted);
+      border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s;
+    }
+    .admin-tab.active { color: var(--text); border-bottom-color: #fff; }
+    .admin-tab:hover:not(.active) { color: var(--text); }
+
+    /* ── Prompts ── */
+    .prompt-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 20px; }
+    .prompt-card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .prompt-card-title { font-size: 0.92rem; font-weight: 700; }
+    .prompt-card-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 3px; }
+    .prompt-card-body { padding: 16px 20px; }
+    .prompt-text {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 14px 16px; font-family: monospace; font-size: 0.78rem; line-height: 1.6;
+      color: var(--text); white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow-y: auto;
+    }
+
+    /* ── Logs ── */
+    .logs-filters { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+    .logs-filters select, .logs-filters input { background: var(--bg-card); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius); padding: 7px 12px; font-size: 0.85rem; }
+    .log-row { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; overflow: hidden; }
+    .log-row-header { padding: 12px 16px; display: flex; gap: 12px; align-items: center; cursor: pointer; user-select: none; }
+    .log-row-header:hover { background: rgba(255,255,255,0.03); }
+    .log-badge { font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; background: #1f1f1f; border: 1px solid #3d3d3d; color: #d4d4d4; text-transform: uppercase; letter-spacing: 0.5px; }
+    .log-badge.gerar { border-color: #555; color: #fff; }
+    .log-badge.previa { border-color: #444; }
+    .log-row-title { font-size: 0.85rem; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .log-row-time { font-size: 0.75rem; color: var(--text-muted); flex-shrink: 0; }
+    .log-row-body { display: none; padding: 0 16px 16px; }
+    .log-row-body.open { display: block; }
+    .log-json { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: monospace; font-size: 0.75rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--text); max-height: 400px; overflow-y: auto; }
+    .logs-load-more { width: 100%; margin-top: 14px; }
+
     @media (max-width: 600px) {
       .admin-wrap { padding: 20px 12px 60px; }
       .admin-header h1 { font-size: 1.15rem; }
@@ -163,6 +201,16 @@
         </div>
       </div>
 
+      <!-- Tabs -->
+      <div class="admin-tabs">
+        <button class="admin-tab active" id="tabTemplates" onclick="mudarTab('templates')">Templates</button>
+        <button class="admin-tab" id="tabPrompts" onclick="mudarTab('prompts')">Prompts</button>
+        <button class="admin-tab" id="tabLogs" onclick="mudarTab('logs')">Logs</button>
+      </div>
+
+      <!-- Seção: Templates -->
+      <div id="secaoTemplates">
+
       <!-- Upload -->
       <div class="upload-card">
         <h2>Adicionar template</h2>
@@ -195,6 +243,31 @@
       <div class="section-label">Templates cadastrados</div>
       <div id="templatesList" class="templates-list">
         <div class="no-templates">Carregando…</div>
+      </div>
+
+      </div><!-- /secaoTemplates -->
+
+      <!-- Seção: Prompts -->
+      <div id="secaoPrompts" style="display:none">
+        <div class="section-label">Prompts do sistema</div>
+        <div id="promptsLista"><div class="no-templates">Carregando…</div></div>
+      </div>
+
+      <!-- Seção: Logs -->
+      <div id="secaoLogs" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+          <div class="section-label" style="margin-bottom:0">Histórico de gerações</div>
+          <button class="btn-ghost" style="font-size:0.82rem" onclick="carregarLogs(true)">Atualizar</button>
+        </div>
+        <div class="logs-filters">
+          <select id="logFiltroTipo" onchange="carregarLogs(true)">
+            <option value="">Todos os tipos</option>
+            <option value="gerar">Geração de arte</option>
+            <option value="previa">Prévia de texto</option>
+          </select>
+        </div>
+        <div id="logsLista"><div class="no-templates">Carregando…</div></div>
+        <button id="btnLogsMore" class="btn-ghost logs-load-more" style="display:none" onclick="carregarLogs(false)">Carregar mais</button>
       </div>
 
     </div>

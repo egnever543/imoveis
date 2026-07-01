@@ -610,6 +610,14 @@ Exemplo: {"cidade": "TERRENOS EM ITAPOÁ, SC", "entrada": "ENTRADA: R$ 80 mil", 
     });
 
     const textos = JSON.parse(completion.choices[0].message.content);
+
+    await supabase.from('logs').insert({
+      tipo: 'previa',
+      input: { template: template.nome, imovel: imovel.titulo, campos: camposTexto, promptEnviado: PREVIA_PROMPT },
+      status: 'ok',
+      user_id: req.user.id,
+    }).catch(() => {});
+
     res.json({ textos, campos: camposTexto.map(f => ({ key: f, label: FIELD_LABELS_PT[f] || f })) });
   } catch (err) {
     console.error('Erro prévia:', err);
@@ -745,6 +753,15 @@ Regras:
     if (logoImg) content.push({ type: 'input_image', image_url: `data:${logoImg.mime};base64,${logoImg.b64}` });
     content.push({ type: 'input_text', text: mensagem });
 
+    const logInput = {
+      template: template.nome,
+      imovel: imovel.titulo,
+      campos: template.fields,
+      textosPrevia: textosPrevia || null,
+      imagens: [`template: ${template.imageUrl}`, ...fotoSlots.map((s,i) => `foto_${i} (${s.ang})`), logoImg ? 'logo' : null].filter(Boolean),
+      promptEnviado: mensagem,
+    };
+
     const response = await openai.responses.create({
       model: 'gpt-4o',
       input: [{ role: 'user', content }],
@@ -753,10 +770,12 @@ Regras:
 
     for (const item of response.output || []) {
       if (item.type === 'image_generation_call' && item.result) {
+        await supabase.from('logs').insert({ tipo: 'gerar', input: logInput, status: 'ok', user_id: req.user.id }).catch(() => {});
         return res.json({ success: true, imageData: `data:image/png;base64,${item.result}` });
       }
     }
 
+    await supabase.from('logs').insert({ tipo: 'gerar', input: logInput, status: 'sem_imagem', user_id: req.user.id }).catch(() => {});
     res.status(500).json({ error: 'Nenhuma imagem gerada' });
   } catch (err) {
     console.error('Erro geração:', err);
@@ -803,6 +822,53 @@ app.delete('/api/galeria/:id', userAuth, async (req, res) => {
   }
   await supabase.from('galeria').delete().eq('id', req.params.id).eq('user_id', req.user.id);
   res.json({ ok: true });
+});
+
+// ── ADMIN: Prompts ────────────────────────────────────────────────────────────
+app.get('/api/admin/prompts', adminAuth, (req, res) => {
+  res.json({
+    analise_template: {
+      titulo: 'Análise de Template (ao cadastrar)',
+      modelo: 'gpt-4o',
+      descricao: 'Detecta automaticamente os campos e posições ao subir um novo template.',
+      prompt: ANALYZE_PROMPT,
+    },
+    previa_texto: {
+      titulo: 'Prévia de Texto (antes de gerar arte)',
+      modelo: 'gpt-4o',
+      descricao: 'Pré-computa os textos finais com gramática e formatação corretas antes de enviar para geração da imagem.',
+      prompt: `[Gerado dinamicamente por request — veja nos Logs o promptEnviado de cada chamada "previa"]`,
+    },
+    geracao_arte: {
+      titulo: 'Geração de Arte (imagem final)',
+      modelo: 'gpt-4o (image_generation tool)',
+      descricao: 'Instrui a IA a recriar o template substituindo exatamente os valores fornecidos.',
+      prompt: `[Gerado dinamicamente por request — veja nos Logs o promptEnviado de cada chamada "gerar"]`,
+    },
+    transcricao_template: {
+      titulo: 'Transcrição de Template (ao analisar)',
+      modelo: 'gpt-4o',
+      descricao: 'Lê o texto visível do template para usar como referência na prévia.',
+      prompt: `Transcreva TODO o texto visível nesta imagem de marketing imobiliário, exatamente como aparece — incluindo headlines, labels, valores placeholder, slogans e qualquer outro texto. Preserve a capitalização original. Separe blocos de texto por linha. Não inclua descrições, apenas o texto em si.`,
+    },
+  });
+});
+
+// ── ADMIN: Logs ───────────────────────────────────────────────────────────────
+app.get('/api/admin/logs', adminAuth, async (req, res) => {
+  const limit  = parseInt(req.query.limit  || '50');
+  const offset = parseInt(req.query.offset || '0');
+  const tipo   = req.query.tipo || null;
+
+  let query = supabase.from('logs').select('*', { count: 'exact' })
+    .order('criado_em', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (tipo) query = query.eq('tipo', tipo);
+
+  const { data, error, count } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ logs: data, total: count });
 });
 
 if (require.main === module) {

@@ -58,6 +58,76 @@ async function mostrarAdmin() {
   await carregarTemplates();
 }
 
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+let logsOffset = 0;
+let logsTotal  = 0;
+
+function mudarTab(tab) {
+  ['templates','prompts','logs'].forEach(t => {
+    document.getElementById('secao' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? '' : 'none';
+    document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
+  });
+  if (tab === 'prompts') carregarPrompts();
+  if (tab === 'logs')    carregarLogs(true);
+}
+
+async function carregarPrompts() {
+  const el = document.getElementById('promptsLista');
+  el.innerHTML = '<div class="no-templates">Carregando…</div>';
+  const res  = await fetch('/api/admin/prompts', { headers: { 'x-admin-password': adminPassword } });
+  const data = await res.json();
+  el.innerHTML = Object.entries(data).map(([, p]) => `
+    <div class="prompt-card">
+      <div class="prompt-card-header">
+        <div>
+          <div class="prompt-card-title">${p.titulo}</div>
+          <div class="prompt-card-meta">Modelo: ${p.modelo} — ${p.descricao}</div>
+        </div>
+      </div>
+      <div class="prompt-card-body">
+        <div class="prompt-text">${escHtml(p.prompt)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function carregarLogs(reset) {
+  if (reset) { logsOffset = 0; document.getElementById('logsLista').innerHTML = ''; }
+  const tipo   = document.getElementById('logFiltroTipo').value;
+  const params = new URLSearchParams({ limit: 30, offset: logsOffset });
+  if (tipo) params.set('tipo', tipo);
+  const res  = await fetch(`/api/admin/logs?${params}`, { headers: { 'x-admin-password': adminPassword } });
+  const data = await res.json();
+  logsTotal = data.total || 0;
+  const el = document.getElementById('logsLista');
+  if (!data.logs.length && logsOffset === 0) { el.innerHTML = '<div class="no-templates">Nenhum log encontrado.</div>'; }
+  data.logs.forEach(log => {
+    const d    = new Date(log.criado_em);
+    const time = d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+    const title = log.input?.imovel ? `${log.input.imovel} — ${log.input.template || ''}` : (log.input?.template || log.tipo);
+    const div  = document.createElement('div');
+    div.className = 'log-row';
+    div.innerHTML = `
+      <div class="log-row-header" onclick="this.nextElementSibling.classList.toggle('open')">
+        <span class="log-badge ${log.tipo}">${log.tipo}</span>
+        <span class="log-row-title">${escHtml(title)}</span>
+        <span class="log-row-time">${time}</span>
+      </div>
+      <div class="log-row-body">
+        <div class="log-json">${escHtml(JSON.stringify(log.input, null, 2))}</div>
+      </div>
+    `;
+    el.appendChild(div);
+  });
+  logsOffset += data.logs.length;
+  const btnMore = document.getElementById('btnLogsMore');
+  btnMore.style.display = logsOffset < logsTotal ? '' : 'none';
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 async function carregarTemplates() {
   const res = await fetch('/api/admin/templates', {
     headers: { 'x-admin-password': adminPassword },
