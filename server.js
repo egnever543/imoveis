@@ -611,12 +611,12 @@ Exemplo: {"cidade": "TERRENOS EM ITAPOÁ, SC", "entrada": "ENTRADA: R$ 80 mil", 
 
     const textos = JSON.parse(completion.choices[0].message.content);
 
-    await supabase.from('logs').insert({
+    supabase.from('logs').insert({
       tipo: 'previa',
       input: { template: template.nome, imovel: imovel.titulo, campos: camposTexto, promptEnviado: PREVIA_PROMPT },
       status: 'ok',
       user_id: req.user.id,
-    }).catch(() => {});
+    }).then(() => {}, () => {});
 
     res.json({ textos, campos: camposTexto.map(f => ({ key: f, label: FIELD_LABELS_PT[f] || f })) });
   } catch (err) {
@@ -770,7 +770,7 @@ Regras:
 
     for (const item of response.output || []) {
       if (item.type === 'image_generation_call' && item.result) {
-        await supabase.from('logs').insert({ tipo: 'gerar', input: logInput, status: 'ok', user_id: req.user.id }).catch(() => {});
+        supabase.from('logs').insert({ tipo: 'gerar', input: logInput, status: 'ok', user_id: req.user.id }).then(() => {}, () => {});
         return res.json({ success: true, imageData: `data:image/png;base64,${item.result}` });
       }
     }
