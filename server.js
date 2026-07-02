@@ -775,7 +775,7 @@ Regras:
     const response = await openai.responses.create({
       model: 'gpt-4o',
       input: [{ role: 'user', content }],
-      tools: [{ type: 'image_generation', quality: 'high', size: '1024x1024' }],
+      tools: [{ type: 'image_generation', quality: 'high', size: 'auto' }],
     });
 
     for (const item of response.output || []) {
