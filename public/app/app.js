@@ -123,6 +123,12 @@ async function loadTemplates() {
 }
 
 const PREVIEW_COUNT = 5;
+let templatesTrocando = false; // true = usuário clicou em "Mudar template", mostra o grid
+
+function mudarTemplateGrid() {
+ templatesTrocando = true;
+ renderTemplatesGrid();
+}
 
 function renderTemplatesGrid() {
  const grid = document.getElementById('templatesGrid');
@@ -130,6 +136,27 @@ function renderTemplatesGrid() {
  grid.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">Nenhum template cadastrado. <a href="/admin/" style="color:var(--primary)">Acesse o admin →</a></p>';
  return;
  }
+
+ const escolhido = templates.find(t => t.id === selectedTemplateId);
+
+ // Template escolhido: mostra só ele, com aviso e botão de troca
+ if (escolhido && !templatesTrocando) {
+  grid.innerHTML = `
+  <div class="template-escolhido">
+   <div class="template-card selected" style="cursor:default" ondblclick="abrirGaleria()">
+    <img src="${escolhido.imageUrl}" alt="${escolhido.nome}" loading="lazy" />
+    <div class="template-card-name">${escolhido.nome}</div>
+    <span class="check-badge"></span>
+   </div>
+   <div class="template-escolhido-info">
+    <div class="template-escolhido-badge">✓ Template escolhido</div>
+    <p>Agora selecione o imóvel abaixo e avance para a prévia.</p>
+    <button class="btn-ghost" onclick="mudarTemplateGrid()">Mudar template</button>
+   </div>
+  </div>`;
+  return;
+ }
+
  const preview = templates.slice(0, PREVIEW_COUNT);
  let html = preview.map(t => templateCardHtml(t)).join('');
  html += `
@@ -152,6 +179,7 @@ function templateCardHtml(t) {
 function selecionarTemplate(id) {
  selectedTemplateId = id;
  galeriaEscolhendo = false;
+ templatesTrocando = false;
  renderTemplatesGrid();
  if (document.getElementById('templateGallery').style.display !== 'none') renderGaleria();
  atualizarResumo();
