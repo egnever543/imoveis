@@ -456,7 +456,7 @@ app.post('/api/imoveis/:id/foto/:slot', userAuth, upload.single('foto'), async (
       return res.status(400).json({ error: 'Slot inválido' });
 
     const { data: existing } = await supabase
-      .from('imoveis').select('fotos').eq('id', req.params.id).single();
+      .from('imoveis').select('fotos').eq('id', req.params.id).eq('user_id', req.user.id).single();
     if (!existing) return res.status(404).json({ error: 'Imóvel não encontrado' });
 
     // Remove foto antiga do slot no Cloudinary
@@ -481,7 +481,7 @@ app.post('/api/imoveis/:id/foto/:slot', userAuth, upload.single('foto'), async (
 // Remove foto de um slot: DELETE /api/imoveis/:id/foto/:slot
 app.delete('/api/imoveis/:id/foto/:slot', userAuth, async (req, res) => {
   const { data: existing } = await supabase
-    .from('imoveis').select('fotos').eq('id', req.params.id).single();
+    .from('imoveis').select('fotos').eq('id', req.params.id).eq('user_id', req.user.id).single();
   if (!existing) return res.status(404).json({ error: 'Não encontrado' });
 
   const slot   = req.params.slot;
@@ -533,7 +533,7 @@ app.put('/api/imoveis/:id', userAuth, async (req, res) => {
     if (req.body.totalAndares !== undefined) updates.total_andares = req.body.totalAndares;
 
     const { data, error } = await supabase
-      .from('imoveis').update(updates).eq('id', req.params.id).select().single();
+      .from('imoveis').update(updates).eq('id', req.params.id).eq('user_id', req.user.id).select().single();
     if (error) return res.status(404).json({ error: 'Não encontrado' });
     res.json(fromDb(data));
   } catch (err) {
@@ -561,7 +561,7 @@ app.post('/api/previa', userAuth, async (req, res) => {
     if (!tRow) return res.status(400).json({ error: 'Template inválido' });
     const template = fromDb(tRow);
 
-    const { data: imRow } = await supabase.from('imoveis').select('*').eq('id', imovelId).single();
+    const { data: imRow } = await supabase.from('imoveis').select('*').eq('id', imovelId).eq('user_id', req.user.id).single();
     if (!imRow) return res.status(400).json({ error: 'Imóvel não encontrado' });
     const imovel = fromDb(imRow);
 
@@ -775,7 +775,7 @@ Regras:
       }
     }
 
-    await supabase.from('logs').insert({ tipo: 'gerar', input: logInput, status: 'sem_imagem', user_id: req.user.id }).catch(() => {});
+    supabase.from('logs').insert({ tipo: 'gerar', input: logInput, status: 'sem_imagem', user_id: req.user.id }).then(() => {}, () => {});
     res.status(500).json({ error: 'Nenhuma imagem gerada' });
   } catch (err) {
     console.error('Erro geração:', err);

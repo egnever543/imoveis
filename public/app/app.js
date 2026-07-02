@@ -7,18 +7,18 @@ let photoSlots = [];
 let galeria = [];
 let selectedTemplateId = null;
 let selectedImovelId = null;
-let lastArteData = null;
 let authToken = localStorage.getItem('authToken') || null;
 let currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
 
 // ── Auth helpers ─────────────────────────────────────────────────
-function authHeaders(extra = {}) {
- return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}`, ...extra };
-}
-
-function authFetch(url, opts = {}) {
+async function authFetch(url, opts = {}) {
  const headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${authToken}` };
- return fetch(url, { ...opts, headers });
+ const res = await fetch(url, { ...opts, headers });
+ if (res.status === 401) {
+  sair();
+  throw new Error('Sessão expirada. Entre novamente.');
+ }
+ return res;
 }
 
 // ── Init ─────────────────────────────────────────────────────────
@@ -281,7 +281,15 @@ function atualizarResumo() {
  const fotos = im.fotos || {};
  const faltando = angulos.filter(a => !fotos[a]);
 
- if (hint) hint.style.display = faltando.length > 0 ? 'none' : 'block';
+ if (hint) {
+  hint.style.display = 'block';
+  if (faltando.length > 0) {
+   const labels = faltando.map(a => angleLabels[a] || a).join(', ');
+   hint.innerHTML = `Este template exige fotos que o imóvel ainda não tem: <strong>${labels}</strong>. <a href="#" onclick="editarImovel('${im.id}');return false" style="color:#fff">Adicionar fotos →</a>`;
+  } else {
+   hint.textContent = 'Iremos gerar os textos que irão aparecer na arte, confira-os antes de enviar para criação.';
+  }
+ }
  if (btnP) btnP.disabled = faltando.length > 0;
 }
 
@@ -353,15 +361,13 @@ async function gerarArte(textosPrevia = null) {
   const data = await res.json();
   if (!res.ok || data.error) throw new Error(data.error);
 
-  lastArteData = data.imageData;
-
   const t  = templates.find(t => t.id === selectedTemplateId);
   const im = imoveis.find(i => i.id === selectedImovelId);
   await authFetch('/api/galeria', {
    method: 'POST',
    headers: { 'Content-Type': 'application/json' },
    body: JSON.stringify({
-    imageData: lastArteData,
+    imageData: data.imageData,
     templateNome: t?.nome || null,
     imovelTitulo: im?.titulo || null,
    }),
@@ -373,14 +379,6 @@ async function gerarArte(textosPrevia = null) {
  } finally {
   banner.style.display = 'none';
  }
-}
-
-function downloadArte() {
- if (!lastArteData) return;
- const a = document.createElement('a');
- a.href = lastArteData;
- a.download = `arte-${Date.now()}.png`;
- a.click();
 }
 
 // ── CRUD Imóveis ──────────────────────────────────────────────────
@@ -561,34 +559,6 @@ function previewLogo(input) {
 }
 
 // ── Galeria ───────────────────────────────────────────────────────
-async function salvarNaGaleria() {
- if (!lastArteData) return;
- const btn = document.getElementById('btnSalvarGaleria');
- btn.disabled = true;
- btn.textContent = '⏳ Salvando…';
- const t = templates.find(t => t.id === selectedTemplateId);
- const im = imoveis.find(i => i.id === selectedImovelId);
- try {
- const res = await authFetch('/api/galeria', {
- method: 'POST',
- headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify({
- imageData: lastArteData,
- templateNome: t?.nome || null,
- imovelTitulo: im?.titulo || null,
- }),
- });
- if (!res.ok) throw new Error((await res.json()).error);
- toast('Arte salva na galeria!', 'success');
- loadGaleria();
- } catch (err) {
- toast('Erro ao salvar: ' + err.message, 'error');
- } finally {
- btn.disabled = false;
- btn.textContent = ' Salvar na galeria';
- }
-}
-
 async function loadGaleria() {
  try {
  const res = await authFetch('/api/galeria');
