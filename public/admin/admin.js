@@ -100,18 +100,21 @@ async function carregarLogs(reset) {
   const res  = await fetch(`/api/admin/logs?${params}`, { headers: { 'x-admin-password': adminPassword } });
   const data = await res.json();
   logsTotal = data.total || 0;
+  if (reset && data.resumo) renderLogsResumo(data.resumo);
   const el = document.getElementById('logsLista');
   if (!data.logs.length && logsOffset === 0) { el.innerHTML = '<div class="no-templates">Nenhum log encontrado.</div>'; }
   data.logs.forEach(log => {
     const d    = new Date(log.criado_em);
     const time = d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
     const title = log.input?.imovel ? `${log.input.imovel} — ${log.input.template || ''}` : (log.input?.template || log.tipo);
+    const custo = log.custo != null ? `$${Number(log.custo).toFixed(4)}` : '—';
     const div  = document.createElement('div');
     div.className = 'log-row';
     div.innerHTML = `
       <div class="log-row-header" onclick="this.nextElementSibling.classList.toggle('open')">
         <span class="log-badge ${log.tipo}">${log.tipo}</span>
         <span class="log-row-title">${escHtml(title)}</span>
+        <span class="log-row-custo">${custo}</span>
         <span class="log-row-time">${time}</span>
       </div>
       <div class="log-row-body">
@@ -123,6 +126,27 @@ async function carregarLogs(reset) {
   logsOffset += data.logs.length;
   const btnMore = document.getElementById('btnLogsMore');
   btnMore.style.display = logsOffset < logsTotal ? '' : 'none';
+}
+
+const TIPO_LABELS = { gerar: 'Geração de arte', previa: 'Prévia de texto', analise: 'Análise de template', transcricao: 'Transcrição' };
+
+function renderLogsResumo(resumo) {
+  const el = document.getElementById('logsResumo');
+  const cards = [`
+    <div class="resumo-card">
+      <div class="rc-label">Custo total</div>
+      <div class="rc-valor">$${(resumo.totalUsd || 0).toFixed(2)}</div>
+      <div class="rc-sub">estimado (USD)</div>
+    </div>`];
+  Object.entries(resumo.porTipo || {}).forEach(([tipo, t]) => {
+    cards.push(`
+    <div class="resumo-card">
+      <div class="rc-label">${TIPO_LABELS[tipo] || tipo}</div>
+      <div class="rc-valor">$${t.usd.toFixed(2)}</div>
+      <div class="rc-sub">${t.qtd}x — média $${t.media.toFixed(4)}</div>
+    </div>`);
+  });
+  el.innerHTML = cards.join('');
 }
 
 function escHtml(str) {

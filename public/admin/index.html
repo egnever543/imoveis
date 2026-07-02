@@ -154,6 +154,12 @@
     .log-row-body.open { display: block; }
     .log-json { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: monospace; font-size: 0.75rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--text); max-height: 400px; overflow-y: auto; }
     .logs-load-more { width: 100%; margin-top: 14px; }
+    .logs-resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
+    .resumo-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+    .resumo-card .rc-label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .resumo-card .rc-valor { font-size: 1.15rem; font-weight: 700; margin-top: 4px; }
+    .resumo-card .rc-sub   { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+    .log-row-custo { font-size: 0.75rem; color: var(--text-muted); flex-shrink: 0; font-family: monospace; }
 
     @media (max-width: 600px) {
       .admin-wrap { padding: 20px 12px 60px; }
@@ -259,11 +265,14 @@
           <div class="section-label" style="margin-bottom:0">Histórico de gerações</div>
           <button class="btn-ghost" style="font-size:0.82rem" onclick="carregarLogs(true)">Atualizar</button>
         </div>
+        <div id="logsResumo" class="logs-resumo"></div>
         <div class="logs-filters">
           <select id="logFiltroTipo" onchange="carregarLogs(true)">
             <option value="">Todos os tipos</option>
             <option value="gerar">Geração de arte</option>
             <option value="previa">Prévia de texto</option>
+            <option value="analise">Análise de template</option>
+            <option value="transcricao">Transcrição</option>
           </select>
         </div>
         <div id="logsLista"><div class="no-templates">Carregando…</div></div>

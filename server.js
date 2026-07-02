@@ -108,6 +108,20 @@ function fromDb(row) {
   return r;
 }
 
+// ── Custo estimado (USD) ──────────────────────────────────────────────────────
+// gpt-4o: $2.50/1M tokens de entrada, $10/1M de saída.
+// image_generation high: ~$0.167 (1024x1024) / ~$0.25 (1024x1536) por imagem.
+const PRECO = { in: 2.5 / 1e6, out: 10 / 1e6, img1024: 0.167, img1536: 0.25 };
+
+function custoChat(usage) {
+  if (!usage) return null;
+  return +((usage.prompt_tokens || 0) * PRECO.in + (usage.completion_tokens || 0) * PRECO.out).toFixed(6);
+}
+
+function registrarLog(entry) {
+  supabase.from('logs').insert(entry).then(() => {}, () => {});
+}
+
 // ── Labels ────────────────────────────────────────────────────────────────────
 const FIELD_LABELS_PT = {
   titulo: 'Título', preco: 'Preço', entrada: 'Entrada', parcela: 'Parcela',
@@ -268,6 +282,10 @@ app.post('/api/admin/templates', adminAuth, upload.single('imagem'), async (req,
       }],
     });
     const parsed = JSON.parse(analysis.choices[0].message.content);
+    registrarLog({
+      tipo: 'analise', input: { template: req.body.nome || req.file.originalname }, status: 'ok',
+      usage: analysis.usage || null, custo: custoChat(analysis.usage),
+    });
     const fields = Array.isArray(parsed.fields) ? parsed.fields : [];
     const mapa   = (parsed.mapa && typeof parsed.mapa === 'object') ? parsed.mapa : {};
 
@@ -340,6 +358,11 @@ app.post('/api/admin/templates/:id/gerar-transcricao', adminAuth, async (req, re
     const { error: upErr } = await supabase.from('templates').update({ transcricao }).eq('id', t.id);
     if (upErr) throw new Error('Supabase update: ' + upErr.message);
 
+    registrarLog({
+      tipo: 'transcricao', input: { template: t.nome }, status: 'ok',
+      usage: completion.usage || null, custo: custoChat(completion.usage),
+    });
+
     res.json({ ok: true, transcricao });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -376,6 +399,10 @@ app.post('/api/admin/templates/gerar-transcricoes', adminAuth, async (req, res) 
         const transcricao = completion.choices[0].message.content.trim();
         const { error: upErr } = await supabase.from('templates').update({ transcricao }).eq('id', t.id);
         if (upErr) throw new Error('Supabase update: ' + upErr.message);
+        registrarLog({
+          tipo: 'transcricao', input: { template: t.nome }, status: 'ok',
+          usage: completion.usage || null, custo: custoChat(completion.usage),
+        });
         resultados.push({ id: t.id, nome: t.nome, ok: true, transcricao });
       } catch (err) {
         resultados.push({ id: t.id, nome: t.nome, erro: err.message });
@@ -630,12 +657,14 @@ Exemplo: {"cidade": "TERRENOS EM ITAPOÁ, SC", "entrada": "ENTRADA: R$ 80 mil", 
 
     const textos = JSON.parse(completion.choices[0].message.content);
 
-    supabase.from('logs').insert({
+    registrarLog({
       tipo: 'previa',
       input: { template: template.nome, imovel: imovel.titulo, campos: camposTexto, promptEnviado: PREVIA_PROMPT },
       status: 'ok',
+      usage: completion.usage || null,
+      custo: custoChat(completion.usage),
       user_id: req.user.id,
-    }).then(() => {}, () => {});
+    });
 
     res.json({ textos, campos: camposTexto.map(f => ({ key: f, label: FIELD_LABELS_PT[f] || f })) });
   } catch (err) {
@@ -810,24 +839,38 @@ Regras:
       tools: [{ type: 'image_generation', quality: 'high', size: isReels ? '1024x1536' : '1024x1024' }],
     });
 
+    const usage = response.usage || null;
+    const custoTokens = usage
+      ? (usage.input_tokens || 0) * PRECO.in + (usage.output_tokens || 0) * PRECO.out
+      : 0;
+    const custoImg = isReels ? PRECO.img1536 : PRECO.img1024;
+
     for (const item of response.output || []) {
       if (item.type === 'image_generation_call' && item.result) {
         const up = await cloudinaryUpload(Buffer.from(item.result, 'base64'), 'galeria');
         await supabase.from('galeria')
           .update({ image_url: up.secure_url, status: 'pronta' })
           .eq('id', galeriaId);
-        supabase.from('logs').insert({ tipo: 'gerar', input: logInput, status: 'ok', user_id: req.user.id }).then(() => {}, () => {});
+        registrarLog({
+          tipo: 'gerar', input: logInput, status: 'ok',
+          usage, custo: +(custoTokens + custoImg).toFixed(6),
+          user_id: req.user.id,
+        });
         return res.json({ success: true, galeriaId });
       }
     }
 
     await supabase.from('galeria').update({ status: 'erro' }).eq('id', galeriaId);
-    supabase.from('logs').insert({ tipo: 'gerar', input: logInput, status: 'sem_imagem', user_id: req.user.id }).then(() => {}, () => {});
+    registrarLog({
+      tipo: 'gerar', input: logInput, status: 'sem_imagem',
+      usage, custo: +custoTokens.toFixed(6),
+      user_id: req.user.id,
+    });
     res.status(500).json({ error: 'Nenhuma imagem gerada' });
   } catch (err) {
     console.error('Erro geração:', err);
     if (galeriaId) supabase.from('galeria').update({ status: 'erro' }).eq('id', galeriaId).then(() => {}, () => {});
-    supabase.from('logs').insert({ tipo: 'gerar', input: { erro: err.message }, status: 'erro', user_id: req.user?.id }).then(() => {}, () => {});
+    registrarLog({ tipo: 'gerar', input: { erro: err.message }, status: 'erro', user_id: req.user?.id });
     res.status(500).json({ error: err.message });
   }
 });
@@ -894,7 +937,24 @@ app.get('/api/admin/logs', adminAuth, async (req, res) => {
 
   const { data, error, count } = await query;
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ logs: data, total: count });
+
+  // Resumo de custos (todos os logs, sem paginação)
+  const { data: todos } = await supabase.from('logs').select('tipo, custo, status');
+  const resumo = { totalUsd: 0, porTipo: {} };
+  (todos || []).forEach(l => {
+    const c = Number(l.custo) || 0;
+    resumo.totalUsd += c;
+    if (!resumo.porTipo[l.tipo]) resumo.porTipo[l.tipo] = { qtd: 0, usd: 0 };
+    resumo.porTipo[l.tipo].qtd += 1;
+    resumo.porTipo[l.tipo].usd += c;
+  });
+  resumo.totalUsd = +resumo.totalUsd.toFixed(4);
+  Object.values(resumo.porTipo).forEach(t => {
+    t.usd   = +t.usd.toFixed(4);
+    t.media = t.qtd ? +(t.usd / t.qtd).toFixed(4) : 0;
+  });
+
+  res.json({ logs: data, total: count, resumo });
 });
 
 if (require.main === module) {
