@@ -232,30 +232,81 @@ function renderImoveisGrid() {
  }).join('');
 }
 
+const IMOVEL_PREVIEW_COUNT = 6;
+let imovelBusca = '';
+let imovelPickerExpandido = false;
+
+function filtrarImoveis(valor) {
+ imovelBusca = (valor || '').trim().toLowerCase();
+ renderImovelPicker();
+}
+
+function expandirImoveis() {
+ imovelPickerExpandido = true;
+ renderImovelPicker();
+}
+
 function renderImovelPicker() {
  const picker = document.getElementById('imovelPicker');
  const empty = document.getElementById('imovelPickerEmpty');
+ const buscaWrap = document.getElementById('imovelBuscaWrap');
  if (!imoveis.length) {
- picker.innerHTML = '';
- empty.style.display = 'block';
- return;
+  picker.innerHTML = '';
+  empty.style.display = 'block';
+  if (buscaWrap) buscaWrap.style.display = 'none';
+  return;
  }
  empty.style.display = 'none';
- picker.innerHTML = imoveis.map(im => {
- const foto = Object.values(im.fotos || {})[0];
- const local = [im.cidade, im.estado].filter(Boolean).join(' - ');
- return `
- <div class="picker-card ${selectedImovelId === im.id ? 'selected' : ''}" onclick="selecionarImovel('${im.id}')">
- <div class="picker-thumb">
- ${foto ? `<img src="${foto}" alt="" />` : ''}
- </div>
- <div class="picker-info">
- <h4>${im.titulo}</h4>
- <p>${[im.tipo, local].filter(Boolean).join(' • ') || '—'}</p>
- </div>
- <span class="picker-check"></span>
- </div>`;
+ if (buscaWrap) buscaWrap.style.display = imoveis.length > IMOVEL_PREVIEW_COUNT ? 'flex' : 'none';
+
+ let lista = imoveis;
+ if (imovelBusca) {
+  lista = imoveis.filter(im =>
+   [im.titulo, im.cidade, im.bairro, im.tipo, im.endereco]
+    .filter(Boolean).join(' ').toLowerCase().includes(imovelBusca)
+  );
+ }
+
+ if (!lista.length) {
+  picker.innerHTML = `<p style="color:var(--text-muted);font-size:0.85rem;grid-column:1/-1">Nenhum imóvel encontrado para "${imovelBusca}".</p>`;
+  return;
+ }
+
+ // Sem busca e sem expandir: mostra só os primeiros + card "Ver mais"
+ const mostrarTudo = imovelBusca || imovelPickerExpandido || lista.length <= IMOVEL_PREVIEW_COUNT;
+ const visiveis = mostrarTudo ? lista : lista.slice(0, IMOVEL_PREVIEW_COUNT);
+ // Imóvel selecionado sempre visível, mesmo fora do preview
+ if (selectedImovelId && !visiveis.some(i => i.id === selectedImovelId)) {
+  const sel = lista.find(i => i.id === selectedImovelId);
+  if (sel) visiveis[visiveis.length - 1] = sel;
+ }
+ const ocultos = lista.length - visiveis.length;
+
+ let html = visiveis.map(im => {
+  const foto = Object.values(im.fotos || {})[0];
+  const local = [im.cidade, im.estado].filter(Boolean).join(' - ');
+  return `
+  <div class="picker-card ${selectedImovelId === im.id ? 'selected' : ''}" onclick="selecionarImovel('${im.id}')">
+   <div class="picker-thumb">
+    ${foto ? `<img src="${foto}" alt="" />` : ''}
+   </div>
+   <div class="picker-info">
+    <h4>${im.titulo}</h4>
+    <p>${[im.tipo, local].filter(Boolean).join(' • ') || '—'}</p>
+   </div>
+   <span class="picker-check"></span>
+  </div>`;
  }).join('');
+
+ if (ocultos > 0) {
+  html += `
+  <div class="picker-card picker-more" onclick="expandirImoveis()">
+   <span class="picker-more-num">+${ocultos}</span>
+   <span>Ver mais</span>
+  </div>`;
+ }
+
+ picker.innerHTML = html;
 }
 
 function selecionarImovel(id) {

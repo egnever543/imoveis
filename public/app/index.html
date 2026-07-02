@@ -76,6 +76,10 @@
 
  <section class="gerar-section">
  <h2 class="section-title">2. Imóvel</h2>
+ <div class="picker-busca-wrap" id="imovelBuscaWrap">
+  <span class="picker-busca-icone">🔍</span>
+  <input type="text" id="imovelBusca" placeholder="Buscar imóvel por título, cidade ou bairro…" oninput="filtrarImoveis(this.value)" />
+ </div>
  <div id="imovelPickerEmpty" class="empty-state small">
  <p>Nenhum imóvel cadastrado.</p>
  <button class="btn-link" onclick="navegarPara('imoveis')">Cadastrar imóvel →</button>
