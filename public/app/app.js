@@ -142,7 +142,7 @@ function renderTemplatesGrid() {
 
 function templateCardHtml(t) {
  return `
- <div class="template-card ${selectedTemplateId === t.id ? 'selected' : ''}" onclick="selecionarTemplate(${t.id})">
+ <div class="template-card ${selectedTemplateId === t.id ? 'selected' : ''}" onclick="selecionarTemplate(${t.id})" ondblclick="abrirGaleria()">
  <img src="${t.imageUrl}" alt="${t.nome}" loading="lazy" />
  <div class="template-card-name">${t.nome}</div>
  <span class="check-badge"></span>
