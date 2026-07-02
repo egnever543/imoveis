@@ -89,6 +89,25 @@ a, .btn-link { color: #fff; }
 .gallery-card.selected { border-color: #fff; box-shadow: 0 0 0 4px rgba(255,255,255,0.18); }
 .gallery-card .check-badge { background: #fff; color: #000; }
 
+/* Modo "template escolhido" */
+.gallery-chosen {
+ display: flex; flex-direction: column; align-items: center; gap: 18px;
+ margin: 0 auto;
+}
+.gallery-chosen .gallery-card { width: 280px; }
+.gallery-chosen .gallery-card:hover { transform: none; }
+.gallery-chosen-badge {
+ display: inline-flex; align-items: center; gap: 6px;
+ background: #1f1f1f; border: 1px solid #fff; color: #fff;
+ border-radius: 20px; padding: 6px 16px; font-size: 0.82rem; font-weight: 600;
+}
+.gallery-chosen-actions { display: flex; gap: 10px; }
+.gallery-chosen-actions button { padding: 10px 22px; }
+
+@media (max-width: 768px) {
+ .gallery-chosen .gallery-card { width: 60vw; max-width: 280px; }
+}
+
 .gallery-nav {
  position: absolute; top: 50%; transform: translateY(-50%);
  background: rgba(255,255,255,0.08); border: 1px solid var(--border-light);

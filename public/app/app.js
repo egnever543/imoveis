@@ -151,13 +151,17 @@ function templateCardHtml(t) {
 
 function selecionarTemplate(id) {
  selectedTemplateId = id;
+ galeriaEscolhendo = false;
  renderTemplatesGrid();
  if (document.getElementById('templateGallery').style.display !== 'none') renderGaleria();
  atualizarResumo();
 }
 
 // ── Galeria de templates ("ver mais") ───────────────────────────────
+let galeriaEscolhendo = false; // true = mostrando o carrossel para trocar
+
 function abrirGaleria() {
+ galeriaEscolhendo = !selectedTemplateId;
  renderGaleria();
  document.getElementById('templateGallery').style.display = 'flex';
 }
@@ -166,12 +170,44 @@ function fecharGaleria() {
  document.getElementById('templateGallery').style.display = 'none';
 }
 
+function mudarTemplate() {
+ galeriaEscolhendo = true;
+ renderGaleria();
+}
+
 function renderGaleria() {
  const track = document.getElementById('galleryTrack');
+ const navs = document.querySelectorAll('#templateGallery .gallery-nav');
  if (!templates.length) {
- track.innerHTML = '<p style="color:var(--text-muted)">Nenhum template cadastrado.</p>';
- return;
+  track.innerHTML = '<p style="color:var(--text-muted)">Nenhum template cadastrado.</p>';
+  return;
  }
+
+ const escolhido = templates.find(t => t.id === selectedTemplateId);
+ const footer = document.querySelector('#templateGallery .gallery-footer');
+
+ // Modo "template escolhido": só o design selecionado, com ações
+ if (escolhido && !galeriaEscolhendo) {
+  navs.forEach(n => n.style.display = 'none');
+  if (footer) footer.style.display = 'none';
+  track.innerHTML = `
+  <div class="gallery-chosen">
+   <div class="gallery-chosen-badge">✓ Template escolhido</div>
+   <div class="gallery-card selected" style="cursor:default">
+    <img src="${escolhido.imageUrl}" alt="${escolhido.nome}" loading="lazy" />
+    <div class="gallery-card-name">${escolhido.nome}</div>
+   </div>
+   <div class="gallery-chosen-actions">
+    <button class="btn-ghost" onclick="mudarTemplate()">Mudar template</button>
+    <button class="btn-primary" onclick="fecharGaleria()">Continuar</button>
+   </div>
+  </div>`;
+  return;
+ }
+
+ // Modo carrossel: todos os templates
+ navs.forEach(n => n.style.display = '');
+ if (footer) footer.style.display = '';
  track.innerHTML = templates.map(t => `
  <div class="gallery-card ${selectedTemplateId === t.id ? 'selected' : ''}" onclick="selecionarTemplate(${t.id})">
  <img src="${t.imageUrl}" alt="${t.nome}" loading="lazy" />
