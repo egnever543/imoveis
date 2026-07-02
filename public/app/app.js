@@ -345,40 +345,59 @@ async function gerarArteComPrevia() {
  await gerarArte(textos);
 }
 
-// ── Gerar Arte ────────────────────────────────────────────────────
-async function gerarArte(textosPrevia = null) {
+// ── Gerar Arte (assíncrono) ───────────────────────────────────────
+let pollTimer = null;
+
+function gerarArte(textosPrevia = null, formato = '1x1') {
  if (!selectedTemplateId || !selectedImovelId) return;
+ document.getElementById('previaWrap').style.display = 'none';
+ iniciarGeracao({ templateId: selectedTemplateId, imovelId: selectedImovelId, textosPrevia, formato });
+}
+
+function iniciarGeracao(body) {
+ // Dispara a geração sem bloquear — o servidor salva na galeria sozinho
+ authFetch('/api/gerar', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
+ })
+  .then(r => r.json())
+  .then(d => { if (d.error) toast('Erro na geração: ' + d.error, 'error'); loadGaleria(); })
+  .catch(err => { toast('Erro: ' + err.message, 'error'); loadGaleria(); });
+
+ toast('Geração iniciada!', 'success');
+ navegarPara('galeria');
+ setTimeout(loadGaleria, 800);
+ iniciarPolling();
+}
+
+function iniciarPolling() {
  const banner = document.getElementById('gerandoBanner');
  banner.style.display = 'flex';
- document.getElementById('previaWrap').style.display = 'none';
-
- try {
-  const res = await authFetch('/api/gerar', {
-   method: 'POST',
-   headers: { 'Content-Type': 'application/json' },
-   body: JSON.stringify({ templateId: selectedTemplateId, imovelId: selectedImovelId, textosPrevia }),
-  });
-  const data = await res.json();
-  if (!res.ok || data.error) throw new Error(data.error);
-
-  const t  = templates.find(t => t.id === selectedTemplateId);
-  const im = imoveis.find(i => i.id === selectedImovelId);
-  await authFetch('/api/galeria', {
-   method: 'POST',
-   headers: { 'Content-Type': 'application/json' },
-   body: JSON.stringify({
-    imageData: data.imageData,
-    templateNome: t?.nome || null,
-    imovelTitulo: im?.titulo || null,
-   }),
-  });
+ if (pollTimer) return;
+ pollTimer = setInterval(async () => {
   await loadGaleria();
-  toast('Arte salva na galeria!', 'success');
- } catch (err) {
-  toast('Erro: ' + err.message, 'error');
- } finally {
-  banner.style.display = 'none';
+  if (!galeria.some(g => g.status === 'gerando')) {
+   clearInterval(pollTimer);
+   pollTimer = null;
+   banner.style.display = 'none';
+  }
+ }, 10000);
+}
+
+function gerarVariacaoReels(id) {
+ const item = galeria.find(g => g.id === id);
+ if (!item) return;
+ if (!item.templateId || !item.imovelId) {
+  toast('Esta arte é antiga e não tem os dados para gerar variação.', 'error');
+  return;
  }
+ iniciarGeracao({
+  templateId: item.templateId,
+  imovelId: item.imovelId,
+  textosPrevia: item.textos || null,
+  formato: 'reels',
+ });
 }
 
 // ── CRUD Imóveis ──────────────────────────────────────────────────
@@ -559,37 +578,113 @@ function previewLogo(input) {
 }
 
 // ── Galeria ───────────────────────────────────────────────────────
+let pastaAberta = null;
+
 async function loadGaleria() {
  try {
- const res = await authFetch('/api/galeria');
- galeria = await res.json();
- renderGaleriaGrid();
+  const res = await authFetch('/api/galeria');
+  galeria = await res.json();
+  renderGaleriaGrid();
+  if (galeria.some(g => g.status === 'gerando') && !pollTimer) iniciarPolling();
  } catch { /* silencioso */ }
 }
+
+function agruparPastas() {
+ const pastas = {};
+ galeria.forEach(item => {
+  const key = String(item.imovelId || item.imovelTitulo || 'outros');
+  if (!pastas[key]) pastas[key] = { titulo: item.imovelTitulo || 'Sem imóvel', itens: [] };
+  pastas[key].itens.push(item);
+ });
+ return pastas;
+}
+
+function abrirPasta(key) { pastaAberta = key; renderGaleriaGrid(); }
+function fecharPasta()   { pastaAberta = null; renderGaleriaGrid(); }
 
 function renderGaleriaGrid() {
  const grid = document.getElementById('galeriaGrid');
  const empty = document.getElementById('galeriaEmpty');
  if (!galeria.length) {
- empty.style.display = 'block';
- grid.innerHTML = '';
- return;
+  empty.style.display = 'block';
+  grid.innerHTML = '';
+  return;
  }
  empty.style.display = 'none';
- grid.innerHTML = galeria.map(item => `
- <div class="galeria-card" id="gcrd-${item.id}">
- <div class="galeria-card-img-wrap">
- <img src="${item.imageUrl}" alt="${item.imovelTitulo || 'Arte'}" loading="lazy" />
- </div>
- <div class="galeria-card-info">
- <div class="galeria-card-title">${item.imovelTitulo || '—'}</div>
- <div class="galeria-card-sub">${item.templateNome || ''}</div>
- </div>
- <div class="galeria-card-actions">
- <a href="${item.imageUrl}" download class="btn-ghost btn-sm">⬇ Baixar</a>
- <button class="btn-danger btn-sm" onclick="deletarDaGaleria(${item.id})">Excluir</button>
- </div>
- </div>`).join('');
+
+ const pastas = agruparPastas();
+ if (pastaAberta && !pastas[pastaAberta]) pastaAberta = null;
+
+ // Vista de pastas
+ if (!pastaAberta) {
+  grid.innerHTML = Object.entries(pastas).map(([key, p]) => {
+   const capa = p.itens.find(i => i.imageUrl);
+   const gerando = p.itens.some(i => i.status === 'gerando');
+   return `
+   <div class="pasta-card" onclick="abrirPasta('${key}')">
+    <div class="pasta-card-img-wrap">
+     ${capa ? `<img src="${capa.imageUrl}" alt="" loading="lazy" />` : `<div class="pasta-card-vazia">📁</div>`}
+     ${gerando ? `<div class="pasta-gerando-badge"><span class="spinner" style="width:12px;height:12px;border-width:2px"></span> gerando</div>` : ''}
+    </div>
+    <div class="galeria-card-info">
+     <div class="galeria-card-title">${p.titulo}</div>
+     <div class="galeria-card-sub">${p.itens.length} arte${p.itens.length > 1 ? 's' : ''}</div>
+    </div>
+   </div>`;
+  }).join('');
+  return;
+ }
+
+ // Vista de artes dentro da pasta
+ const p = pastas[pastaAberta];
+ grid.innerHTML = `
+  <div style="grid-column:1/-1;display:flex;align-items:center;gap:12px">
+   <button class="btn-ghost btn-sm" onclick="fecharPasta()">← Pastas</button>
+   <strong style="font-size:0.95rem">${p.titulo}</strong>
+  </div>` +
+  p.itens.map(item => {
+   if (item.status === 'gerando') {
+    return `
+    <div class="galeria-card">
+     <div class="galeria-card-gerando">
+      <span class="spinner" style="width:22px;height:22px;border-width:2px"></span>
+      <span>Gerando${item.formato === 'reels' ? ' (Reels)' : ''}…</span>
+     </div>
+     <div class="galeria-card-info">
+      <div class="galeria-card-title">${item.imovelTitulo || '—'}</div>
+      <div class="galeria-card-sub">${item.templateNome || ''}</div>
+     </div>
+    </div>`;
+   }
+   if (item.status === 'erro') {
+    return `
+    <div class="galeria-card">
+     <div class="galeria-card-gerando" style="color:var(--danger)">Falha na geração</div>
+     <div class="galeria-card-info">
+      <div class="galeria-card-title">${item.imovelTitulo || '—'}</div>
+      <div class="galeria-card-sub">${item.templateNome || ''}</div>
+     </div>
+     <div class="galeria-card-actions">
+      <button class="btn-danger btn-sm" onclick="deletarDaGaleria(${item.id})">Excluir</button>
+     </div>
+    </div>`;
+   }
+   return `
+   <div class="galeria-card" id="gcrd-${item.id}">
+    <div class="galeria-card-img-wrap">
+     <img src="${item.imageUrl}" alt="${item.imovelTitulo || 'Arte'}" loading="lazy" />
+    </div>
+    <div class="galeria-card-info">
+     <div class="galeria-card-title">${item.imovelTitulo || '—'}</div>
+     <div class="galeria-card-sub">${item.templateNome || ''}${item.formato === 'reels' ? ' • Reels' : ''}</div>
+    </div>
+    <div class="galeria-card-actions">
+     <a href="${item.imageUrl}" download class="btn-ghost btn-sm">⬇ Baixar</a>
+     ${item.formato !== 'reels' && item.templateId ? `<button class="btn-ghost btn-sm" onclick="gerarVariacaoReels(${item.id})">Reels</button>` : ''}
+     <button class="btn-danger btn-sm" onclick="deletarDaGaleria(${item.id})">Excluir</button>
+    </div>
+   </div>`;
+  }).join('');
 }
 
 async function deletarDaGaleria(id) {

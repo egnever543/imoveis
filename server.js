@@ -103,6 +103,8 @@ function fromDb(row) {
   }
   if ('template_nome' in r) { r.templateNome = r.template_nome; delete r.template_nome; }
   if ('imovel_titulo' in r) { r.imovelTitulo = r.imovel_titulo; delete r.imovel_titulo; }
+  if ('template_id'   in r) { r.templateId   = r.template_id;   delete r.template_id; }
+  if ('imovel_id'     in r) { r.imovelId     = r.imovel_id;     delete r.imovel_id; }
   return r;
 }
 
@@ -113,6 +115,8 @@ const FIELD_LABELS_PT = {
   suites: 'Suítes', banheiros: 'Banheiros', vagas: 'Vagas', andar: 'Andar',
   cidade: 'Cidade', localizacao: 'Localização (bairro/região)', endereco: 'Endereço', destaque: 'Chamada principal',
   diferenciais: 'Diferenciais', foto_imovel: 'Foto do imóvel', logo: 'Logo',
+  telefone: 'Telefone (do perfil)', whatsapp: 'WhatsApp (do perfil)', creci: 'CRECI (do perfil)',
+  site: 'Site (do perfil)', slogan: 'Slogan (do perfil)',
 };
 
 const ANGLE_LABELS_PT = Object.fromEntries(PHOTO_SLOTS.map(s => [s.key, s.label]));
@@ -141,6 +145,11 @@ Return ONLY a valid JSON object with two keys: "fields" and "mapa".
 - "diferenciais"  — amenities or differentials list (pool, gym, etc.)
 - "foto_imovel"   — area displaying a property photo
 - "logo"          — agency/brand logo area
+- "telefone"      — contact phone number
+- "whatsapp"      — WhatsApp contact number
+- "creci"         — CRECI license number of the agent/agency
+- "site"          — website URL
+- "slogan"        — agency slogan or tagline
 
 2. "mapa": a JSON object where each key is a field name from "fields" and the value is a short description (in Portuguese) of exactly how that element appears in this specific image — the literal text or context visible. This will be used to build precise find-and-replace instructions.
 
@@ -567,7 +576,7 @@ app.post('/api/previa', userAuth, async (req, res) => {
 
     const { data: perfil } = await supabase.from('perfil').select('*').eq('user_id', req.user.id).single();
 
-    const fieldData = FIELD_DATA(imovel);
+    const fieldData = FIELD_DATA(imovel, perfil);
     const mapa = template.mapa || {};
     const camposTexto = (template.fields || []).filter(f => !['foto_imovel', 'logo'].includes(f));
 
@@ -636,9 +645,14 @@ Exemplo: {"cidade": "TERRENOS EM ITAPOÁ, SC", "entrada": "ENTRADA: R$ 80 mil", 
 });
 
 // ── GERAÇÃO DE ARTE ───────────────────────────────────────────────────────────
-const FIELD_DATA = (imovel) => {
+const FIELD_DATA = (imovel, perfil = {}) => {
   const localizacao = [imovel.bairro, imovel.estado].filter(Boolean).join(', ');
   return {
+    telefone:      perfil?.telefone      ? `contact phone → "${perfil.telefone}"` : null,
+    whatsapp:      perfil?.whatsapp      ? `WhatsApp number → "${perfil.whatsapp}"` : null,
+    creci:         perfil?.creci         ? `CRECI license → "${perfil.creci}"` : null,
+    site:          perfil?.site          ? `website → "${perfil.site}"` : null,
+    slogan:        perfil?.slogan        ? `agency slogan → "${perfil.slogan}"` : null,
     titulo:        `property name/title → "${imovel.titulo}"`,
     preco:         imovel.preco         ? `total price → "R$ ${imovel.preco}"` : null,
     entrada:       imovel.entrada       ? `down payment (entrada) → "R$ ${imovel.entrada}"` : null,
@@ -659,8 +673,10 @@ const FIELD_DATA = (imovel) => {
 };
 
 app.post('/api/gerar', userAuth, async (req, res) => {
+  let galeriaId = null;
   try {
-    const { templateId, imovelId, textosPrevia } = req.body;
+    const { templateId, imovelId, textosPrevia, formato } = req.body;
+    const isReels = formato === 'reels';
 
     const { data: tRow } = await supabase.from('templates').select('*').eq('id', templateId).single();
     if (!tRow) return res.status(400).json({ error: 'Template inválido' });
@@ -672,8 +688,22 @@ app.post('/api/gerar', userAuth, async (req, res) => {
 
     const { data: perfil } = await supabase.from('perfil').select('*').eq('user_id', req.user.id).single();
 
+    // Registro pendente na galeria — o card "gerando" aparece imediatamente
+    const { data: pendente, error: pendErr } = await supabase.from('galeria').insert({
+      status:        'gerando',
+      formato:       isReels ? 'reels' : '1x1',
+      template_id:   templateId,
+      imovel_id:     imovelId,
+      template_nome: template.nome,
+      imovel_titulo: imovel.titulo,
+      textos:        textosPrevia || null,
+      user_id:       req.user.id,
+    }).select('id').single();
+    if (pendErr) throw new Error(pendErr.message);
+    galeriaId = pendente.id;
+
     const templateImg = await imageB64FromUrl(template.imageUrl);
-    if (!templateImg) return res.status(500).json({ error: 'Não foi possível carregar o template' });
+    if (!templateImg) throw new Error('Não foi possível carregar o template');
 
     // Seleciona fotos pelos ângulos exigidos pelo template
     const angulos = template.angulos || [];
@@ -700,7 +730,7 @@ app.post('/api/gerar', userAuth, async (req, res) => {
       logoImg = await imageB64FromUrl(perfil.logo);
     }
 
-    const fieldData   = FIELD_DATA(imovel);
+    const fieldData   = FIELD_DATA(imovel, perfil);
     const dados = template.fields
       .filter(f => !['foto_imovel', 'logo'].includes(f))
       .map(f => fieldData[f])
@@ -754,7 +784,8 @@ Regras:
 - Mantenha fonte, cor e tamanho de cada texto — só o conteúdo troca.
 - Quando o valor faz parte de uma frase ou título maior (ex: "TERRENOS NO CONTINENTAL, SC"), reescreva a frase inteira de forma gramaticalmente correta e natural com o novo valor — ajuste preposições, capitalização e concordância conforme necessário, mas preserve o estilo visual (fonte, cor, tamanho, posição).
 - Não adicione linhas novas. Substitua sempre no lugar exato onde o valor original está na imagem.
-- Todo o resto — layout, cores, formas decorativas, espaçamentos — pixel a pixel igual ao original.`;
+- Todo o resto — layout, cores, formas decorativas, espaçamentos — pixel a pixel igual ao original.${isReels ? `
+- IMPORTANTE: gere no formato vertical 9:16 (Reels/Stories). Adapte a composição do template para ocupar bem o quadro vertical — pode reorganizar os blocos verticalmente, mas mantenha identidade visual, cores, fontes e hierarquia do original.` : ''}`;
 
 
     const content = [];
@@ -768,6 +799,7 @@ Regras:
       imovel: imovel.titulo,
       campos: template.fields,
       textosPrevia: textosPrevia || null,
+      formato: isReels ? 'reels' : '1x1',
       imagens: [`template: ${template.imageUrl}`, ...fotoSlots.map((s,i) => `foto_${i} (${s.ang})`), logoImg ? 'logo' : null].filter(Boolean),
       promptEnviado: mensagem,
     };
@@ -775,20 +807,27 @@ Regras:
     const response = await openai.responses.create({
       model: 'gpt-4o',
       input: [{ role: 'user', content }],
-      tools: [{ type: 'image_generation', quality: 'high', size: 'auto' }],
+      tools: [{ type: 'image_generation', quality: 'high', size: isReels ? '1024x1536' : '1024x1024' }],
     });
 
     for (const item of response.output || []) {
       if (item.type === 'image_generation_call' && item.result) {
+        const up = await cloudinaryUpload(Buffer.from(item.result, 'base64'), 'galeria');
+        await supabase.from('galeria')
+          .update({ image_url: up.secure_url, status: 'pronta' })
+          .eq('id', galeriaId);
         supabase.from('logs').insert({ tipo: 'gerar', input: logInput, status: 'ok', user_id: req.user.id }).then(() => {}, () => {});
-        return res.json({ success: true, imageData: `data:image/png;base64,${item.result}` });
+        return res.json({ success: true, galeriaId });
       }
     }
 
+    await supabase.from('galeria').update({ status: 'erro' }).eq('id', galeriaId);
     supabase.from('logs').insert({ tipo: 'gerar', input: logInput, status: 'sem_imagem', user_id: req.user.id }).then(() => {}, () => {});
     res.status(500).json({ error: 'Nenhuma imagem gerada' });
   } catch (err) {
     console.error('Erro geração:', err);
+    if (galeriaId) supabase.from('galeria').update({ status: 'erro' }).eq('id', galeriaId).then(() => {}, () => {});
+    supabase.from('logs').insert({ tipo: 'gerar', input: { erro: err.message }, status: 'erro', user_id: req.user?.id }).then(() => {}, () => {});
     res.status(500).json({ error: err.message });
   }
 });
@@ -799,29 +838,6 @@ app.get('/api/galeria', userAuth, async (req, res) => {
     .from('galeria').select('*').eq('user_id', req.user.id).order('criado_em', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
   res.json(data.map(fromDb));
-});
-
-app.post('/api/galeria', userAuth, async (req, res) => {
-  try {
-    const { imageData, templateNome, imovelTitulo } = req.body;
-    if (!imageData) return res.status(400).json({ error: 'imageData obrigatório' });
-
-    const base64 = imageData.replace(/^data:image\/\w+;base64,/, '');
-    const buf    = Buffer.from(base64, 'base64');
-    const result = await cloudinaryUpload(buf, 'galeria');
-
-    const { data, error } = await supabase.from('galeria').insert({
-      image_url:     result.secure_url,
-      template_nome: templateNome || null,
-      imovel_titulo: imovelTitulo || null,
-      user_id:       req.user.id,
-    }).select().single();
-
-    if (error) throw new Error(error.message);
-    res.status(201).json(fromDb(data));
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
 });
 
 app.delete('/api/galeria/:id', userAuth, async (req, res) => {

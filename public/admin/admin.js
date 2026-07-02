@@ -3,6 +3,7 @@ const ALL_FIELDS   = [
   'titulo','preco','entrada','parcela','financiamento',
   'area','quartos','suites','banheiros','vagas','andar',
   'cidade','localizacao','endereco','destaque','diferenciais','foto_imovel','logo',
+  'telefone','whatsapp','creci','site','slogan',
 ];
 
 let adminPassword = sessionStorage.getItem('adminPassword') || '';

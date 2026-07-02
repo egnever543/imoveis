@@ -198,6 +198,33 @@ a, .btn-link { color: #fff; }
 .galeria-card-info { padding: 10px 12px; flex: 1; }
 .galeria-card-title { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .galeria-card-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Pastas por imóvel */
+.pasta-card {
+ background: var(--bg-card);
+ border: 1px solid var(--border);
+ border-radius: 12px;
+ overflow: hidden;
+ cursor: pointer;
+ transition: border-color 0.15s, transform 0.15s;
+}
+.pasta-card:hover { border-color: #fff; transform: translateY(-2px); }
+.pasta-card-img-wrap { aspect-ratio: 1; overflow: hidden; position: relative; background: var(--bg); }
+.pasta-card-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pasta-card-vazia { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 2rem; opacity: 0.4; }
+.pasta-gerando-badge {
+ position: absolute; bottom: 8px; left: 8px;
+ display: flex; align-items: center; gap: 6px;
+ background: rgba(0,0,0,0.75); border: 1px solid var(--border-light);
+ border-radius: 20px; padding: 4px 10px; font-size: 0.72rem; color: #fff;
+}
+
+/* Card em geração */
+.galeria-card-gerando {
+ aspect-ratio: 1; display: flex; flex-direction: column;
+ align-items: center; justify-content: center; gap: 10px;
+ color: var(--text-muted); font-size: 0.85rem; background: var(--bg);
+}
+
 .galeria-card-actions {
  display: flex; gap: 6px; padding: 8px 12px;
  border-top: 1px solid var(--border);
