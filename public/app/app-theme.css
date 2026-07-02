@@ -181,6 +181,7 @@ a, .btn-link { color: #fff; }
  display: grid;
  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
  gap: 16px;
+ align-items: start;
 }
 .galeria-card {
  background: var(--bg-card);
@@ -192,8 +193,8 @@ a, .btn-link { color: #fff; }
  transition: border-color 0.15s;
 }
 .galeria-card:hover { border-color: var(--border-light); }
-.galeria-card-img-wrap { aspect-ratio: 3/4; overflow: hidden; }
-.galeria-card-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.galeria-card-img-wrap { overflow: hidden; }
+.galeria-card-img-wrap img { width: 100%; height: auto; display: block; }
 .galeria-card-info { padding: 10px 12px; flex: 1; }
 .galeria-card-title { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .galeria-card-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
