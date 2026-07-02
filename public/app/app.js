@@ -34,6 +34,8 @@ async function init() {
  renderGerar();
  renderImoveisGrid();
  loadGaleria();
+ loadBilling();
+ tratarRetornoPagamento();
 }
 
 function mostrarLogin(tab = 'login') {
@@ -428,6 +430,12 @@ async function gerarPrevia() {
    body: JSON.stringify({ templateId: selectedTemplateId, imovelId: selectedImovelId }),
   });
   const data = await res.json();
+  if (res.status === 402) {
+   toast(data.error, 'error');
+   navegarPara('plano');
+   loadBilling();
+   return;
+  }
   if (!res.ok || data.error) throw new Error(data.error);
   renderPreviaForm(data.campos, data.textos);
   document.getElementById('previaWrap').style.display = 'block';
@@ -476,8 +484,13 @@ function iniciarGeracao(body) {
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(body),
  })
-  .then(r => r.json())
-  .then(d => { if (d.error) toast('Erro na geração: ' + d.error, 'error'); loadGaleria(); })
+  .then(async r => ({ status: r.status, d: await r.json() }))
+  .then(({ status, d }) => {
+   if (status === 402) { toast(d.error, 'error'); navegarPara('plano'); loadBilling(); return; }
+   if (d.error) toast('Erro na geração: ' + d.error, 'error');
+   loadGaleria();
+   loadBilling();
+  })
   .catch(err => { toast('Erro: ' + err.message, 'error'); loadGaleria(); });
 
  toast('Geração iniciada!', 'success');
@@ -812,6 +825,135 @@ async function deletarDaGaleria(id) {
  } catch (err) {
  toast('Erro ao remover', 'error');
  }
+}
+
+// ── Plano / Billing ───────────────────────────────────────────────
+let billing = null;
+
+async function loadBilling() {
+ try {
+  const res = await authFetch('/api/billing');
+  billing = await res.json();
+  renderBilling();
+ } catch { /* silencioso */ }
+}
+
+function renderBilling() {
+ if (!billing) return;
+ const st = billing.assinatura.status;
+ const expira = billing.assinatura.expira ? new Date(billing.assinatura.expira) : null;
+ const expirada = expira && expira < new Date();
+
+ const statusEl = document.getElementById('assinaturaStatus');
+ const detEl = document.getElementById('assinaturaDetalhe');
+ const btnAssinar = document.getElementById('btnAssinar');
+ document.getElementById('precoAssinatura').textContent = `R$ ${Number(billing.precos.assinaturaBrl).toFixed(2).replace('.', ',')}`;
+
+ if (st === 'ativa' && !expirada) {
+  statusEl.textContent = '● Ativa';
+  statusEl.className = 'plano-status ok';
+  detEl.textContent = `Renova em ${expira.toLocaleDateString('pt-BR')}`;
+  btnAssinar.style.display = 'none';
+ } else if (st === 'trial' && !expirada) {
+  statusEl.textContent = '● Período de teste';
+  statusEl.className = 'plano-status trial';
+  detEl.textContent = `Teste grátis até ${expira.toLocaleDateString('pt-BR')} — assine para continuar depois.`;
+  btnAssinar.style.display = 'block';
+ } else {
+  statusEl.textContent = '● Inativa';
+  statusEl.className = 'plano-status off';
+  detEl.textContent = 'Assine para gerar artes com IA.';
+  btnAssinar.style.display = 'block';
+ }
+
+ // Saldo
+ const saldo = Number(billing.saldo || 0);
+ document.getElementById('saldoValor').textContent = `US$ ${saldo.toFixed(2)}`;
+ const custoArte = 0.26; // estimativa média por arte (com markup)
+ document.getElementById('saldoEstimativa').textContent =
+  saldo > 0 ? `≈ ${Math.floor(saldo / custoArte)} artes` : 'Sem créditos — recarregue para gerar.';
+ document.getElementById('recargaMinInfo').textContent =
+  `Recarga mínima: R$ ${Number(billing.precos.recargaMinBrl).toFixed(2)} — cotação: R$ ${Number(billing.precos.cotacaoBrl).toFixed(2)}/US$`;
+
+ // Auto-recarga
+ document.getElementById('autoRecargaToggle').checked = billing.autoRecarga.ativa;
+ document.getElementById('autoRecargaValor').value = billing.autoRecarga.valorBrl;
+ document.getElementById('autoRecargaAviso').style.display = billing.autoRecarga.falhou ? 'block' : 'none';
+
+ // Extrato
+ const ext = document.getElementById('extratoLista');
+ if (!billing.extrato.length) {
+  ext.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">Nenhuma movimentação ainda.</p>';
+ } else {
+  ext.innerHTML = billing.extrato.map(t => {
+   const v = Number(t.valor_usd);
+   const d = new Date(t.criado_em);
+   return `
+   <div class="extrato-row">
+    <span class="extrato-desc">${t.descricao || t.tipo}</span>
+    <span class="extrato-data">${d.toLocaleDateString('pt-BR')}</span>
+    <span class="extrato-valor ${v >= 0 ? 'pos' : 'neg'}">${v >= 0 ? '+' : ''}US$ ${v.toFixed(3)}</span>
+   </div>`;
+  }).join('');
+ }
+}
+
+async function assinar() {
+ try {
+  const res = await authFetch('/api/billing/assinar', { method: 'POST' });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  window.location.href = data.url;
+ } catch (err) { toast('Erro: ' + err.message, 'error'); }
+}
+
+async function recarregar(valorBrl) {
+ try {
+  const res = await authFetch('/api/billing/recarga', {
+   method: 'POST',
+   headers: { 'Content-Type': 'application/json' },
+   body: JSON.stringify({ valorBrl }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  window.location.href = data.url;
+ } catch (err) { toast('Erro: ' + err.message, 'error'); }
+}
+
+function recarregarCustom() {
+ const v = Number(document.getElementById('recargaValor').value);
+ if (!v) { toast('Informe o valor da recarga', 'error'); return; }
+ recarregar(v);
+}
+
+async function salvarAutoRecarga() {
+ const ativa = document.getElementById('autoRecargaToggle').checked;
+ const valorBrl = Number(document.getElementById('autoRecargaValor').value) || undefined;
+ try {
+  const res = await authFetch('/api/billing/auto-recarga', {
+   method: 'PUT',
+   headers: { 'Content-Type': 'application/json' },
+   body: JSON.stringify({ ativa, valorBrl }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  toast('Auto-recarga atualizada', 'success');
+  loadBilling();
+ } catch (err) { toast('Erro: ' + err.message, 'error'); }
+}
+
+function tratarRetornoPagamento() {
+ const params = new URLSearchParams(window.location.search);
+ const pg = params.get('pagamento');
+ if (!pg) return;
+ window.history.replaceState({}, '', '/app/');
+ if (pg === 'assinatura') toast('Assinatura confirmada! Bem-vindo.', 'success');
+ if (pg === 'recarga')    toast('Recarga confirmada! Os créditos entram em instantes.', 'success');
+ if (pg === 'cancelado')  toast('Pagamento cancelado.', 'error');
+ navegarPara('plano');
+ // o crédito entra via webhook — recarrega o saldo algumas vezes
+ setTimeout(loadBilling, 2000);
+ setTimeout(loadBilling, 6000);
 }
 
 // ── Toast ─────────────────────────────────────────────────────────

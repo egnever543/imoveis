@@ -64,12 +64,44 @@ let logsOffset = 0;
 let logsTotal  = 0;
 
 function mudarTab(tab) {
-  ['templates','prompts','logs'].forEach(t => {
+  ['templates','prompts','logs','cobranca'].forEach(t => {
     document.getElementById('secao' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? '' : 'none';
     document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
   });
-  if (tab === 'prompts') carregarPrompts();
-  if (tab === 'logs')    carregarLogs(true);
+  if (tab === 'prompts')  carregarPrompts();
+  if (tab === 'logs')     carregarLogs(true);
+  if (tab === 'cobranca') carregarConfig();
+}
+
+// ── Cobrança ─────────────────────────────────────────────────────────
+async function carregarConfig() {
+  const res = await fetch('/api/admin/config', { headers: { 'x-admin-password': adminPassword } });
+  const cfg = await res.json();
+  document.getElementById('cfgMarkup').value       = cfg.markup_pct;
+  document.getElementById('cfgCotacao').value      = cfg.cotacao_brl;
+  document.getElementById('cfgAssinatura').value   = cfg.preco_assinatura_brl;
+  document.getElementById('cfgRecargaMin').value   = cfg.recarga_min_brl;
+  document.getElementById('cfgTrialDias').value    = cfg.trial_dias;
+  document.getElementById('cfgTrialCredito').value = cfg.trial_credito_usd;
+}
+
+async function salvarConfig() {
+  const body = {
+    markup_pct:           Number(document.getElementById('cfgMarkup').value),
+    cotacao_brl:          Number(document.getElementById('cfgCotacao').value),
+    preco_assinatura_brl: Number(document.getElementById('cfgAssinatura').value),
+    recarga_min_brl:      Number(document.getElementById('cfgRecargaMin').value),
+    trial_dias:           Number(document.getElementById('cfgTrialDias').value),
+    trial_credito_usd:    Number(document.getElementById('cfgTrialCredito').value),
+  };
+  const res = await fetch('/api/admin/config', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (data.error) { toast('Erro: ' + data.error, 'error'); return; }
+  toast('Configuração salva!', 'success');
 }
 
 async function carregarPrompts() {

@@ -26,7 +26,72 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+const stripe = process.env.STRIPE_SECRET_KEY ? require('stripe')(process.env.STRIPE_SECRET_KEY) : null;
+
 const upload = multer({ storage: multer.memoryStorage() });
+
+// ── Stripe webhook (precisa do body cru, antes do express.json) ──────────────
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!stripe) return res.status(500).json({ error: 'Stripe não configurado' });
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    return res.status(400).json({ error: `Webhook inválido: ${err.message}` });
+  }
+
+  try {
+    const obj = event.data.object;
+
+    if (event.type === 'checkout.session.completed') {
+      const userId = Number(obj.metadata?.user_id);
+
+      if (obj.mode === 'payment' && obj.metadata?.tipo === 'recarga' && userId) {
+        const cfg = await getBillingConfig();
+        const brl = obj.amount_total / 100;
+        const usd = +(brl / cfg.cotacao_brl).toFixed(4);
+        await creditar(userId, usd, `Recarga de créditos (R$ ${brl.toFixed(2)})`, obj.id);
+        if (obj.customer) await supabase.from('usuarios').update({ stripe_customer_id: obj.customer }).eq('id', userId);
+      }
+
+      if (obj.mode === 'subscription' && userId) {
+        const expira = new Date(); expira.setFullYear(expira.getFullYear() + 1);
+        await supabase.from('usuarios').update({
+          assinatura_status: 'ativa',
+          assinatura_expira: expira.toISOString(),
+          stripe_customer_id: obj.customer,
+        }).eq('id', userId);
+      }
+    }
+
+    if (event.type === 'invoice.paid' && obj.customer && obj.billing_reason === 'subscription_cycle') {
+      const expira = new Date(); expira.setFullYear(expira.getFullYear() + 1);
+      await supabase.from('usuarios')
+        .update({ assinatura_status: 'ativa', assinatura_expira: expira.toISOString() })
+        .eq('stripe_customer_id', obj.customer);
+    }
+
+    if ((event.type === 'customer.subscription.deleted' || event.type === 'invoice.payment_failed') && obj.customer) {
+      await supabase.from('usuarios')
+        .update({ assinatura_status: 'inativa' })
+        .eq('stripe_customer_id', obj.customer);
+    }
+
+    if (event.type === 'payment_intent.succeeded' && obj.metadata?.tipo === 'auto_recarga') {
+      const userId = Number(obj.metadata.user_id);
+      const cfg = await getBillingConfig();
+      const brl = obj.amount / 100;
+      const usd = +(brl / cfg.cotacao_brl).toFixed(4);
+      await creditar(userId, usd, `Auto-recarga (R$ ${brl.toFixed(2)})`, obj.id);
+      await supabase.from('usuarios').update({ auto_recarga_falhou: false }).eq('id', userId);
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error('Erro webhook:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -106,6 +171,90 @@ function fromDb(row) {
   if ('template_id'   in r) { r.templateId   = r.template_id;   delete r.template_id; }
   if ('imovel_id'     in r) { r.imovelId     = r.imovel_id;     delete r.imovel_id; }
   return r;
+}
+
+// ── Billing: config, saldo e transações ───────────────────────────────────────
+const BILLING_DEFAULTS = {
+  markup_pct: 30,           // % sobre o custo de tokens
+  cotacao_brl: 5.50,        // R$ por US$ na conversão de recargas
+  preco_assinatura_brl: 289.90,
+  recarga_min_brl: 25,
+  trial_dias: 7,
+  trial_credito_usd: 1.0,
+};
+
+async function getBillingConfig() {
+  const { data } = await supabase.from('config').select('valor').eq('chave', 'billing').single();
+  return { ...BILLING_DEFAULTS, ...(data?.valor || {}) };
+}
+
+async function getSaldo(userId) {
+  const { data } = await supabase.from('transacoes').select('valor_usd').eq('user_id', userId);
+  return +((data || []).reduce((s, t) => s + Number(t.valor_usd), 0)).toFixed(4);
+}
+
+async function creditar(userId, usd, descricao, ref) {
+  if (!usd || usd <= 0) return;
+  await supabase.from('transacoes').insert({ user_id: userId, tipo: 'credito', valor_usd: usd, descricao, ref: ref || null });
+}
+
+async function debitar(userId, usd, descricao, ref) {
+  if (!usd || usd <= 0) return;
+  await supabase.from('transacoes').insert({ user_id: userId, tipo: 'debito', valor_usd: -usd, descricao, ref: ref || null });
+}
+
+// Custo final cobrado do cliente = custo real × (1 + markup)
+async function custoComMarkup(custoUsd) {
+  const cfg = await getBillingConfig();
+  return +(custoUsd * (1 + (cfg.markup_pct || 0) / 100)).toFixed(4);
+}
+
+// Gate: exige assinatura ativa/trial válida e saldo positivo
+async function billingGate(req, res, next) {
+  try {
+    const { data: u } = await supabase.from('usuarios')
+      .select('assinatura_status, assinatura_expira').eq('id', req.user.id).single();
+    const valida = u && ['ativa', 'trial'].includes(u.assinatura_status)
+      && (!u.assinatura_expira || new Date(u.assinatura_expira) > new Date());
+    if (!valida) return res.status(402).json({ error: 'Assinatura inativa. Assine o plano para gerar artes.', code: 'assinatura' });
+
+    const saldo = await getSaldo(req.user.id);
+    if (saldo < 0.05) return res.status(402).json({ error: 'Saldo de créditos insuficiente. Faça uma recarga.', code: 'saldo' });
+    next();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// Auto-recarga: dispara cobrança off-session quando o saldo cai abaixo de US$ 1
+async function verificarAutoRecarga(userId) {
+  if (!stripe) return;
+  try {
+    const { data: u } = await supabase.from('usuarios')
+      .select('auto_recarga_ativa, auto_recarga_falhou, auto_recarga_valor_brl, stripe_customer_id')
+      .eq('id', userId).single();
+    if (!u?.auto_recarga_ativa || u.auto_recarga_falhou || !u.stripe_customer_id) return;
+
+    const saldo = await getSaldo(userId);
+    if (saldo >= 1) return;
+
+    const pms = await stripe.paymentMethods.list({ customer: u.stripe_customer_id, type: 'card', limit: 1 });
+    if (!pms.data.length) throw new Error('sem cartão salvo');
+
+    await stripe.paymentIntents.create({
+      amount: Math.round(Number(u.auto_recarga_valor_brl || 50) * 100),
+      currency: 'brl',
+      customer: u.stripe_customer_id,
+      payment_method: pms.data[0].id,
+      off_session: true,
+      confirm: true,
+      metadata: { user_id: String(userId), tipo: 'auto_recarga' },
+    });
+    // O crédito entra via webhook payment_intent.succeeded
+  } catch (err) {
+    console.error('Auto-recarga falhou:', err.message);
+    await supabase.from('usuarios').update({ auto_recarga_falhou: true }).eq('id', userId);
+  }
 }
 
 // ── Custo estimado (USD) ──────────────────────────────────────────────────────
@@ -227,6 +376,15 @@ app.post('/api/auth/register', async (req, res) => {
 
     // Cria perfil vazio para o novo usuário
     await supabase.from('perfil').insert({ user_id: data.id });
+
+    // Trial: X dias de acesso + crédito de boas-vindas
+    const cfg = await getBillingConfig();
+    const expira = new Date(); expira.setDate(expira.getDate() + (cfg.trial_dias || 7));
+    await supabase.from('usuarios').update({
+      assinatura_status: 'trial',
+      assinatura_expira: expira.toISOString(),
+    }).eq('id', data.id);
+    await creditar(data.id, cfg.trial_credito_usd || 1, 'Crédito de boas-vindas (trial)');
 
     const token = jwt.sign({ id: data.id, email: data.email }, JWT_SECRET, { expiresIn: '30d' });
     res.status(201).json({ token, user: { id: data.id, email: data.email, nome: data.nome } });
@@ -589,7 +747,7 @@ app.delete('/api/imoveis/:id', userAuth, async (req, res) => {
 });
 
 // ── PRÉVIA DE TEXTO ───────────────────────────────────────────────────────────
-app.post('/api/previa', userAuth, async (req, res) => {
+app.post('/api/previa', userAuth, billingGate, async (req, res) => {
   try {
     const { templateId, imovelId } = req.body;
 
@@ -673,6 +831,9 @@ Exemplo: {"cidade": "TERRENOS EM ITAPOÁ, SC", "entrada": "ENTRADA: R$ 80 mil", 
       user_id: req.user.id,
     });
 
+    const cobranca = await custoComMarkup(custoChat(completion.usage) || 0);
+    await debitar(req.user.id, cobranca, `Prévia de texto — ${imovel.titulo}`);
+
     res.json({ textos, campos: camposTexto.map(f => ({ key: f, label: FIELD_LABELS_PT[f] || f })) });
   } catch (err) {
     console.error('Erro prévia:', err);
@@ -708,7 +869,7 @@ const FIELD_DATA = (imovel, perfil = {}) => {
   };
 };
 
-app.post('/api/gerar', userAuth, async (req, res) => {
+app.post('/api/gerar', userAuth, billingGate, async (req, res) => {
   let galeriaId = null;
   try {
     const { templateId, imovelId, textosPrevia, formato } = req.body;
@@ -863,6 +1024,9 @@ Regras:
           usage, custo: +(custoTokens + custoImg).toFixed(6),
           user_id: req.user.id,
         });
+        const cobranca = await custoComMarkup(custoTokens + custoImg);
+        await debitar(req.user.id, cobranca, `Geração de arte — ${imovel.titulo}${isReels ? ' (Reels)' : ''}`, String(galeriaId));
+        verificarAutoRecarga(req.user.id);
         return res.json({ success: true, galeriaId });
       }
     }
@@ -898,6 +1062,154 @@ app.delete('/api/galeria/:id', userAuth, async (req, res) => {
   }
   await supabase.from('galeria').delete().eq('id', req.params.id).eq('user_id', req.user.id);
   res.json({ ok: true });
+});
+
+// ── BILLING: usuário ──────────────────────────────────────────────────────────
+function appUrl(req) {
+  return process.env.APP_URL || `https://${req.headers.host}`;
+}
+
+async function ensureStripeCustomer(userId, email) {
+  const { data: u } = await supabase.from('usuarios').select('stripe_customer_id').eq('id', userId).single();
+  if (u?.stripe_customer_id) return u.stripe_customer_id;
+  const customer = await stripe.customers.create({ email, metadata: { user_id: String(userId) } });
+  await supabase.from('usuarios').update({ stripe_customer_id: customer.id }).eq('id', userId);
+  return customer.id;
+}
+
+app.get('/api/billing', userAuth, async (req, res) => {
+  try {
+    const [cfg, saldo] = await Promise.all([getBillingConfig(), getSaldo(req.user.id)]);
+    const { data: u } = await supabase.from('usuarios')
+      .select('assinatura_status, assinatura_expira, auto_recarga_ativa, auto_recarga_valor_brl, auto_recarga_falhou')
+      .eq('id', req.user.id).single();
+    const { data: extrato } = await supabase.from('transacoes')
+      .select('tipo, valor_usd, descricao, criado_em')
+      .eq('user_id', req.user.id).order('criado_em', { ascending: false }).limit(20);
+
+    res.json({
+      saldo,
+      assinatura: { status: u?.assinatura_status || 'inativa', expira: u?.assinatura_expira || null },
+      autoRecarga: {
+        ativa:  !!u?.auto_recarga_ativa,
+        valorBrl: Number(u?.auto_recarga_valor_brl || 50),
+        falhou: !!u?.auto_recarga_falhou,
+      },
+      precos: {
+        assinaturaBrl: cfg.preco_assinatura_brl,
+        recargaMinBrl: cfg.recarga_min_brl,
+        cotacaoBrl:    cfg.cotacao_brl,
+      },
+      extrato: extrato || [],
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/billing/assinar', userAuth, async (req, res) => {
+  try {
+    if (!stripe) return res.status(500).json({ error: 'Stripe não configurado' });
+    const cfg = await getBillingConfig();
+    const customer = await ensureStripeCustomer(req.user.id, req.user.email);
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      customer,
+      line_items: [{
+        price_data: {
+          currency: 'brl',
+          unit_amount: Math.round(cfg.preco_assinatura_brl * 100),
+          recurring: { interval: 'year' },
+          product_data: { name: 'Estúdio do Corretor — Assinatura anual' },
+        },
+        quantity: 1,
+      }],
+      metadata: { user_id: String(req.user.id) },
+      success_url: `${appUrl(req)}/app/?pagamento=assinatura`,
+      cancel_url:  `${appUrl(req)}/app/?pagamento=cancelado`,
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/billing/recarga', userAuth, async (req, res) => {
+  try {
+    if (!stripe) return res.status(500).json({ error: 'Stripe não configurado' });
+    const cfg = await getBillingConfig();
+    const valorBrl = Number(req.body.valorBrl);
+    if (!valorBrl || valorBrl < cfg.recarga_min_brl)
+      return res.status(400).json({ error: `Recarga mínima: R$ ${cfg.recarga_min_brl.toFixed(2)}` });
+
+    const customer = await ensureStripeCustomer(req.user.id, req.user.email);
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      customer,
+      payment_intent_data: { setup_future_usage: 'off_session' }, // salva o cartão p/ auto-recarga
+      line_items: [{
+        price_data: {
+          currency: 'brl',
+          unit_amount: Math.round(valorBrl * 100),
+          product_data: { name: `Recarga de créditos — R$ ${valorBrl.toFixed(2)}` },
+        },
+        quantity: 1,
+      }],
+      metadata: { user_id: String(req.user.id), tipo: 'recarga' },
+      success_url: `${appUrl(req)}/app/?pagamento=recarga`,
+      cancel_url:  `${appUrl(req)}/app/?pagamento=cancelado`,
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/billing/auto-recarga', userAuth, async (req, res) => {
+  try {
+    const { ativa, valorBrl } = req.body;
+    const cfg = await getBillingConfig();
+    const updates = {};
+    if (ativa !== undefined) {
+      updates.auto_recarga_ativa = !!ativa;
+      if (ativa) updates.auto_recarga_falhou = false; // reativar limpa a falha
+    }
+    if (valorBrl !== undefined) {
+      const v = Number(valorBrl);
+      if (!v || v < cfg.recarga_min_brl)
+        return res.status(400).json({ error: `Valor mínimo: R$ ${cfg.recarga_min_brl.toFixed(2)}` });
+      updates.auto_recarga_valor_brl = v;
+    }
+    const { error } = await supabase.from('usuarios').update(updates).eq('id', req.user.id);
+    if (error) throw new Error(error.message);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── ADMIN: Config de cobrança ─────────────────────────────────────────────────
+app.get('/api/admin/config', adminAuth, async (_, res) => {
+  res.json(await getBillingConfig());
+});
+
+app.put('/api/admin/config', adminAuth, async (req, res) => {
+  try {
+    const atual = await getBillingConfig();
+    const permitidos = ['markup_pct', 'cotacao_brl', 'preco_assinatura_brl', 'recarga_min_brl', 'trial_dias', 'trial_credito_usd'];
+    const novo = { ...atual };
+    permitidos.forEach(k => {
+      if (req.body[k] !== undefined) {
+        const v = Number(req.body[k]);
+        if (Number.isFinite(v) && v >= 0) novo[k] = v;
+      }
+    });
+    const { error } = await supabase.from('config').upsert({ chave: 'billing', valor: novo });
+    if (error) throw new Error(error.message);
+    res.json(novo);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── ADMIN: Prompts ────────────────────────────────────────────────────────────

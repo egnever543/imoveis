@@ -52,6 +52,7 @@
  <button class="nav-item" data-page="imoveis">Imoveis</button>
  <button class="nav-item" data-page="galeria">Galeria</button>
  <button class="nav-item" data-page="perfil">Perfil</button>
+ <button class="nav-item" data-page="plano">Plano</button>
  <div class="sidebar-user">
   <div id="userLabel"></div>
   <button class="btn-ghost sidebar-sair" onclick="sair()">Sair</button>
@@ -357,6 +358,63 @@
  <button type="submit" class="btn-primary">Salvar perfil</button>
  </div>
  </form>
+ </div>
+
+ <!-- ===== PLANO / CRÉDITOS ===== -->
+ <div id="page-plano" class="page">
+ <div class="page-header">
+ <div>
+ <h1>Plano e Créditos</h1>
+ <p>Assinatura, saldo e recargas</p>
+ </div>
+ </div>
+
+ <div class="plano-grid">
+
+  <!-- Assinatura -->
+  <div class="plano-card">
+   <h3>Assinatura</h3>
+   <div id="assinaturaStatus" class="plano-status"></div>
+   <p id="assinaturaDetalhe" class="plano-sub"></p>
+   <button class="btn-primary" id="btnAssinar" style="display:none" onclick="assinar()">Assinar — <span id="precoAssinatura"></span>/ano</button>
+  </div>
+
+  <!-- Saldo -->
+  <div class="plano-card">
+   <h3>Créditos</h3>
+   <div class="plano-saldo" id="saldoValor">—</div>
+   <p class="plano-sub" id="saldoEstimativa"></p>
+   <div class="recarga-botoes">
+    <button class="btn-ghost" onclick="recarregar(30)">R$ 30</button>
+    <button class="btn-ghost" onclick="recarregar(50)">R$ 50</button>
+    <button class="btn-ghost" onclick="recarregar(100)">R$ 100</button>
+   </div>
+   <div class="recarga-custom">
+    <div class="input-prefix"><span>R$</span><input type="number" id="recargaValor" placeholder="Outro valor" min="0" /></div>
+    <button class="btn-primary" onclick="recarregarCustom()">Recarregar</button>
+   </div>
+   <p class="plano-sub" id="recargaMinInfo"></p>
+  </div>
+
+  <!-- Auto-recarga -->
+  <div class="plano-card">
+   <h3>Auto-recarga</h3>
+   <p class="plano-sub">Quando o saldo ficar abaixo de US$ 1, recarregamos automaticamente com o cartão da sua última recarga.</p>
+   <label class="switch-row">
+    <input type="checkbox" id="autoRecargaToggle" onchange="salvarAutoRecarga()" />
+    <span>Ativar auto-recarga</span>
+   </label>
+   <div class="input-prefix" style="max-width:180px"><span>R$</span><input type="number" id="autoRecargaValor" min="0" onchange="salvarAutoRecarga()" /></div>
+   <p class="plano-sub" id="autoRecargaAviso" style="color:var(--danger);display:none">Última auto-recarga falhou — verifique seu cartão e reative.</p>
+  </div>
+
+ </div>
+
+ <!-- Extrato -->
+ <div class="plano-card" style="margin-top:16px">
+  <h3>Extrato</h3>
+  <div id="extratoLista" class="extrato-lista"></div>
+ </div>
  </div>
 
  </main>

@@ -212,6 +212,7 @@
         <button class="admin-tab active" id="tabTemplates" onclick="mudarTab('templates')">Templates</button>
         <button class="admin-tab" id="tabPrompts" onclick="mudarTab('prompts')">Prompts</button>
         <button class="admin-tab" id="tabLogs" onclick="mudarTab('logs')">Logs</button>
+        <button class="admin-tab" id="tabCobranca" onclick="mudarTab('cobranca')">Cobrança</button>
       </div>
 
       <!-- Seção: Templates -->
@@ -277,6 +278,44 @@
         </div>
         <div id="logsLista"><div class="no-templates">Carregando…</div></div>
         <button id="btnLogsMore" class="btn-ghost logs-load-more" style="display:none" onclick="carregarLogs(false)">Carregar mais</button>
+      </div>
+
+      <!-- Seção: Cobrança -->
+      <div id="secaoCobranca" style="display:none">
+        <div class="section-label">Configuração de cobrança</div>
+        <div class="upload-card">
+          <div class="form-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px">
+            <div class="field">
+              <label>Markup sobre tokens (%)</label>
+              <input type="number" id="cfgMarkup" min="0" step="1" />
+              <p style="font-size:0.72rem;color:var(--text-muted);margin-top:4px">Ex: 30 → cliente paga custo real + 30%</p>
+            </div>
+            <div class="field">
+              <label>Cotação (R$ por US$)</label>
+              <input type="number" id="cfgCotacao" min="0" step="0.01" />
+              <p style="font-size:0.72rem;color:var(--text-muted);margin-top:4px">Usada para converter recargas em créditos</p>
+            </div>
+            <div class="field">
+              <label>Assinatura anual (R$)</label>
+              <input type="number" id="cfgAssinatura" min="0" step="0.01" />
+            </div>
+            <div class="field">
+              <label>Recarga mínima (R$)</label>
+              <input type="number" id="cfgRecargaMin" min="0" step="1" />
+            </div>
+            <div class="field">
+              <label>Trial (dias)</label>
+              <input type="number" id="cfgTrialDias" min="0" step="1" />
+            </div>
+            <div class="field">
+              <label>Crédito do trial (US$)</label>
+              <input type="number" id="cfgTrialCredito" min="0" step="0.1" />
+            </div>
+          </div>
+          <div style="margin-top:18px;display:flex;justify-content:flex-end">
+            <button class="btn-primary" onclick="salvarConfig()">Salvar configuração</button>
+          </div>
+        </div>
       </div>
 
     </div>
