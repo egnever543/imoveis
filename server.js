@@ -1212,6 +1212,27 @@ app.put('/api/admin/config', adminAuth, async (req, res) => {
   }
 });
 
+// ── ADMIN: Cobranças (direto do Stripe) ───────────────────────────────────────
+app.get('/api/admin/cobrancas', adminAuth, async (req, res) => {
+  try {
+    if (!stripe) return res.status(500).json({ error: 'Stripe não configurado' });
+    const charges = await stripe.charges.list({ limit: 50 });
+    const lista = charges.data.map(c => ({
+      id:        c.id,
+      valor:     c.amount / 100,
+      moeda:     c.currency.toUpperCase(),
+      status:    c.refunded ? 'reembolsada' : c.status, // succeeded | pending | failed | reembolsada
+      descricao: c.description || c.calculated_statement_descriptor || '—',
+      email:     c.billing_details?.email || c.receipt_email || '—',
+      criadoEm:  new Date(c.created * 1000).toISOString(),
+      recibo:    c.receipt_url || null,
+    }));
+    res.json({ cobrancas: lista });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── ADMIN: Prompts ────────────────────────────────────────────────────────────
 app.get('/api/admin/prompts', adminAuth, (req, res) => {
   res.json({

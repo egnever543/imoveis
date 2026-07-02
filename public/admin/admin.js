@@ -70,7 +70,37 @@ function mudarTab(tab) {
   });
   if (tab === 'prompts')  carregarPrompts();
   if (tab === 'logs')     carregarLogs(true);
-  if (tab === 'cobranca') carregarConfig();
+  if (tab === 'cobranca') { carregarConfig(); carregarCobrancas(); }
+}
+
+const COBRANCA_STATUS_PT = { succeeded: 'paga', pending: 'pendente', failed: 'falhou', reembolsada: 'reembolsada' };
+
+async function carregarCobrancas() {
+  const el = document.getElementById('cobrancasLista');
+  el.innerHTML = '<div class="no-templates">Carregando…</div>';
+  try {
+    const res  = await fetch('/api/admin/cobrancas', { headers: { 'x-admin-password': adminPassword } });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    if (!data.cobrancas.length) {
+      el.innerHTML = '<div class="no-templates">Nenhuma cobrança ainda.</div>';
+      return;
+    }
+    el.innerHTML = data.cobrancas.map(c => {
+      const d = new Date(c.criadoEm);
+      return `
+      <div class="cobranca-row">
+        <span class="cobranca-status ${c.status}">${COBRANCA_STATUS_PT[c.status] || c.status}</span>
+        <span class="cobranca-desc">${escHtml(c.descricao)}</span>
+        <span class="cobranca-email">${escHtml(c.email)}</span>
+        <span class="cobranca-valor">${c.moeda === 'BRL' ? 'R$' : c.moeda} ${c.valor.toFixed(2)}</span>
+        <span class="cobranca-data">${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+        ${c.recibo ? `<a href="${c.recibo}" target="_blank">recibo ↗</a>` : ''}
+      </div>`;
+    }).join('');
+  } catch (err) {
+    el.innerHTML = `<div class="no-templates">Erro ao carregar: ${escHtml(err.message)}</div>`;
+  }
 }
 
 // ── Cobrança ─────────────────────────────────────────────────────────
