@@ -589,6 +589,16 @@ Você receberá:
 
 Gere um JSON onde cada chave é o nome do campo e o valor é o texto final EXATO e completo como deve aparecer na imagem — já com capitalização correta, preposições ajustadas, formatação e contexto da frase completa.
 
+REGRA MAIS IMPORTANTE — imite o formato do template, não o formato do cadastro:
+Cada template escreve os valores de um jeito próprio (abreviações, unidades, maiúsculas, sufixos). Observe na transcrição EXATAMENTE como cada valor aparece no original e reescreva o dado do novo imóvel NESSE MESMO formato.
+Exemplos:
+- Template mostra "R$ 3.18M" e o dado é "R$ 1.000.000,00" → gere "R$ 1M"
+- Template mostra "ENTRADA: R$ 64 mil" e o dado é "R$ 300.000,00" → gere "ENTRADA: R$ 300 mil"
+- Template mostra "LOTES DE 390 m²" e o dado é "450" → gere "LOTES DE 450 m²"
+- Template mostra "2 DORM." e o dado é "3 quartos" → gere "3 DORM."
+Isso vale para TODOS os campos: preço, entrada, parcela, área, quartos, cidade etc. Nunca copie o valor bruto do cadastro se o template usa outro estilo — converta o número/texto para o padrão visual do template (mesma abreviação, mesma pontuação, mesmo uso de maiúsculas).
+Mantenha apenas o comprimento parecido com o original para o texto caber no mesmo espaço da imagem.
+
 Transcrição do template:
 ${template.transcricao || '(não informada)'}
 
