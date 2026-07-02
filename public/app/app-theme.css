@@ -151,6 +151,12 @@ a, .btn-link { color: #fff; }
 
 /* ── Sidebar: usuário + sair ─────────────────────────────────── */
 .sidebar { display: flex; flex-direction: column; }
+.sidebar-user { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
+.sidebar-user #userLabel {
+ font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;
+ overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sidebar-sair { width: 100%; font-size: 0.8rem; }
 
 /* ── Botao outline (Ver previa) ──────────────────────────────── */
 .btn-outline {
@@ -248,6 +254,17 @@ a, .btn-link { color: #fff; }
  flex-direction: column; gap: 2px; width: auto; flex: 1;
  padding: 8px 4px; margin-bottom: 0; font-size: 0.68rem;
  align-items: center; text-align: center;
+ }
+
+ /* Usuário + sair viram um item compacto da barra inferior */
+ .sidebar-user {
+ margin: 0; padding: 0; border-top: none;
+ display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+ }
+ .sidebar-user #userLabel { display: none; }
+ .sidebar-sair {
+ width: auto; font-size: 0.68rem; padding: 6px 12px;
+ border: 1px solid var(--border-light); border-radius: 8px;
  }
 
  .content { margin-left: 0; padding: 20px 14px 90px; max-width: 100%; }
