@@ -608,7 +608,7 @@ app.post('/api/previa', userAuth, async (req, res) => {
     const camposTexto = (template.fields || []).filter(f => !['foto_imovel', 'logo'].includes(f));
 
     const dadosImovel = camposTexto
-      .map(f => { const v = fieldData[f]; return v ? `- ${FIELD_LABELS_PT[f] || f}: ${v.split(' → ')[1]?.replace(/"/g,'') || v}` : null; })
+      .map(f => { const v = fieldData[f]; return v ? `- ${f} (${FIELD_LABELS_PT[f] || f}): ${v.split(' → ')[1]?.replace(/"/g,'') || v}` : null; })
       .filter(Boolean).join('\n');
 
     const mapaDesc = camposTexto
@@ -637,8 +637,10 @@ Mantenha apenas o comprimento parecido com o original para o texto caber no mesm
 
 ATENÇÃO — os valores da transcrição são PLACEHOLDERS, nunca o conteúdo final:
 Todo valor que aparece na transcrição do template (telefone, CRECI, preços, cidade, nomes) pertence ao anúncio ANTIGO e deve ser 100% substituído pelo dado correspondente fornecido em "Dados do novo imóvel". Use a transcrição SOMENTE para copiar o estilo/formato — jamais retorne um número de telefone, CRECI, valor ou nome que veio da transcrição.
-Exemplo: template mostra "(47) 3346-8354" e os dados informam Telefone "(48) 99123-4567" → gere "(48) 99123-4567" (no mesmo estilo de formatação do template).
-Se um campo solicitado não tiver dado correspondente em "Dados do novo imóvel", retorne string vazia "" para ele — NUNCA reaproveite o valor do template.
+Exemplo: template mostra "(47) 3346-8354" e os dados informam telefone "(48) 99123-4567" → gere "(48) 99123-4567" (no mesmo estilo de formatação do template).
+
+Em "Dados do novo imóvel", cada linha começa com o NOME EXATO do campo JSON seguido do valor a usar — ex: "- telefone (Telefone (do perfil)): (48) 99123-4567" significa que o campo "telefone" do JSON deve conter esse número formatado no estilo do template. TODO campo que tem linha em "Dados do novo imóvel" DEVE vir preenchido no JSON com esse valor.
+Apenas quando um campo pedido NÃO tiver nenhuma linha correspondente em "Dados do novo imóvel", retorne string vazia "" — nunca invente e nunca reaproveite o valor do template.
 
 Transcrição do template:
 ${template.transcricao || '(não informada)'}
