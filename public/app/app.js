@@ -492,6 +492,7 @@ async function gerarPrevia() {
   }
   if (!res.ok || data.error) throw new Error(data.error);
   renderPreviaForm(data.campos, data.textos);
+  renderPreviaFotos(true);
   document.getElementById('previaWrap').style.display = 'block';
   document.getElementById('previaWrap').scrollIntoView({ behavior: 'smooth' });
  } catch (err) {
@@ -508,6 +509,53 @@ function renderPreviaForm(campos, textos) {
    <label>${label}</label>
    <input type="text" data-previa-key="${key}" value="${(textos[key] || '').replace(/"/g, '&quot;')}" />
   </div>`).join('');
+}
+
+// ── Prévia de fotos: quais imagens entram na arte ─────────────────
+let fotosPrevia = {};
+
+function renderPreviaFotos(init = false) {
+ const wrap = document.getElementById('previaFotos');
+ const t = templates.find(x => x.id === selectedTemplateId);
+ const im = imoveis.find(x => x.id === selectedImovelId);
+
+ if (!t || !im || !(t.fields || []).includes('foto_imovel')) {
+  fotosPrevia = {};
+  wrap.style.display = 'none'; wrap.innerHTML = '';
+  return;
+ }
+ const fotos = Object.entries(im.fotos || {}); // [slotKey, url]
+ if (!fotos.length) {
+  fotosPrevia = {};
+  wrap.style.display = 'none'; wrap.innerHTML = '';
+  return;
+ }
+
+ const slots = (t.angulos && t.angulos.length) ? t.angulos : ['foto'];
+ if (init) {
+  fotosPrevia = {};
+  slots.forEach(s => { fotosPrevia[s] = (im.fotos || {})[s] || fotos[0][1]; });
+ }
+
+ wrap.style.display = 'block';
+ wrap.innerHTML = `
+ <div class="previa-fotos-header">Imagens que serão usadas na arte <span>— clique para trocar</span></div>` +
+ slots.map(s => `
+ <div class="previa-foto-slot">
+  <div class="previa-foto-label">${s === 'foto' ? 'Foto do imóvel' : (angleLabels[s] || s)}</div>
+  <div class="previa-foto-thumbs">
+   ${fotos.map(([key, url]) => `
+   <div class="previa-foto-thumb ${fotosPrevia[s] === url ? 'selected' : ''}" onclick="escolherFotoPrevia('${s}', '${url}')">
+    <img src="${url}" loading="lazy" alt="" />
+    <span>${angleLabels[key] || key}</span>
+   </div>`).join('')}
+  </div>
+ </div>`).join('');
+}
+
+function escolherFotoPrevia(slot, url) {
+ fotosPrevia[slot] = url;
+ renderPreviaFotos(false);
 }
 
 function fecharPrevia() {
@@ -528,7 +576,13 @@ let pollTimer = null;
 function gerarArte(textosPrevia = null, formato = '1x1') {
  if (!selectedTemplateId || !selectedImovelId) return;
  document.getElementById('previaWrap').style.display = 'none';
- iniciarGeracao({ templateId: selectedTemplateId, imovelId: selectedImovelId, textosPrevia, formato });
+ iniciarGeracao({
+  templateId: selectedTemplateId,
+  imovelId: selectedImovelId,
+  textosPrevia,
+  formato,
+  fotosEscolhidas: Object.keys(fotosPrevia).length ? { ...fotosPrevia } : undefined,
+ });
 }
 
 function iniciarGeracao(body) {

@@ -877,7 +877,7 @@ const FIELD_DATA = (imovel, perfil = {}) => {
 app.post('/api/gerar', userAuth, billingGate, async (req, res) => {
   let galeriaId = null;
   try {
-    const { templateId, imovelId, textosPrevia, formato } = req.body;
+    const { templateId, imovelId, textosPrevia, formato, fotosEscolhidas } = req.body;
     const isReels = formato === 'reels';
 
     const { data: tRow } = await supabase.from('templates').select('*').eq('id', templateId).single();
@@ -910,7 +910,15 @@ app.post('/api/gerar', userAuth, billingGate, async (req, res) => {
     // Seleciona fotos pelos ângulos exigidos pelo template
     const angulos = template.angulos || [];
     const fotoSlots = [];
-    if (template.fields.includes('foto_imovel') && angulos.length > 0) {
+    const urlsDoImovel = Object.values(imovel.fotos || {});
+    if (template.fields.includes('foto_imovel') && fotosEscolhidas && typeof fotosEscolhidas === 'object' && Object.keys(fotosEscolhidas).length) {
+      // Usuário escolheu as fotos na prévia — só aceita URLs que pertencem ao imóvel
+      for (const [ang, url] of Object.entries(fotosEscolhidas)) {
+        if (!urlsDoImovel.includes(url)) continue;
+        const img = await imageB64FromUrl(url);
+        if (img) fotoSlots.push({ ang, img });
+      }
+    } else if (template.fields.includes('foto_imovel') && angulos.length > 0) {
       for (const ang of angulos) {
         const url = (imovel.fotos || {})[ang];
         if (url) {
@@ -920,7 +928,7 @@ app.post('/api/gerar', userAuth, billingGate, async (req, res) => {
       }
     } else if (template.fields.includes('foto_imovel')) {
       // Sem ângulo definido — usa qualquer foto disponível
-      const primeiraUrl = Object.values(imovel.fotos || {})[0];
+      const primeiraUrl = urlsDoImovel[0];
       if (primeiraUrl) {
         const img = await imageB64FromUrl(primeiraUrl);
         if (img) fotoSlots.push({ ang: 'foto', img });
