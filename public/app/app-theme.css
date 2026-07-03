@@ -33,9 +33,7 @@ a, .btn-link { color: #fff; }
 .foto-slot-label { color: #8a8a8a; }
 
 /* ── Templates: prévia + "ver mais" galeria ─────────────────────── */
-.templates-grid.preview { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); align-items: start; }
-.template-card img { aspect-ratio: auto; height: auto; object-fit: contain; background: var(--bg); }
-.template-card.more-card { aspect-ratio: 1; }
+.templates-grid.preview { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 .template-card.more-card {
  display: flex; flex-direction: column; align-items: center; justify-content: center;
  gap: 8px; aspect-ratio: 1; border: 2px dashed var(--border-light);
@@ -85,7 +83,7 @@ a, .btn-link { color: #fff; }
  transition: all 0.18s;
  position: relative;
 }
-.gallery-card img { width: 100%; height: auto; aspect-ratio: auto; object-fit: contain; display: block; max-height: 58vh; background: var(--bg); }
+.gallery-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
 .gallery-card-name { padding: 10px 12px; font-size: 0.85rem; font-weight: 600; }
 .gallery-card:hover { border-color: #fff; transform: translateY(-4px); }
 .gallery-card.selected { border-color: #fff; box-shadow: 0 0 0 4px rgba(255,255,255,0.18); }
