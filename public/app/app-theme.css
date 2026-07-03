@@ -234,6 +234,18 @@ a, .btn-link { color: #fff; }
  .imoveis-picker { grid-template-columns: 1fr; }
 }
 
+/* ── Aviso de campos faltantes ───────────────────────────────── */
+.campos-aviso {
+ display: flex; gap: 10px; align-items: flex-start;
+ background: rgba(245, 215, 110, 0.06);
+ border: 1px solid #7d6a2e; border-radius: var(--radius);
+ padding: 12px 14px; margin-bottom: 14px;
+ font-size: 0.82rem; line-height: 1.55; color: #e8d9a0;
+}
+.campos-aviso svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; color: #f5d76e; }
+.campos-aviso strong { color: #f5d76e; }
+.campos-aviso a { color: #fff; font-weight: 600; }
+
 /* ── Botao outline (Ver previa) ──────────────────────────────── */
 .btn-outline {
  width: 100%; padding: 14px; border-radius: var(--radius);

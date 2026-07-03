@@ -405,6 +405,8 @@ function atualizarResumo() {
  if (!t || !im) {
   if (hint) hint.style.display = 'none';
   if (btnP) btnP.disabled = true;
+  const aviso = document.getElementById('camposAviso');
+  if (aviso) { aviso.style.display = 'none'; aviso.innerHTML = ''; }
   return;
  }
 
@@ -423,6 +425,43 @@ function atualizarResumo() {
   }
  }
  if (btnP) btnP.disabled = faltando.length > 0;
+
+ renderCamposAviso(t, im);
+}
+
+// ── Aviso de campos do template sem dado no cadastro ──────────────
+const CAMPOS_DO_PERFIL = ['telefone', 'whatsapp', 'creci', 'site', 'slogan', 'logo'];
+
+function renderCamposAviso(t, im) {
+ const aviso = document.getElementById('camposAviso');
+ if (!aviso) return;
+
+ const faltaImovel = [];
+ const faltaPerfil = [];
+
+ (t.fields || []).forEach(f => {
+  if (f === 'foto_imovel') return; // fotos já têm aviso próprio
+  if (CAMPOS_DO_PERFIL.includes(f)) {
+   if (!perfilData?.[f]) faltaPerfil.push(f === 'logo' ? 'Logo' : (fieldLabels[f] || f).replace(' (do perfil)', ''));
+   return;
+  }
+  const valor = f === 'localizacao' ? (im.bairro || im.estado) : im[f];
+  if (!valor) faltaImovel.push(fieldLabels[f] || f);
+ });
+
+ const msgs = [];
+ if (faltaImovel.length) {
+  msgs.push(`<strong>${faltaImovel.join(', ')}</strong> não ${faltaImovel.length > 1 ? 'estão preenchidos' : 'está preenchido'} no imóvel. <a href="#" onclick="editarImovel('${im.id}');return false">Completar cadastro →</a>`);
+ }
+ if (faltaPerfil.length) {
+  msgs.push(`<strong>${faltaPerfil.join(', ')}</strong> ${faltaPerfil.length > 1 ? 'faltam' : 'falta'} no seu perfil. <a href="#" onclick="navegarPara('perfil');return false">Completar perfil →</a>`);
+ }
+
+ if (!msgs.length) { aviso.style.display = 'none'; aviso.innerHTML = ''; return; }
+ aviso.style.display = 'block';
+ aviso.innerHTML = `
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+  <div>Este template usa informações que estão em branco — para um resultado melhor, complete-as:<br>${msgs.join('<br>')}</div>`;
 }
 
 function renderGerar() {
@@ -685,9 +724,12 @@ async function deletarImovel(id) {
 }
 
 // ── Perfil ────────────────────────────────────────────────────────
+let perfilData = {};
+
 async function loadPerfil() {
  const res = await authFetch('/api/perfil');
  const perfil = await res.json();
+ perfilData = perfil || {};
  const form = document.getElementById('perfilForm');
  Object.keys(perfil).forEach(k => {
  const el = form.elements[k];
