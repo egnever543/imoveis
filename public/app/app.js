@@ -139,6 +139,7 @@ async function loadTemplates() {
  templates = await res.json();
 }
 
+const PREVIEW_COUNT = 5;
 let templatesTrocando = false; // true = usuário clicou em "Mudar template", mostra o grid
 
 function mudarTemplateGrid() {
@@ -173,13 +174,23 @@ function renderTemplatesGrid() {
   return;
  }
 
- // Masonry estilo Pinterest com todos os templates
- grid.innerHTML = `<div class="templates-masonry">` + templates.map(t => `
-  <div class="masonry-card ${selectedTemplateId === t.id ? 'selected' : ''}" onclick="abrirPreviewTemplate(${t.id})">
-   <img src="${t.imageUrl}" alt="${t.nome}" loading="lazy" />
-   <div class="masonry-card-name">${t.nome}</div>
-   <span class="check-badge"></span>
-  </div>`).join('') + `</div>`;
+ const preview = templates.slice(0, PREVIEW_COUNT);
+ let html = preview.map(t => templateCardHtml(t)).join('');
+ html += `
+ <div class="template-card more-card" onclick="abrirGaleria()">
+ <span class="more-card-icon"></span>
+ <span>Ver mais</span>
+ </div>`;
+ grid.innerHTML = html;
+}
+
+function templateCardHtml(t) {
+ return `
+ <div class="template-card ${selectedTemplateId === t.id ? 'selected' : ''}" onclick="selecionarTemplate(${t.id})" ondblclick="abrirGaleria()">
+ <img src="${t.imageUrl}" alt="${t.nome}" loading="lazy" />
+ <div class="template-card-name">${t.nome}</div>
+ <span class="check-badge"></span>
+ </div>`;
 }
 
 function selecionarTemplate(id) {
@@ -202,37 +213,6 @@ function abrirGaleria() {
 
 function fecharGaleria() {
  document.getElementById('templateGallery').style.display = 'none';
- previewTemplateId = null;
-}
-
-// ── Preview em tela cheia (clique no masonry) ───────────────────────
-let previewTemplateId = null;
-
-function abrirPreviewTemplate(id) {
- previewTemplateId = id;
- renderPreviewTemplate();
- document.getElementById('templateGallery').style.display = 'flex';
-}
-
-function renderPreviewTemplate() {
- const t = templates.find(x => x.id === previewTemplateId);
- if (!t) return;
- const track = document.getElementById('galleryTrack');
- const footer = document.querySelector('#templateGallery .gallery-footer');
- const navs = document.querySelectorAll('#templateGallery .gallery-nav');
- navs.forEach(n => n.style.display = templates.length > 1 ? '' : 'none');
- if (footer) footer.style.display = 'none';
- track.innerHTML = `
- <div class="gallery-chosen">
-  <div class="gallery-card ${selectedTemplateId === t.id ? 'selected' : ''}" style="cursor:default">
-   <img src="${t.imageUrl}" alt="${t.nome}" />
-   <div class="gallery-card-name">${t.nome}</div>
-  </div>
-  <div class="gallery-chosen-actions">
-   <button class="btn-ghost" onclick="fecharGaleria()">Voltar</button>
-   <button class="btn-primary" onclick="selecionarTemplate(${t.id});fecharGaleria()">Usar este template</button>
-  </div>
- </div>`;
 }
 
 function mudarTemplate() {
@@ -285,14 +265,6 @@ function renderGaleria() {
 }
 
 function scrollGaleria(dir) {
- // No modo preview, as setas navegam entre os templates
- if (previewTemplateId != null) {
-  const idx = templates.findIndex(t => t.id === previewTemplateId);
-  const prox = templates[(idx + dir + templates.length) % templates.length];
-  previewTemplateId = prox.id;
-  renderPreviewTemplate();
-  return;
- }
  const track = document.getElementById('galleryTrack');
  track.scrollBy({ left: dir * 260, behavior: 'smooth' });
 }

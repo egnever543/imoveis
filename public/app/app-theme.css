@@ -32,39 +32,6 @@ a, .btn-link { color: #fff; }
 .foto-slot-empty { color: #6b6b6b; opacity: 1; }
 .foto-slot-label { color: #8a8a8a; }
 
-/* ── Templates: masonry estilo Pinterest ────────────────────────── */
-.templates-masonry {
- columns: 4 150px;
- column-gap: 10px;
- max-height: 64vh;
- overflow-y: auto;
- padding-right: 4px;
-}
-.masonry-card {
- position: relative;
- break-inside: avoid;
- margin-bottom: 10px;
- border: 2px solid var(--border);
- border-radius: 12px;
- overflow: hidden;
- cursor: pointer;
- background: var(--bg-card);
- transition: border-color 0.15s;
-}
-.masonry-card:hover { border-color: #fff; }
-.masonry-card.selected { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.18); }
-.masonry-card img { width: 100%; height: auto; display: block; }
-.masonry-card-name {
- padding: 7px 10px; font-size: 0.78rem; font-weight: 600;
- white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.masonry-card .check-badge { display: none; position: absolute; top: 8px; right: 8px; background: #fff; color: #000; border-radius: 50%; width: 22px; height: 22px; font-size: 0.75rem; align-items: center; justify-content: center; }
-.masonry-card.selected .check-badge { display: flex; }
-
-@media (max-width: 768px) {
- .templates-masonry { columns: 2 130px; }
-}
-
 /* ── Templates: prévia + "ver mais" galeria ─────────────────────── */
 .templates-grid.preview { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 .template-card.more-card {
