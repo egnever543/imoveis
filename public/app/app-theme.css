@@ -351,6 +351,25 @@ a, .btn-link { color: #fff; }
 .extrato-valor.pos { color: #6ee7a0; }
 .extrato-valor.neg { color: var(--text-muted); }
 
+/* ── Tutoriais ────────────────────────────────────────────────── */
+.tutoriais-grid {
+ display: grid;
+ grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+ gap: 16px;
+}
+.tutorial-card {
+ background: var(--bg-card); border: 1px solid var(--border);
+ border-radius: 12px; overflow: hidden;
+ display: flex; flex-direction: column;
+ transition: border-color 0.15s;
+}
+.tutorial-card:hover { border-color: var(--border-light); }
+.tutorial-video { aspect-ratio: 9/16; background: #000; }
+.tutorial-video iframe { width: 100%; height: 100%; display: block; border: 0; }
+.tutorial-info { padding: 12px 14px; }
+.tutorial-info h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 4px; }
+.tutorial-info p { font-size: 0.8rem; color: var(--text-muted); }
+
 /* ── Edição mágica ────────────────────────────────────────────── */
 .editar-modal-backdrop {
  position: fixed; inset: 0; background: rgba(0,0,0,0.8);

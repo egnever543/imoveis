@@ -36,6 +36,20 @@ async function init() {
  loadGaleria();
  loadBilling();
  tratarRetornoPagamento();
+
+ if (localStorage.getItem('mostrarBoasVindas') === '1') {
+  localStorage.removeItem('mostrarBoasVindas');
+  document.getElementById('boasVindasModal').style.display = 'flex';
+ }
+}
+
+function fecharBoasVindas(ev) {
+ if (ev && ev.target !== ev.currentTarget) return;
+ const modal = document.getElementById('boasVindasModal');
+ modal.style.display = 'none';
+ // Para o vídeo ao fechar (reseta o src do iframe)
+ const iframe = modal.querySelector('iframe');
+ if (iframe) iframe.src = iframe.src;
 }
 
 function mostrarLogin(tab = 'login') {
@@ -82,6 +96,7 @@ async function fazerCadastro() {
  currentUser = data.user;
  localStorage.setItem('authToken', authToken);
  localStorage.setItem('currentUser', JSON.stringify(currentUser));
+ localStorage.setItem('mostrarBoasVindas', '1');
  init();
 }
 

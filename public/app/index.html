@@ -53,6 +53,7 @@
  <button class="nav-item" data-page="galeria">Galeria</button>
  <button class="nav-item" data-page="perfil">Perfil</button>
  <button class="nav-item" data-page="plano">Plano</button>
+ <button class="nav-item" data-page="tutoriais">Tutoriais</button>
  <div class="sidebar-user">
   <div id="userLabel"></div>
   <button class="btn-ghost sidebar-sair" onclick="sair()">Sair</button>
@@ -417,6 +418,29 @@
  </div>
  </div>
 
+ <!-- ===== TUTORIAIS ===== -->
+ <div id="page-tutoriais" class="page">
+ <div class="page-header">
+ <div>
+ <h1>Tutoriais</h1>
+ <p>Aprenda a usar o Estúdio do Corretor</p>
+ </div>
+ </div>
+ <div class="tutoriais-grid">
+  <div class="tutorial-card">
+   <div class="tutorial-video">
+    <iframe src="https://www.youtube.com/embed/OsDbw2SBaoU" title="Como criar sua primeira arte"
+     frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+     allowfullscreen></iframe>
+   </div>
+   <div class="tutorial-info">
+    <h3>Como criar sua primeira arte</h3>
+    <p>Do cadastro do imóvel à arte pronta na galeria, passo a passo.</p>
+   </div>
+  </div>
+ </div>
+ </div>
+
  </main>
 
  <!-- Galeria de templates -->
@@ -433,6 +457,23 @@
  <div class="gallery-footer">
  <button class="btn-primary" onclick="fecharGaleria()">Confirmar seleção</button>
  </div>
+ </div>
+
+ <!-- Boas-vindas (contas novas) -->
+ <div id="boasVindasModal" class="editar-modal-backdrop" style="display:none" onclick="fecharBoasVindas(event)">
+  <div class="editar-modal" style="max-width:420px;text-align:center">
+   <h2 style="font-size:1.15rem;font-weight:700;margin-bottom:8px">Bem-vindo ao Estúdio do Corretor! 🎉</h2>
+   <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:16px">
+    Você ganhou <strong style="color:var(--text)">7 dias de teste</strong> com créditos de boas-vindas.
+    Veja em 1 minuto como criar sua primeira arte:
+   </p>
+   <div class="tutorial-video" style="max-width:240px;margin:0 auto 18px">
+    <iframe src="https://www.youtube.com/embed/OsDbw2SBaoU" title="Como criar sua primeira arte"
+     frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+     allowfullscreen></iframe>
+   </div>
+   <button class="btn-primary" style="width:100%" onclick="fecharBoasVindas()">Começar a criar</button>
+  </div>
  </div>
 
  <!-- Edição mágica -->
