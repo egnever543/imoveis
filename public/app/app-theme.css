@@ -302,11 +302,18 @@ a, .btn-link { color: #fff; }
 }
 
 .galeria-card-actions {
- display: flex; gap: 6px; padding: 8px 12px;
+ display: grid;
+ grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
+ gap: 6px; padding: 8px 10px;
  border-top: 1px solid var(--border);
 }
 .galeria-card-actions .btn-ghost,
-.galeria-card-actions .btn-danger { flex: 1; text-align: center; text-decoration: none; }
+.galeria-card-actions .btn-danger {
+ text-align: center; text-decoration: none;
+ font-size: 0.75rem; padding: 7px 4px;
+ white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+ display: flex; align-items: center; justify-content: center; gap: 4px;
+}
 
 /* ── Plano / Créditos ────────────────────────────────────────── */
 .plano-grid {
