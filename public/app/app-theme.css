@@ -188,6 +188,9 @@ a, .btn-link { color: #fff; }
 
 /* ── Sidebar: usuário + sair ─────────────────────────────────── */
 .sidebar { display: flex; flex-direction: column; }
+.nav-ico { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.nav-ico svg { width: 17px; height: 17px; }
+.btn-ico { width: 14px; height: 14px; flex-shrink: 0; }
 .sidebar-user { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
 .sidebar-user #userLabel {
  font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;
