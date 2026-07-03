@@ -1046,6 +1046,96 @@ Regras:
   }
 });
 
+// ── EDIÇÃO MÁGICA: altera uma arte existente via instrução de texto ──────────
+app.post('/api/galeria/:id/editar', userAuth, billingGate, async (req, res) => {
+  let galeriaId = null;
+  try {
+    const instrucao = (req.body.instrucao || '').trim();
+    if (!instrucao) return res.status(400).json({ error: 'Descreva a alteração desejada' });
+
+    const { data: orig } = await supabase.from('galeria')
+      .select('*').eq('id', req.params.id).eq('user_id', req.user.id).single();
+    if (!orig?.image_url) return res.status(404).json({ error: 'Arte não encontrada' });
+
+    // Registro pendente — o card "gerando" aparece na galeria imediatamente
+    const { data: pendente, error: pendErr } = await supabase.from('galeria').insert({
+      status:        'gerando',
+      formato:       orig.formato || '1x1',
+      template_id:   orig.template_id,
+      imovel_id:     orig.imovel_id,
+      template_nome: orig.template_nome,
+      imovel_titulo: orig.imovel_titulo,
+      textos:        orig.textos,
+      user_id:       req.user.id,
+    }).select('id').single();
+    if (pendErr) throw new Error(pendErr.message);
+    galeriaId = pendente.id;
+
+    const img = await imageB64FromUrl(orig.image_url);
+    if (!img) throw new Error('Não foi possível carregar a imagem original');
+
+    const mensagem = `Você recebeu uma arte de marketing imobiliário pronta (Imagem 1). Faça APENAS a alteração solicitada abaixo, mantendo todo o resto da imagem exatamente igual.
+
+Alteração solicitada:
+"${instrucao}"
+
+Regras:
+- Altere somente o que foi pedido — nada além disso.
+- Preserve fontes, cores, textos, posições e todos os elementos não mencionados, pixel a pixel.
+- Mantenha o mesmo formato e proporção da imagem original.`;
+
+    const isReels = orig.formato === 'reels';
+    const response = await openai.responses.create({
+      model: 'gpt-4o',
+      input: [{
+        role: 'user',
+        content: [
+          { type: 'input_image', image_url: `data:${img.mime};base64,${img.b64}` },
+          { type: 'input_text', text: mensagem },
+        ],
+      }],
+      tools: [{ type: 'image_generation', quality: 'high', size: isReels ? '1024x1536' : '1024x1024' }],
+    });
+
+    const usage = response.usage || null;
+    const custoTokens = usage
+      ? (usage.input_tokens || 0) * PRECO.in + (usage.output_tokens || 0) * PRECO.out
+      : 0;
+    const custoImg = isReels ? PRECO.img1536 : PRECO.img1024;
+
+    for (const item of response.output || []) {
+      if (item.type === 'image_generation_call' && item.result) {
+        const up = await cloudinaryUpload(Buffer.from(item.result, 'base64'), 'galeria');
+        await supabase.from('galeria')
+          .update({ image_url: up.secure_url, status: 'pronta' })
+          .eq('id', galeriaId);
+        registrarLog({
+          tipo: 'edicao',
+          input: { origem: orig.id, imovel: orig.imovel_titulo, template: orig.template_nome, instrucao, promptEnviado: mensagem },
+          status: 'ok', usage, custo: +(custoTokens + custoImg).toFixed(6),
+          user_id: req.user.id,
+        });
+        const cobranca = await custoComMarkup(custoTokens + custoImg);
+        await debitar(req.user.id, cobranca, `Edição de arte — ${orig.imovel_titulo || 'sem título'}`, String(galeriaId));
+        verificarAutoRecarga(req.user.id);
+        return res.json({ success: true, galeriaId });
+      }
+    }
+
+    await supabase.from('galeria').update({ status: 'erro' }).eq('id', galeriaId);
+    registrarLog({
+      tipo: 'edicao', input: { origem: orig.id, instrucao }, status: 'sem_imagem',
+      usage, custo: +custoTokens.toFixed(6), user_id: req.user.id,
+    });
+    res.status(500).json({ error: 'Nenhuma imagem gerada' });
+  } catch (err) {
+    console.error('Erro edição:', err);
+    if (galeriaId) supabase.from('galeria').update({ status: 'erro' }).eq('id', galeriaId).then(() => {}, () => {});
+    registrarLog({ tipo: 'edicao', input: { erro: err.message }, status: 'erro', user_id: req.user?.id });
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Galeria ───────────────────────────────────────────────────────────────────
 app.get('/api/galeria', userAuth, async (req, res) => {
   const { data, error } = await supabase

@@ -808,6 +808,7 @@ function renderGaleriaGrid() {
     </div>
     <div class="galeria-card-actions">
      <a href="${item.imageUrl}" download class="btn-ghost btn-sm">⬇ Baixar</a>
+     <button class="btn-ghost btn-sm" onclick="abrirEdicao(${item.id})" title="Edição mágica">✏️</button>
      ${item.formato !== 'reels' && item.templateId ? `<button class="btn-ghost btn-sm" onclick="gerarVariacaoReels(${item.id})">Reels</button>` : ''}
      <button class="btn-danger btn-sm" onclick="deletarDaGaleria(${item.id})">Excluir</button>
     </div>
@@ -954,6 +955,51 @@ function tratarRetornoPagamento() {
  // o crédito entra via webhook — recarrega o saldo algumas vezes
  setTimeout(loadBilling, 2000);
  setTimeout(loadBilling, 6000);
+}
+
+// ── Edição mágica ─────────────────────────────────────────────────
+let editandoArteId = null;
+
+function abrirEdicao(id) {
+ const item = galeria.find(g => g.id === id);
+ if (!item?.imageUrl) return;
+ editandoArteId = id;
+ document.getElementById('editarArteImg').src = item.imageUrl;
+ document.getElementById('editarArteMsg').value = '';
+ document.getElementById('editarArteModal').style.display = 'flex';
+ document.getElementById('editarArteMsg').focus();
+}
+
+function fecharEdicao(ev) {
+ if (ev && ev.target !== ev.currentTarget) return; // só fecha no backdrop ou botões
+ document.getElementById('editarArteModal').style.display = 'none';
+ editandoArteId = null;
+}
+
+function enviarEdicao() {
+ const instrucao = document.getElementById('editarArteMsg').value.trim();
+ if (!instrucao) { toast('Descreva a alteração desejada', 'error'); return; }
+ if (!editandoArteId) return;
+
+ authFetch(`/api/galeria/${editandoArteId}/editar`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ instrucao }),
+ })
+  .then(async r => ({ status: r.status, d: await r.json() }))
+  .then(({ status, d }) => {
+   if (status === 402) { toast(d.error, 'error'); navegarPara('plano'); loadBilling(); return; }
+   if (d.error) toast('Erro na edição: ' + d.error, 'error');
+   loadGaleria();
+   loadBilling();
+  })
+  .catch(err => { toast('Erro: ' + err.message, 'error'); loadGaleria(); });
+
+ document.getElementById('editarArteModal').style.display = 'none';
+ editandoArteId = null;
+ toast('Edição iniciada! A nova versão aparecerá na galeria.', 'success');
+ setTimeout(loadGaleria, 800);
+ iniciarPolling();
 }
 
 // ── Toast ─────────────────────────────────────────────────────────

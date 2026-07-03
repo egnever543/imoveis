@@ -190,7 +190,7 @@ async function carregarLogs(reset) {
   btnMore.style.display = logsOffset < logsTotal ? '' : 'none';
 }
 
-const TIPO_LABELS = { gerar: 'Geração de arte', previa: 'Prévia de texto', analise: 'Análise de template', transcricao: 'Transcrição' };
+const TIPO_LABELS = { gerar: 'Geração de arte', previa: 'Prévia de texto', edicao: 'Edição mágica', analise: 'Análise de template', transcricao: 'Transcrição' };
 
 function renderLogsResumo(resumo) {
   const el = document.getElementById('logsResumo');

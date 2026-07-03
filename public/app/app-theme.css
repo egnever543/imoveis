@@ -344,6 +344,43 @@ a, .btn-link { color: #fff; }
 .extrato-valor.pos { color: #6ee7a0; }
 .extrato-valor.neg { color: var(--text-muted); }
 
+/* ── Edição mágica ────────────────────────────────────────────── */
+.editar-modal-backdrop {
+ position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+ display: flex; align-items: center; justify-content: center;
+ z-index: 400; padding: 16px;
+}
+.editar-modal {
+ background: var(--bg-card); border: 1px solid var(--border);
+ border-radius: 14px; width: 100%; max-width: 680px;
+ max-height: 92vh; overflow-y: auto; padding: 20px 22px;
+}
+.editar-modal-header {
+ display: flex; align-items: center; justify-content: space-between;
+ margin-bottom: 16px;
+}
+.editar-modal-header h2 { font-size: 1.05rem; font-weight: 700; }
+.editar-modal-body { display: flex; gap: 18px; align-items: flex-start; }
+.editar-modal-body img {
+ width: 240px; max-width: 40%; border-radius: 10px;
+ border: 1px solid var(--border); flex-shrink: 0;
+}
+.editar-chat { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+.editar-hint { font-size: 0.83rem; color: var(--text-muted); }
+.editar-chat textarea {
+ width: 100%; background: var(--bg-input); border: 1px solid var(--border);
+ color: var(--text); border-radius: var(--radius); padding: 12px 14px;
+ font-size: 0.9rem; resize: vertical; line-height: 1.5; box-sizing: border-box;
+}
+.editar-chat textarea:focus { outline: none; border-color: var(--border-light); }
+.editar-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+@media (max-width: 600px) {
+ .editar-modal-body { flex-direction: column; align-items: center; }
+ .editar-modal-body img { width: 60%; max-width: 220px; }
+ .editar-chat { width: 100%; }
+}
+
 /* ── Responsivo: mobile ───────────────────────────────────────── */
 @media (max-width: 768px) {
  body { display: flex; flex-direction: column; }

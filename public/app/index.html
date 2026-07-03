@@ -435,6 +435,27 @@
  </div>
  </div>
 
+ <!-- Edição mágica -->
+ <div id="editarArteModal" class="editar-modal-backdrop" style="display:none" onclick="fecharEdicao(event)">
+  <div class="editar-modal">
+   <div class="editar-modal-header">
+    <h2>✏️ Edição mágica</h2>
+    <button class="gallery-close" onclick="fecharEdicao()">✕</button>
+   </div>
+   <div class="editar-modal-body">
+    <img id="editarArteImg" src="" alt="Arte" />
+    <div class="editar-chat">
+     <p class="editar-hint">Descreva a alteração que deseja na imagem — a IA edita mantendo o resto igual.</p>
+     <textarea id="editarArteMsg" rows="4" placeholder="Ex: troque a cor do fundo para azul escuro; remova o texto do rodapé; deixe o céu ao entardecer…"></textarea>
+     <div class="editar-actions">
+      <button class="btn-ghost" onclick="fecharEdicao()">Cancelar</button>
+      <button class="btn-primary" onclick="enviarEdicao()">Enviar edição</button>
+     </div>
+    </div>
+   </div>
+  </div>
+ </div>
+
  <!-- Aviso de geração em andamento -->
  <div id="gerandoBanner" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:300;background:#1a1a1a;border:1px solid #3d3d3d;border-radius:12px;padding:14px 20px;display:none;align-items:center;gap:12px;box-shadow:0 4px 24px rgba(0,0,0,0.5);white-space:nowrap">
   <div class="spinner" style="width:18px;height:18px;border-width:2px;flex-shrink:0"></div>
