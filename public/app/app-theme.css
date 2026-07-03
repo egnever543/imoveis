@@ -193,7 +193,10 @@ a, .btn-link { color: #fff; }
  font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;
  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.sidebar-sair { width: 100%; font-size: 0.8rem; }
+.sidebar-sair {
+ width: 100%; font-size: 0.8rem;
+ display: flex; align-items: center; justify-content: center; gap: 6px;
+}
 
 /* ── Picker de imóveis: grid + busca + ver mais ──────────────── */
 .imoveis-picker {
@@ -420,21 +423,28 @@ a, .btn-link { color: #fff; }
  }
  .sidebar-logo { display: none; }
  .nav-item {
- flex-direction: column; gap: 2px; width: auto; flex: 1;
- padding: 8px 4px; margin-bottom: 0; font-size: 0.68rem;
+ flex-direction: column; gap: 3px; width: auto; flex: 1;
+ padding: 7px 2px; margin-bottom: 0; font-size: 0.6rem;
  align-items: center; text-align: center;
  }
+ .nav-item .nav-ico { font-size: 1.1rem; line-height: 1; }
+ .nav-item .nav-label { white-space: nowrap; }
+ .nav-item.active { background: none; color: #fff; }
+ .nav-item.active .nav-label { font-weight: 700; border-bottom: 2px solid #fff; padding-bottom: 1px; }
 
- /* Usuário + sair viram um item compacto da barra inferior */
+ /* Usuário + sair viram um ícone compacto da barra inferior */
  .sidebar-user {
  margin: 0; padding: 0; border-top: none;
  display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
  }
  .sidebar-user #userLabel { display: none; }
  .sidebar-sair {
- width: auto; font-size: 0.68rem; padding: 6px 12px;
- border: 1px solid var(--border-light); border-radius: 8px;
+ width: 38px; height: 38px; padding: 0;
+ display: flex; align-items: center; justify-content: center;
+ border: 1px solid var(--border-light); border-radius: 50%;
+ font-size: 1rem;
  }
+ .sidebar-sair .sair-label { display: none; }
 
  .content { margin-left: 0; padding: 20px 14px 90px; max-width: 100%; }
 
