@@ -742,12 +742,50 @@ async function loadPerfil() {
  }
 }
 
+// Redimensiona a imagem no navegador (máx. 1024px, mantém transparência)
+function redimensionarImagem(file, maxDim = 1024) {
+ return new Promise((resolve) => {
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  img.onload = () => {
+   URL.revokeObjectURL(url);
+   const escala = Math.min(1, maxDim / Math.max(img.width, img.height));
+   if (escala === 1 && file.size < 2 * 1024 * 1024) { resolve(file); return; }
+   const canvas = document.createElement('canvas');
+   canvas.width  = Math.round(img.width * escala);
+   canvas.height = Math.round(img.height * escala);
+   canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+   canvas.toBlob(blob => resolve(blob || file), 'image/png');
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+  img.src = url;
+ });
+}
+
 async function salvarPerfil(e) {
  e.preventDefault();
  const fd = new FormData(e.target);
- const res = await authFetch('/api/perfil', { method: 'PUT', body: fd });
- if (!res.ok) { toast('Erro ao salvar perfil', 'error'); return; }
- toast('Perfil salvo!', 'success');
+
+ // Logo grande estoura o limite de upload — reduz antes de enviar
+ const logoFile = e.target.elements.logo?.files?.[0];
+ if (logoFile) {
+  const menor = await redimensionarImagem(logoFile);
+  fd.set('logo', menor, 'logo.png');
+ }
+
+ try {
+  const res = await authFetch('/api/perfil', { method: 'PUT', body: fd });
+  if (!res.ok) {
+   let msg = `erro ${res.status}`;
+   try { msg = (await res.json()).error || msg; } catch { /* resposta não-JSON (ex: 413) */ }
+   if (res.status === 413) msg = 'Imagem muito grande. Tente um arquivo menor.';
+   throw new Error(msg);
+  }
+  toast('Perfil salvo!', 'success');
+  loadPerfil();
+ } catch (err) {
+  toast('Erro ao salvar perfil: ' + err.message, 'error');
+ }
 }
 
 function previewLogo(input) {

@@ -601,29 +601,34 @@ app.get('/api/perfil', userAuth, async (req, res) => {
 });
 
 app.put('/api/perfil', userAuth, upload.single('logo'), async (req, res) => {
-  const campos = ['nome','slogan','creci','telefone','whatsapp','email','site'];
-  const updates = {};
-  campos.forEach(c => { if (req.body[c] !== undefined) updates[c] = req.body[c]; });
+  try {
+    const campos = ['nome','slogan','creci','telefone','whatsapp','email','site'];
+    const updates = {};
+    campos.forEach(c => { if (req.body[c] !== undefined) updates[c] = req.body[c]; });
 
-  if (req.file) {
-    const { data: old } = await supabase.from('perfil').select('logo').eq('user_id', req.user.id).single();
-    if (old?.logo) {
-      const pid = cloudinaryPublicId(old.logo);
-      if (pid) await cloudinary.uploader.destroy(pid).catch(() => {});
+    if (req.file) {
+      const { data: old } = await supabase.from('perfil').select('logo').eq('user_id', req.user.id).single();
+      if (old?.logo) {
+        const pid = cloudinaryPublicId(old.logo);
+        if (pid) await cloudinary.uploader.destroy(pid).catch(() => {});
+      }
+      const result = await cloudinaryUpload(req.file.buffer, 'logos');
+      updates.logo = result.secure_url;
     }
-    const result = await cloudinaryUpload(req.file.buffer, 'logos');
-    updates.logo = result.secure_url;
-  }
 
-  const { data: existing } = await supabase.from('perfil').select('id').eq('user_id', req.user.id).single();
-  let result;
-  if (existing) {
-    result = await supabase.from('perfil').update(updates).eq('user_id', req.user.id).select().single();
-  } else {
-    result = await supabase.from('perfil').insert({ ...updates, user_id: req.user.id }).select().single();
+    const { data: existing } = await supabase.from('perfil').select('id').eq('user_id', req.user.id).single();
+    let result;
+    if (existing) {
+      result = await supabase.from('perfil').update(updates).eq('user_id', req.user.id).select().single();
+    } else {
+      result = await supabase.from('perfil').insert({ ...updates, user_id: req.user.id }).select().single();
+    }
+    if (result.error) throw new Error(result.error.message);
+    res.json(result.data);
+  } catch (err) {
+    console.error('Erro perfil:', err);
+    res.status(500).json({ error: err.message });
   }
-  if (result.error) return res.status(500).json({ error: result.error.message });
-  res.json(result.data);
 });
 
 // ── IMÓVEIS ───────────────────────────────────────────────────────────────────
