@@ -718,9 +718,14 @@ async function loadGaleria() {
 }
 
 function agruparPastas() {
+ // Artes antigas não têm imovelId — mapeia título → id para caírem na mesma pasta
+ const idPorTitulo = {};
+ galeria.forEach(i => {
+  if (i.imovelId && i.imovelTitulo) idPorTitulo[i.imovelTitulo] = String(i.imovelId);
+ });
  const pastas = {};
  galeria.forEach(item => {
-  const key = String(item.imovelId || item.imovelTitulo || 'outros');
+  const key = String(item.imovelId || idPorTitulo[item.imovelTitulo] || item.imovelTitulo || 'outros');
   if (!pastas[key]) pastas[key] = { titulo: item.imovelTitulo || 'Sem imóvel', itens: [] };
   pastas[key].itens.push(item);
  });
