@@ -374,8 +374,9 @@ app.post('/api/auth/register', async (req, res) => {
 
     if (error) throw new Error(error.message);
 
-    // Cria perfil vazio para o novo usuário
-    await supabase.from('perfil').insert({ user_id: data.id });
+    // Cria perfil vazio para o novo usuário (o PUT /api/perfil cria depois se isto falhar)
+    const { error: perfilErr } = await supabase.from('perfil').insert({ user_id: data.id });
+    if (perfilErr) console.error('Falha ao criar perfil no cadastro:', perfilErr.message);
 
     // Trial: X dias de acesso + crédito de boas-vindas
     const cfg = await getBillingConfig();
