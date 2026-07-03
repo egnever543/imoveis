@@ -1067,6 +1067,11 @@ app.post('/api/galeria/:id/editar', userAuth, billingGate, async (req, res) => {
     const instrucao = (req.body.instrucao || '').trim();
     if (!instrucao) return res.status(400).json({ error: 'Descreva a alteração desejada' });
 
+    // Imagem de referência opcional (data URL enviada pelo cliente)
+    const referencia = typeof req.body.referencia === 'string' && req.body.referencia.startsWith('data:image/')
+      ? req.body.referencia
+      : null;
+
     const { data: orig } = await supabase.from('galeria')
       .select('*').eq('id', req.params.id).eq('user_id', req.user.id).single();
     if (!orig?.image_url) return res.status(404).json({ error: 'Arte não encontrada' });
@@ -1089,25 +1094,25 @@ app.post('/api/galeria/:id/editar', userAuth, billingGate, async (req, res) => {
     if (!img) throw new Error('Não foi possível carregar a imagem original');
 
     const mensagem = `Você recebeu uma arte de marketing imobiliário pronta (Imagem 1). Faça APENAS a alteração solicitada abaixo, mantendo todo o resto da imagem exatamente igual.
-
+${referencia ? '\nA Imagem 2 é uma REFERÊNCIA fornecida pelo usuário — use-a conforme indicado na instrução (ex: aplicar o elemento, copiar o estilo, substituir por ela).\n' : ''}
 Alteração solicitada:
 "${instrucao}"
 
 Regras:
 - Altere somente o que foi pedido — nada além disso.
 - Preserve fontes, cores, textos, posições e todos os elementos não mencionados, pixel a pixel.
-- Mantenha o mesmo formato e proporção da imagem original.`;
+- Mantenha o mesmo formato e proporção da imagem original (Imagem 1).`;
 
     const isReels = orig.formato === 'reels';
+    const content = [
+      { type: 'input_image', image_url: `data:${img.mime};base64,${img.b64}` },
+    ];
+    if (referencia) content.push({ type: 'input_image', image_url: referencia });
+    content.push({ type: 'input_text', text: mensagem });
+
     const response = await openai.responses.create({
       model: 'gpt-4o',
-      input: [{
-        role: 'user',
-        content: [
-          { type: 'input_image', image_url: `data:${img.mime};base64,${img.b64}` },
-          { type: 'input_text', text: mensagem },
-        ],
-      }],
+      input: [{ role: 'user', content }],
       tools: [{ type: 'image_generation', quality: 'high', size: isReels ? '1024x1536' : '1024x1024' }],
     });
 
@@ -1125,7 +1130,7 @@ Regras:
           .eq('id', galeriaId);
         registrarLog({
           tipo: 'edicao',
-          input: { origem: orig.id, imovel: orig.imovel_titulo, template: orig.template_nome, instrucao, promptEnviado: mensagem },
+          input: { origem: orig.id, imovel: orig.imovel_titulo, template: orig.template_nome, instrucao, comReferencia: !!referencia, promptEnviado: mensagem },
           status: 'ok', usage, custo: +(custoTokens + custoImg).toFixed(6),
           user_id: req.user.id,
         });

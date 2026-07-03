@@ -1113,6 +1113,7 @@ function tratarRetornoPagamento() {
 
 // ── Edição mágica ─────────────────────────────────────────────────
 let editandoArteId = null;
+let referenciaDataUrl = null;
 
 function abrirEdicao(id) {
  const item = galeria.find(g => g.id === id);
@@ -1120,8 +1121,29 @@ function abrirEdicao(id) {
  editandoArteId = id;
  document.getElementById('editarArteImg').src = item.imageUrl;
  document.getElementById('editarArteMsg').value = '';
+ removerReferencia();
  document.getElementById('editarArteModal').style.display = 'flex';
  document.getElementById('editarArteMsg').focus();
+}
+
+async function anexarReferencia(input) {
+ const file = input.files[0];
+ if (!file) return;
+ const menor = await redimensionarImagem(file); // reduz p/ caber no limite de upload
+ const reader = new FileReader();
+ reader.onload = e => {
+  referenciaDataUrl = e.target.result;
+  document.getElementById('editarRefImg').src = referenciaDataUrl;
+  document.getElementById('editarRefPreview').style.display = 'flex';
+ };
+ reader.readAsDataURL(menor);
+ input.value = '';
+}
+
+function removerReferencia() {
+ referenciaDataUrl = null;
+ document.getElementById('editarRefPreview').style.display = 'none';
+ document.getElementById('editarRefImg').src = '';
 }
 
 function fecharEdicao(ev) {
@@ -1138,7 +1160,7 @@ function enviarEdicao() {
  authFetch(`/api/galeria/${editandoArteId}/editar`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ instrucao }),
+  body: JSON.stringify({ instrucao, referencia: referenciaDataUrl || undefined }),
  })
   .then(async r => ({ status: r.status, d: await r.json() }))
   .then(({ status, d }) => {

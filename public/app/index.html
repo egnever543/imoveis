@@ -489,7 +489,19 @@
     <img id="editarArteImg" src="" alt="Arte" />
     <div class="editar-chat">
      <p class="editar-hint">Descreva a alteração que deseja na imagem — a IA edita mantendo o resto igual.</p>
-     <textarea id="editarArteMsg" rows="4" placeholder="Ex: troque a cor do fundo para azul escuro; remova o texto do rodapé; deixe o céu ao entardecer…"></textarea>
+     <textarea id="editarArteMsg" rows="4" placeholder="Ex: troque a cor do fundo para azul escuro; remova o texto do rodapé; use a imagem anexada como referência…"></textarea>
+     <div id="editarRefPreview" class="editar-ref-preview" style="display:none">
+      <img id="editarRefImg" src="" alt="Referência" />
+      <div class="editar-ref-info">
+       <span>Imagem de referência anexada</span>
+       <button type="button" class="btn-ghost btn-sm" onclick="removerReferencia()">Remover</button>
+      </div>
+     </div>
+     <label class="upload-btn" style="align-self:flex-start">
+      <svg class="btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      Anexar referência (opcional)
+      <input type="file" id="editarRefInput" accept="image/*" style="display:none" onchange="anexarReferencia(this)" />
+     </label>
      <div class="editar-actions">
       <button class="btn-ghost" onclick="fecharEdicao()">Cancelar</button>
       <button class="btn-primary" onclick="enviarEdicao()">Enviar edição</button>
