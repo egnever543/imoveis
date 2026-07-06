@@ -133,6 +133,7 @@ function navegarPara(page) {
  document.getElementById(`page-${page}`)?.classList.add('active');
  document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
  if (page === 'inicio') renderInicio();
+ if (page === 'oneclick') renderOneClick();
 }
 
 // ── Templates ─────────────────────────────────────────────────────
@@ -628,9 +629,9 @@ function gerarArte(textosPrevia = null, formato = '1x1') {
  });
 }
 
-function iniciarGeracao(body) {
+function iniciarGeracao(body, url = '/api/gerar') {
  // Dispara a geração sem bloquear — o servidor salva na galeria sozinho
- authFetch('/api/gerar', {
+ authFetch(url, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(body),
@@ -1223,6 +1224,98 @@ function enviarEdicao() {
  toast('Edição iniciada! A nova versão aparecerá na galeria.', 'success');
  setTimeout(loadGaleria, 800);
  iniciarPolling();
+}
+
+// ── 1-Click Art ───────────────────────────────────────────────────
+const OC_OBJETIVOS = [
+ { key: 'venda',      label: 'Venda' },
+ { key: 'locacao',    label: 'Locação' },
+ { key: 'lancamento', label: 'Lançamento' },
+ { key: 'visitas',    label: 'Visitas' },
+];
+const OC_ESTILOS = [
+ { key: 'clean',    nome: 'Clean Claro',           desc: 'Minimalista, fundo claro, elegante',        grad: 'linear-gradient(135deg,#f5f5f4,#d6e4e8)', txt: '#1a1a1a' },
+ { key: 'escuro',   nome: 'Moderno Escuro',        desc: 'Premium, grafite com dourado',              grad: 'linear-gradient(135deg,#1c1c1c,#3a3123)', txt: '#e8c872' },
+ { key: 'vibrante', nome: 'Vibrante Promocional',  desc: 'Cores fortes, energia de oferta',           grad: 'linear-gradient(135deg,#facc15,#1a1a1a)', txt: '#fff' },
+];
+const OC_CAMPOS = ['preco', 'entrada', 'parcela', 'area', 'quartos', 'banheiros', 'vagas', 'cidade', 'destaque', 'diferenciais'];
+
+const oc = { imovelId: null, objetivo: 'venda', estilo: 'clean', campos: ['preco', 'quartos', 'area'] };
+
+function renderOneClick() {
+ // Imóveis (só os que têm foto)
+ const comFoto = imoveis.filter(im => Object.keys(im.fotos || {}).length > 0);
+ document.getElementById('ocImovelEmpty').style.display = comFoto.length ? 'none' : 'block';
+ if (oc.imovelId && !comFoto.find(i => i.id === oc.imovelId)) oc.imovelId = null;
+ document.getElementById('ocImovelPicker').innerHTML = comFoto.map(im => {
+  const foto = Object.values(im.fotos || {})[0];
+  const local = [im.cidade, im.estado].filter(Boolean).join(' - ');
+  return `
+  <div class="picker-card ${oc.imovelId === im.id ? 'selected' : ''}" onclick="ocSelecionarImovel('${im.id}')">
+   <div class="picker-thumb">${foto ? `<img src="${foto}" alt="" />` : ''}</div>
+   <div class="picker-info">
+    <h4>${im.titulo}</h4>
+    <p>${[im.tipo, local].filter(Boolean).join(' • ') || '—'}</p>
+   </div>
+   <span class="picker-check"></span>
+  </div>`;
+ }).join('');
+
+ // Objetivos
+ document.getElementById('ocObjetivos').innerHTML = OC_OBJETIVOS.map(o => `
+  <button class="oc-chip ${oc.objetivo === o.key ? 'active' : ''}" onclick="oc.objetivo='${o.key}';renderOneClick()">${o.label}</button>`).join('');
+
+ // Estilos
+ document.getElementById('ocEstilos').innerHTML = OC_ESTILOS.map(e => `
+  <div class="oc-estilo ${oc.estilo === e.key ? 'selected' : ''}" onclick="oc.estilo='${e.key}';renderOneClick()">
+   <div class="oc-estilo-swatch" style="background:${e.grad}"><span style="color:${e.txt}">Aa</span></div>
+   <div class="oc-estilo-nome">${e.nome}</div>
+   <div class="oc-estilo-desc">${e.desc}</div>
+  </div>`).join('');
+
+ // Campos (máx. 4) — só os preenchidos no imóvel selecionado quando houver
+ const im = comFoto.find(i => i.id === oc.imovelId);
+ document.getElementById('ocCampos').innerHTML = OC_CAMPOS.map(c => {
+  const temValor = !im || !!im[c];
+  const ativo = oc.campos.includes(c);
+  return `<button class="oc-chip ${ativo ? 'active' : ''} ${temValor ? '' : 'disabled'}"
+   ${temValor ? `onclick="ocToggleCampo('${c}')"` : 'disabled title="Campo vazio no imóvel"'}>${(fieldLabels[c] || c).replace(' (do perfil)', '')}</button>`;
+ }).join('');
+
+ // Botão + dica
+ const btn = document.getElementById('btnOneClick');
+ const hint = document.getElementById('ocHint');
+ btn.disabled = !oc.imovelId;
+ hint.textContent = !oc.imovelId
+  ? 'Selecione um imóvel com foto para gerar.'
+  : 'A arte será criada em segundo plano e salva na galeria.';
+}
+
+function ocSelecionarImovel(id) {
+ oc.imovelId = id;
+ const im = imoveis.find(i => i.id === id);
+ if (im) oc.campos = oc.campos.filter(c => !!im[c]); // remove escolhas sem valor neste imóvel
+ renderOneClick();
+}
+
+function ocToggleCampo(c) {
+ if (oc.campos.includes(c)) {
+  oc.campos = oc.campos.filter(x => x !== c);
+ } else {
+  if (oc.campos.length >= 4) { toast('Máximo de 4 informações — desmarque uma primeiro.', 'error'); return; }
+  oc.campos.push(c);
+ }
+ renderOneClick();
+}
+
+function gerar1Click() {
+ if (!oc.imovelId) return;
+ iniciarGeracao({
+  imovelId: oc.imovelId,
+  objetivo: oc.objetivo,
+  estilo: oc.estilo,
+  campos: [...oc.campos],
+ }, '/api/gerar-1click');
 }
 
 // ── Início: checklist de onboarding + dashboard ───────────────────

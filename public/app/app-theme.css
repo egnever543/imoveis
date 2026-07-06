@@ -449,6 +449,34 @@ a, .btn-link { color: #fff; }
 .extrato-valor.pos { color: #6ee7a0; }
 .extrato-valor.neg { color: var(--text-muted); }
 
+/* ── 1-Click Art ──────────────────────────────────────────────── */
+.oc-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.oc-chip {
+ background: transparent; border: 1px solid var(--border-light); color: var(--text-muted);
+ border-radius: 20px; padding: 8px 18px; font-size: 0.85rem; font-weight: 600;
+ cursor: pointer; transition: all 0.15s;
+}
+.oc-chip:hover:not(.disabled) { border-color: #fff; color: #fff; }
+.oc-chip.active { background: #fff; color: #000; border-color: #fff; }
+.oc-chip.disabled { opacity: 0.35; cursor: not-allowed; }
+.oc-limite { font-weight: 400; font-size: 0.78rem; color: var(--text-muted); }
+
+.oc-estilos {
+ display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px;
+}
+.oc-estilo {
+ border: 2px solid var(--border); border-radius: 12px; overflow: hidden;
+ cursor: pointer; background: var(--bg-card); transition: border-color 0.15s;
+}
+.oc-estilo:hover { border-color: var(--border-light); }
+.oc-estilo.selected { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.18); }
+.oc-estilo-swatch {
+ height: 72px; display: flex; align-items: center; justify-content: center;
+}
+.oc-estilo-swatch span { font-size: 1.6rem; font-weight: 700; }
+.oc-estilo-nome { font-size: 0.85rem; font-weight: 700; padding: 10px 12px 2px; }
+.oc-estilo-desc { font-size: 0.74rem; color: var(--text-muted); padding: 0 12px 10px; }
+
 /* ── Início: checklist + dashboard ───────────────────────────── */
 .checklist-card {
  background: var(--bg-card); border: 1px solid var(--border);

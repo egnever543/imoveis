@@ -1156,6 +1156,145 @@ Regras:
   }
 });
 
+// ── 1-CLICK ART: arte profissional sem template ──────────────────────────────
+const ESTILOS_1CLICK = {
+  clean: {
+    nome: 'Clean Claro',
+    prompt: `Estilo visual: design clean e minimalista de agência premium. Fundo claro (branco ou off-white), tipografia sans-serif geométrica moderna em cinza-escuro, UM único tom de destaque (azul-petróleo). Muito espaço em branco, sombras suaves, composição editorial estilo revista de arquitetura. A foto do imóvel em destaque ocupando a maior parte do quadro, com tratamento luminoso e natural.`,
+  },
+  escuro: {
+    nome: 'Moderno Escuro',
+    prompt: `Estilo visual: premium escuro e sofisticado. Fundo grafite quase preto, detalhes e filetes dourados sutis, headline em tipografia serifada elegante, dados em sans-serif fina. Iluminação dramática na foto do imóvel (entardecer/luzes acesas se possível), sensação de imóvel de alto padrão e exclusividade.`,
+  },
+  vibrante: {
+    nome: 'Vibrante Promocional',
+    prompt: `Estilo visual: campanha promocional de alto impacto. Cores fortes e contrastantes (amarelo com preto, ou vermelho com branco), headline GRANDE e impactante, selo/etiqueta chamativa destacando o valor principal, formas diagonais dinâmicas. Energia de oferta imperdível, mas mantendo acabamento profissional — nada de poluição visual.`,
+  },
+};
+
+const OBJETIVOS_1CLICK = {
+  venda:      'Objetivo do anúncio: VENDA do imóvel. Tom aspiracional e direto. CTA curto no rodapé, ex: "Agende sua visita".',
+  locacao:    'Objetivo do anúncio: LOCAÇÃO (aluguel). Tom prático, foco em custo-benefício e disponibilidade. CTA ex: "Alugue já".',
+  lancamento: 'Objetivo do anúncio: LANÇAMENTO / pré-venda. Tom de exclusividade e oportunidade. CTA ex: "Garanta sua unidade".',
+  visitas:    'Objetivo do anúncio: convite para VISITA (open house). Tom acolhedor e convidativo. CTA ex: "Venha conhecer".',
+};
+
+app.post('/api/gerar-1click', userAuth, billingGate, async (req, res) => {
+  let galeriaId = null;
+  try {
+    const { imovelId, objetivo, estilo, campos } = req.body;
+    const est = ESTILOS_1CLICK[estilo] || ESTILOS_1CLICK.clean;
+    const obj = OBJETIVOS_1CLICK[objetivo] || OBJETIVOS_1CLICK.venda;
+
+    const { data: imRow } = await supabase.from('imoveis').select('*').eq('id', imovelId).eq('user_id', req.user.id).single();
+    if (!imRow) return res.status(400).json({ error: 'Imóvel não encontrado' });
+    const imovel = fromDb(imRow);
+
+    const { data: perfil } = await supabase.from('perfil').select('*').eq('user_id', req.user.id).single();
+
+    // Registro pendente na galeria
+    const { data: pendente, error: pendErr } = await supabase.from('galeria').insert({
+      status:        'gerando',
+      formato:       '1x1',
+      imovel_id:     imovelId,
+      template_nome: `1-Click — ${est.nome}`,
+      imovel_titulo: imovel.titulo,
+      user_id:       req.user.id,
+    }).select('id').single();
+    if (pendErr) throw new Error(pendErr.message);
+    galeriaId = pendente.id;
+
+    // Até 2 fotos do imóvel + logo do perfil
+    const fotoUrls = Object.values(imovel.fotos || {}).slice(0, 2);
+    const fotos = (await Promise.all(fotoUrls.map(u => imageB64FromUrl(u)))).filter(Boolean);
+    if (!fotos.length) throw new Error('O imóvel precisa de ao menos uma foto para o 1-Click Art');
+    let logoImg = null;
+    if (perfil?.logo) logoImg = await imageB64FromUrl(perfil.logo);
+
+    // Dados escolhidos pelo usuário (máx. 4) — só os preenchidos
+    const fieldData = FIELD_DATA(imovel, perfil);
+    const escolhidos = (Array.isArray(campos) ? campos : []).slice(0, 4);
+    const dados = escolhidos
+      .map(f => { const v = fieldData[f]; return v ? `- ${FIELD_LABELS_PT[f] || f}: ${v.split(' → ')[1]?.replace(/"/g, '') || v}` : null; })
+      .filter(Boolean).join('\n');
+
+    let imgIdx = 1;
+    const fotoLabels = fotos.map(() => `Imagem ${imgIdx++}`);
+    const logoLabel = logoImg ? `Imagem ${imgIdx++}` : null;
+
+    const mensagem = `Você é um diretor de arte sênior criando um post imobiliário profissional para Instagram (formato quadrado 1080x1080). Crie uma arte ORIGINAL do zero — não existe template.
+
+${obj}
+
+${est.prompt}
+
+Imagens fornecidas:
+${fotoLabels.map((l, i) => `- ${l}: foto real do imóvel — use como imagem principal, sem distorcer nem recriar.`).join('\n')}
+${logoLabel ? `- ${logoLabel}: logo da imobiliária — integre de forma discreta e elegante (canto superior ou inferior), sem caixa branca.` : '- Nenhuma logo fornecida — não invente logo nem nome de imobiliária.'}
+
+Textos que DEVEM aparecer na arte (somente estes — não invente outros dados):
+- Título/headline: crie uma headline curta e vendedora a partir de "${imovel.titulo}"${imovel.cidade ? ` em ${imovel.cidade}` : ''}
+${dados || '(apenas a headline)'}
+${perfil?.nome ? `- Assinatura discreta: ${perfil.nome}` : ''}
+
+Regras de qualidade:
+- POUCO texto: hierarquia clara com uma headline dominante e no máximo 4 dados de apoio.
+- Todo texto em português correto, sem erros de ortografia — revise cada palavra.
+- Tipografia legível e alinhada; nada de texto cortado ou sobreposto à parte importante da foto.
+- Composição equilibrada e profissional, digna de agência de publicidade.`;
+
+    const content = [];
+    fotos.forEach(f => content.push({ type: 'input_image', image_url: `data:${f.mime};base64,${f.b64}` }));
+    if (logoImg) content.push({ type: 'input_image', image_url: `data:${logoImg.mime};base64,${logoImg.b64}` });
+    content.push({ type: 'input_text', text: mensagem });
+
+    const logInput = {
+      tipo1click: { objetivo, estilo: est.nome, campos: escolhidos },
+      imovel: imovel.titulo,
+      imagens: [...fotoLabels.map((l, i) => `${l}: foto`), logoImg ? `${logoLabel}: logo` : null].filter(Boolean),
+      promptEnviado: mensagem,
+    };
+
+    const response = await openai.responses.create({
+      model: 'gpt-4o',
+      input: [{ role: 'user', content }],
+      tools: [{ type: 'image_generation', quality: 'high', size: '1024x1024' }],
+    });
+
+    const usage = response.usage || null;
+    const custoTokens = usage
+      ? (usage.input_tokens || 0) * PRECO.in + (usage.output_tokens || 0) * PRECO.out
+      : 0;
+
+    for (const item of response.output || []) {
+      if (item.type === 'image_generation_call' && item.result) {
+        const up = await cloudinaryUpload(Buffer.from(item.result, 'base64'), 'galeria');
+        await supabase.from('galeria')
+          .update({ image_url: up.secure_url, status: 'pronta' })
+          .eq('id', galeriaId);
+        registrarLog({
+          tipo: 'oneclick', input: logInput, status: 'ok',
+          usage, custo: +(custoTokens + PRECO.img1024).toFixed(6),
+          user_id: req.user.id,
+        });
+        const cobranca = await custoComMarkup(custoTokens + PRECO.img1024);
+        await debitar(req.user.id, cobranca, `1-Click Art — ${imovel.titulo}`, String(galeriaId));
+        verificarAutoRecarga(req.user.id);
+        return res.json({ success: true, galeriaId });
+      }
+    }
+
+    await supabase.from('galeria').update({ status: 'erro' }).eq('id', galeriaId);
+    registrarLog({ tipo: 'oneclick', input: logInput, status: 'sem_imagem', usage, custo: +custoTokens.toFixed(6), user_id: req.user.id });
+    res.status(500).json({ error: 'Nenhuma imagem gerada' });
+  } catch (err) {
+    console.error('Erro 1-click:', err);
+    if (galeriaId) supabase.from('galeria').update({ status: 'erro' }).eq('id', galeriaId).then(() => {}, () => {});
+    registrarLog({ tipo: 'oneclick', input: { erro: err.message }, status: 'erro', user_id: req.user?.id });
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Galeria ───────────────────────────────────────────────────────────────────
 app.get('/api/galeria', userAuth, async (req, res) => {
   const { data, error } = await supabase
