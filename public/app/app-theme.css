@@ -87,6 +87,8 @@ a, .btn-link { color: #fff; }
  overflow-y: auto;
  overflow-x: hidden;
  scroll-snap-type: none;
+ overscroll-behavior: contain;
+ -webkit-overflow-scrolling: touch;
  padding: 18px 24px 80px;
 }
 .gallery-track.grid-mode .gallery-card {

@@ -209,10 +209,12 @@ function abrirGaleria() {
  galeriaEscolhendo = !selectedTemplateId;
  renderGaleria();
  document.getElementById('templateGallery').style.display = 'flex';
+ document.body.style.overflow = 'hidden'; // trava a rolagem da tela de trás
 }
 
 function fecharGaleria() {
  document.getElementById('templateGallery').style.display = 'none';
+ document.body.style.overflow = '';
 }
 
 function mudarTemplate() {
