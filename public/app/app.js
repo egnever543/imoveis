@@ -332,9 +332,14 @@ function renderImoveisGrid() {
  const foto = Object.values(im.fotos || {})[0];
  const local = [im.bairro, im.cidade, im.estado].filter(Boolean).join(', ');
  const tags = [];
+ const finLabel = { venda: 'Venda', aluguel: 'Aluguel', venda_aluguel: 'Venda • Aluguel' }[im.finalidade] || 'Venda';
+ tags.push(finLabel);
  if (im.area) tags.push(`${im.area} m²`);
  if (im.quartos) tags.push(`${im.quartos} qtos`);
  if (im.vagas) tags.push(`${im.vagas} vaga${im.vagas > 1 ? 's' : ''}`);
+ const valorLinha = im.finalidade === 'aluguel'
+  ? (im.aluguel ? `<div class="preco">R$ ${im.aluguel}/mês</div>` : '')
+  : (im.preco ? `<div class="preco">R$ ${im.preco}</div>` : '');
  return `
  <div class="imovel-card">
  <div class="imovel-card-thumb">
@@ -343,7 +348,7 @@ function renderImoveisGrid() {
  <div class="imovel-card-body">
  <span class="status-badge status-${im.status}">${im.status}</span>
  <h3>${im.titulo}</h3>
- ${im.preco ? `<div class="preco">R$ ${im.preco}</div>` : ''}
+ ${valorLinha}
  ${local ? `<div class="local"> ${local}</div>` : ''}
  <div class="imovel-card-tags">
  ${tags.map(t => `<span class="tag">${t}</span>`).join('')}
@@ -681,11 +686,17 @@ function gerarVariacaoReels(id) {
 }
 
 // ── CRUD Imóveis ──────────────────────────────────────────────────
+function atualizarFinalidade(v) {
+ document.getElementById('finVenda').style.display   = v === 'aluguel' ? 'none' : '';
+ document.getElementById('finAluguel').style.display = v === 'venda'   ? 'none' : '';
+}
+
 function abrirFormImovel(id = null) {
  document.getElementById('imovelForm').reset();
  document.getElementById('imovelEditId').value = '';
  document.getElementById('formImovelTitulo').textContent = 'Cadastrar Imóvel';
  renderFotoSlots({});
+ atualizarFinalidade('venda');
 
  if (id) {
  const im = imoveis.find(i => i.id === id);
@@ -697,6 +708,8 @@ function abrirFormImovel(id = null) {
  const el = form.elements[k];
  if (el && el.type !== 'file') el.value = im[k] || '';
  });
+ if (!im.finalidade) form.elements['finalidade'].value = 'venda';
+ atualizarFinalidade(form.elements['finalidade'].value);
  renderFotoSlots(im.fotos || {}, id);
  }
 
@@ -737,7 +750,8 @@ async function uploadFotoSlot(input, imovelId, slot) {
  const form = document.getElementById('imovelForm');
  const titulo = form.elements['titulo']?.value?.trim();
  if (!titulo) { toast('Salve o imóvel primeiro (preencha ao menos o título)', 'error'); return; }
- const campos = ['titulo','tipo','status','preco','entrada','parcela','financiamento',
+ const campos = ['titulo','tipo','status','finalidade','preco','entrada','parcela','financiamento',
+ 'aluguel','condominio','iptu','garantia',
  'area','quartos','suites','banheiros','vagas','andar',
  'endereco','bairro','cidade','estado','destaque','diferenciais','descricao'];
  const body = {};
@@ -790,7 +804,8 @@ async function salvarImovel(e) {
  const form = e.target;
  const id = document.getElementById('imovelEditId').value;
 
- const campos = ['titulo','tipo','status','preco','entrada','parcela','financiamento',
+ const campos = ['titulo','tipo','status','finalidade','preco','entrada','parcela','financiamento',
+ 'aluguel','condominio','iptu','garantia',
  'area','quartos','suites','banheiros','vagas','andar',
  'endereco','bairro','cidade','estado','destaque','diferenciais','descricao'];
  const body = {};
@@ -1238,7 +1253,7 @@ const OC_ESTILOS = [
  { key: 'escuro',   nome: 'Moderno Escuro',        desc: 'Premium, grafite com dourado',              grad: 'linear-gradient(135deg,#1c1c1c,#3a3123)', txt: '#e8c872' },
  { key: 'vibrante', nome: 'Vibrante Promocional',  desc: 'Cores fortes, energia de oferta',           grad: 'linear-gradient(135deg,#facc15,#1a1a1a)', txt: '#fff' },
 ];
-const OC_CAMPOS = ['preco', 'entrada', 'parcela', 'area', 'quartos', 'banheiros', 'vagas', 'cidade', 'destaque', 'diferenciais'];
+const OC_CAMPOS = ['preco', 'entrada', 'parcela', 'aluguel', 'condominio', 'iptu', 'area', 'quartos', 'banheiros', 'vagas', 'cidade', 'destaque', 'diferenciais'];
 
 const oc = { imovelId: null, objetivo: 'venda', estilo: 'clean', campos: ['preco', 'quartos', 'area'] };
 
@@ -1294,7 +1309,16 @@ function renderOneClick() {
 function ocSelecionarImovel(id) {
  oc.imovelId = id;
  const im = imoveis.find(i => i.id === id);
- if (im) oc.campos = oc.campos.filter(c => !!im[c]); // remove escolhas sem valor neste imóvel
+ if (im) {
+  // Imóvel de aluguel: objetivo e campos padrão voltados à locação
+  if (im.finalidade === 'aluguel') {
+   oc.objetivo = 'locacao';
+   oc.campos = ['aluguel', 'quartos', 'area'];
+  } else if (!oc.campos.length) {
+   oc.campos = ['preco', 'quartos', 'area'];
+  }
+  oc.campos = oc.campos.filter(c => !!im[c]); // remove escolhas sem valor neste imóvel
+ }
  renderOneClick();
 }
 

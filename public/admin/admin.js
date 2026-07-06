@@ -14,6 +14,7 @@ const ALL_FIELDS   = [
   'area','quartos','suites','banheiros','vagas','andar',
   'cidade','localizacao','endereco','destaque','diferenciais','foto_imovel','logo',
   'telefone','whatsapp','creci','site','slogan',
+  'aluguel','condominio','iptu',
 ];
 
 let adminPassword = sessionStorage.getItem('adminPassword') || '';

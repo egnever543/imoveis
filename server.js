@@ -280,6 +280,7 @@ const FIELD_LABELS_PT = {
   diferenciais: 'Diferenciais', foto_imovel: 'Foto do imóvel', logo: 'Logo',
   telefone: 'Telefone (do perfil)', whatsapp: 'WhatsApp (do perfil)', creci: 'CRECI (do perfil)',
   site: 'Site (do perfil)', slogan: 'Slogan (do perfil)',
+  aluguel: 'Aluguel (R$/mês)', condominio: 'Condomínio (R$/mês)', iptu: 'IPTU',
 };
 
 const ANGLE_LABELS_PT = Object.fromEntries(PHOTO_SLOTS.map(s => [s.key, s.label]));
@@ -308,6 +309,9 @@ Return ONLY a valid JSON object with two keys: "fields" and "mapa".
 - "diferenciais"  — amenities or differentials list (pool, gym, etc.)
 - "foto_imovel"   — area displaying a property photo
 - "logo"          — agency/brand logo area
+- "aluguel"       — monthly rent value (aluguel)
+- "condominio"    — monthly condo fee (condomínio)
+- "iptu"          — property tax (IPTU)
 - "telefone"      — contact phone number
 - "whatsapp"      — WhatsApp contact number
 - "creci"         — CRECI license number of the agent/agency
@@ -702,7 +706,8 @@ app.delete('/api/imoveis/:id/foto/:slot', userAuth, async (req, res) => {
 });
 
 const IMOVEL_CAMPOS = [
-  'titulo','tipo','status','preco','entrada','parcela','financiamento',
+  'titulo','tipo','status','finalidade','preco','entrada','parcela','financiamento',
+  'aluguel','condominio','iptu','garantia',
   'area','quartos','suites','banheiros','vagas','andar',
   'endereco','bairro','cidade','estado','destaque','diferenciais','descricao',
 ];
@@ -859,6 +864,9 @@ const FIELD_DATA = (imovel, perfil = {}) => {
     slogan:        perfil?.slogan        ? `agency slogan → "${perfil.slogan}"` : null,
     titulo:        `property name/title → "${imovel.titulo}"`,
     preco:         imovel.preco         ? `total price → "R$ ${imovel.preco}"` : null,
+    aluguel:       imovel.aluguel       ? `monthly rent (aluguel) → "R$ ${imovel.aluguel}/mês"` : null,
+    condominio:    imovel.condominio    ? `condo fee (condomínio) → "R$ ${imovel.condominio}/mês"` : null,
+    iptu:          imovel.iptu          ? `property tax (IPTU) → "R$ ${imovel.iptu}"` : null,
     entrada:       imovel.entrada       ? `down payment (entrada) → "R$ ${imovel.entrada}"` : null,
     parcela:       imovel.parcela       ? `monthly installment (mensais/parcela) → "R$ ${imovel.parcela}"` : null,
     financiamento: imovel.financiamento ? `financing (financiamento) → "${imovel.financiamento}"` : null,

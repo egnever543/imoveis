@@ -244,11 +244,19 @@
  <option value="vendido">Vendido</option>
  </select>
  </div>
+ <div class="field">
+ <label>Finalidade</label>
+ <select name="finalidade" onchange="atualizarFinalidade(this.value)">
+ <option value="venda">Venda</option>
+ <option value="aluguel">Aluguel</option>
+ <option value="venda_aluguel">Venda e Aluguel</option>
+ </select>
+ </div>
  </div>
  </div>
 
- <div class="form-section">
- <h3>Financeiro</h3>
+ <div class="form-section" id="finVenda">
+ <h3>Financeiro — Venda</h3>
  <div class="form-grid">
  <div class="field">
  <label>Preço total</label>
@@ -265,6 +273,34 @@
  <div class="field">
  <label>Financiamento</label>
  <input type="text" name="financiamento" placeholder="Ex: FGTS, CEF, MCMV" />
+ </div>
+ </div>
+ </div>
+
+ <div class="form-section" id="finAluguel" style="display:none">
+ <h3>Financeiro — Aluguel</h3>
+ <div class="form-grid">
+ <div class="field">
+ <label>Valor do aluguel</label>
+ <div class="input-prefix"><span>R$</span><input type="text" name="aluguel" placeholder="2.500,00/mês" /></div>
+ </div>
+ <div class="field">
+ <label>Condomínio</label>
+ <div class="input-prefix"><span>R$</span><input type="text" name="condominio" placeholder="450,00/mês" /></div>
+ </div>
+ <div class="field">
+ <label>IPTU</label>
+ <div class="input-prefix"><span>R$</span><input type="text" name="iptu" placeholder="120,00/mês" /></div>
+ </div>
+ <div class="field">
+ <label>Garantia</label>
+ <select name="garantia">
+ <option value="">Selecione</option>
+ <option value="caucao">Caução</option>
+ <option value="fiador">Fiador</option>
+ <option value="seguro_fianca">Seguro fiança</option>
+ <option value="sem_garantia">Sem garantia</option>
+ </select>
  </div>
  </div>
  </div>
