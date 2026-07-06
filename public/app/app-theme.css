@@ -92,6 +92,7 @@ a, .btn-link { color: #fff; }
  padding: 18px 24px 80px;
  height: 100%;
  align-content: start;
+ grid-auto-rows: max-content; /* sem isto as linhas colapsam e os cards se sobrepõem */
 }
 .gallery-track.grid-mode .gallery-card {
  width: auto;
