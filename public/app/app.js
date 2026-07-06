@@ -220,9 +220,23 @@ function mudarTemplate() {
  renderGaleria();
 }
 
+let templateBusca = '';
+let templateCategoria = null; // null = todas
+
+function filtrarTemplates(valor) {
+ templateBusca = (valor || '').trim().toLowerCase();
+ renderGaleria();
+}
+
+function filtrarCategoria(cat) {
+ templateCategoria = cat;
+ renderGaleria();
+}
+
 function renderGaleria() {
  const track = document.getElementById('galleryTrack');
  const navs = document.querySelectorAll('#templateGallery .gallery-nav');
+ const filtros = document.getElementById('galleryFiltros');
  if (!templates.length) {
   track.innerHTML = '<p style="color:var(--text-muted)">Nenhum template cadastrado.</p>';
   return;
@@ -235,6 +249,8 @@ function renderGaleria() {
  if (escolhido && !galeriaEscolhendo) {
   navs.forEach(n => n.style.display = 'none');
   if (footer) footer.style.display = 'none';
+  if (filtros) filtros.style.display = 'none';
+  track.classList.remove('grid-mode');
   track.innerHTML = `
   <div class="gallery-chosen">
    <div class="gallery-chosen-badge">✓ Template escolhido</div>
@@ -250,18 +266,40 @@ function renderGaleria() {
   return;
  }
 
- // Modo carrossel: todos os templates
- navs.forEach(n => n.style.display = '');
+ // Modo navegação: grid vertical com busca e filtro por categoria
+ navs.forEach(n => n.style.display = 'none');
  if (footer) footer.style.display = '';
- track.innerHTML = templates.map(t => `
+ if (filtros) filtros.style.display = 'flex';
+ track.classList.add('grid-mode');
+
+ // Chips de categoria (a partir das categorias cadastradas no admin)
+ const chipsEl = document.getElementById('galleryChips');
+ const categorias = [...new Set(templates.map(t => t.categoria).filter(Boolean))].sort();
+ if (chipsEl) {
+  chipsEl.innerHTML = categorias.length ? [
+   `<button class="gallery-chip ${templateCategoria === null ? 'active' : ''}" onclick="filtrarCategoria(null)">Todos</button>`,
+   ...categorias.map(c =>
+    `<button class="gallery-chip ${templateCategoria === c ? 'active' : ''}" onclick="filtrarCategoria('${c.replace(/'/g, "\\'")}')">${c}</button>`),
+  ].join('') : '';
+ }
+
+ let lista = templates;
+ if (templateCategoria) lista = lista.filter(t => t.categoria === templateCategoria);
+ if (templateBusca) lista = lista.filter(t =>
+  [t.nome, t.categoria].filter(Boolean).join(' ').toLowerCase().includes(templateBusca));
+
+ if (!lista.length) {
+  track.innerHTML = `<p style="color:var(--text-muted);grid-column:1/-1;padding:20px">Nenhum template encontrado.</p>`;
+  return;
+ }
+
+ track.innerHTML = lista.map(t => `
  <div class="gallery-card ${selectedTemplateId === t.id ? 'selected' : ''}" onclick="selecionarTemplate(${t.id})">
  <img src="${t.imageUrl}" alt="${t.nome}" loading="lazy" />
  <div class="gallery-card-name">${t.nome}</div>
  <span class="check-badge"></span>
  </div>
  `).join('');
- const selectedEl = track.querySelector('.gallery-card.selected');
- if (selectedEl) selectedEl.scrollIntoView({ behavior: 'instant', inline: 'center', block: 'nearest' });
 }
 
 function scrollGaleria(dir) {

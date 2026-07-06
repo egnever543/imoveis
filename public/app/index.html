@@ -451,6 +451,13 @@
  <h2>Escolha um template</h2>
  <button class="gallery-close" onclick="fecharGaleria()"></button>
  </div>
+ <div id="galleryFiltros" class="gallery-filtros">
+  <div class="picker-busca-wrap" style="margin-bottom:0;flex:1;min-width:200px">
+   <span class="picker-busca-icone">🔍</span>
+   <input type="text" id="templateBusca" placeholder="Buscar template…" oninput="filtrarTemplates(this.value)" />
+  </div>
+  <div id="galleryChips" class="gallery-chips"></div>
+ </div>
  <div class="gallery-body">
  <button class="gallery-nav prev" onclick="scrollGaleria(-1)">‹</button>
  <div class="gallery-track" id="galleryTrack"></div>

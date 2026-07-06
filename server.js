@@ -467,9 +467,10 @@ app.post('/api/admin/templates', adminAuth, upload.single('imagem'), async (req,
 });
 
 app.patch('/api/admin/templates/:id', adminAuth, async (req, res) => {
-  const { nome, fields, angulos, mapa, transcricao } = req.body;
+  const { nome, fields, angulos, mapa, transcricao, categoria } = req.body;
   const update = {};
   if (nome        !== undefined) update.nome        = nome;
+  if (categoria   !== undefined) update.categoria   = categoria || null;
   if (fields      !== undefined) update.fields      = fields;
   if (angulos     !== undefined) update.angulos     = angulos;
   if (mapa        !== undefined) update.mapa        = typeof mapa === 'object' ? JSON.stringify(mapa) : mapa;

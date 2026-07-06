@@ -349,6 +349,10 @@ function abrirEdicao(id) {
   if (!t) return;
   editingId = id;
   document.getElementById('editNome').value = t.nome;
+  document.getElementById('editCategoria').value = t.categoria || '';
+  document.getElementById('categoriasExistentes').innerHTML =
+    [...new Set(allTemplates.map(x => x.categoria).filter(Boolean))]
+      .map(c => `<option value="${escHtml(c)}"></option>`).join('');
 
   // Preview da imagem atual + limpar seleÃ§Ã£o anterior
   document.getElementById('editImgPreview').src = t.imageUrl;
@@ -441,7 +445,8 @@ function fecharModal(e) {
 }
 
 async function salvarEdicao() {
-  const nome    = document.getElementById('editNome').value.trim();
+  const nome      = document.getElementById('editNome').value.trim();
+  const categoria = document.getElementById('editCategoria').value.trim();
   const fields      = [...document.querySelectorAll('#editFieldsWrap .checked')].map(d => d.dataset.value);
   const angulos     = [...document.querySelectorAll('#editAngulosWrap .checked')].map(d => d.dataset.value);
   const transcricao = document.getElementById('editTranscricao').value.trim();
@@ -472,7 +477,7 @@ async function salvarEdicao() {
     const res = await fetch(`/api/admin/templates/${editingId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
-      body: JSON.stringify({ nome, fields, angulos, mapa, transcricao }),
+      body: JSON.stringify({ nome, categoria, fields, angulos, mapa, transcricao }),
     });
     if (!res.ok) { toast('Erro ao salvar', 'error'); return; }
 
