@@ -100,10 +100,10 @@ async function carregarUsuarios() {
           <span class="usuario-saldo" id="saldo-${u.id}">US$ ${u.saldo.toFixed(2)}</span>
         </div>
         <div class="usuario-creditos">
-          <input type="number" step="0.5" id="valor-${u.id}" placeholder="US$" />
+          <input type="number" step="1" id="valor-${u.id}" placeholder="R$" />
           <input type="text" id="desc-${u.id}" placeholder="Descrição (aparece no extrato do cliente)" />
           <button class="btn-primary" style="font-size:0.8rem" onclick="aplicarCreditos(${u.id})">Aplicar</button>
-          <span class="hint-neg">Valor positivo adiciona, negativo remove (ex: -2.50).</span>
+          <span class="hint-neg">Valor em reais, convertido pela cotação configurada. Positivo adiciona, negativo remove (ex: -10).</span>
         </div>
       </div>`;
     }).join('');
@@ -115,12 +115,12 @@ async function carregarUsuarios() {
 async function aplicarCreditos(userId) {
   const valor = Number(document.getElementById(`valor-${userId}`).value);
   const descricao = document.getElementById(`desc-${userId}`).value.trim();
-  if (!valor) { toast('Informe um valor em US$ diferente de zero', 'error'); return; }
+  if (!valor) { toast('Informe um valor em R$ diferente de zero', 'error'); return; }
   try {
     const res = await fetch(`/api/admin/usuarios/${userId}/creditos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
-      body: JSON.stringify({ valorUsd: valor, descricao }),
+      body: JSON.stringify({ valorBrl: valor, descricao }),
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);

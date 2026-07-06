@@ -1349,16 +1349,20 @@ app.get('/api/admin/usuarios', adminAuth, async (_, res) => {
 
 app.post('/api/admin/usuarios/:id/creditos', adminAuth, async (req, res) => {
   try {
-    const userId = Number(req.params.id);
-    const valor  = Number(req.body.valorUsd);
-    if (!userId || !Number.isFinite(valor) || valor === 0)
-      return res.status(400).json({ error: 'Informe um valor em US$ diferente de zero' });
+    const userId   = Number(req.params.id);
+    const valorBrl = Number(req.body.valorBrl);
+    if (!userId || !Number.isFinite(valorBrl) || valorBrl === 0)
+      return res.status(400).json({ error: 'Informe um valor em R$ diferente de zero' });
 
     const { data: u } = await supabase.from('usuarios').select('id').eq('id', userId).single();
     if (!u) return res.status(404).json({ error: 'Usuário não encontrado' });
 
+    // Converte pela cotação configurada — créditos são armazenados em US$
+    const cfg = await getBillingConfig();
+    const valor = +(valorBrl / cfg.cotacao_brl).toFixed(4);
+
     const descricao = (req.body.descricao || '').trim() ||
-      (valor > 0 ? 'Crédito adicionado pelo admin' : 'Ajuste pelo admin');
+      (valor > 0 ? `Crédito adicionado (R$ ${valorBrl.toFixed(2)})` : `Ajuste (R$ ${valorBrl.toFixed(2)})`);
 
     const { error } = await supabase.from('transacoes').insert({
       user_id: userId,
