@@ -87,13 +87,31 @@ a, .btn-link { color: #fff; }
  overflow-y: auto;
  overflow-x: hidden;
  scroll-snap-type: none;
+ padding: 18px 24px 80px;
 }
-.gallery-track.grid-mode .gallery-card { width: auto; }
+.gallery-track.grid-mode .gallery-card {
+ width: auto;
+ border-width: 1px;
+ border-radius: 12px;
+}
+.gallery-track.grid-mode .gallery-card:hover { transform: none; }
+.gallery-track.grid-mode .gallery-card img { aspect-ratio: 3/4; }
+/* Nome sobreposto na base da imagem — não some nem estica o card */
+.gallery-track.grid-mode .gallery-card-name {
+ position: absolute; left: 0; right: 0; bottom: 0;
+ background: linear-gradient(transparent, rgba(0,0,0,0.88));
+ padding: 22px 10px 8px;
+ font-size: 0.78rem;
+ white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
 @media (max-width: 768px) {
  .gallery-filtros { padding: 12px 16px 0; }
- .gallery-track.grid-mode { grid-template-columns: repeat(2, 1fr); gap: 10px; }
- .gallery-track.grid-mode .gallery-card { width: auto; }
+ .gallery-track.grid-mode {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  padding: 14px 14px 110px;
+ }
 }
 .gallery-track {
  display: flex; gap: 18px; overflow-x: auto; scroll-snap-type: x proximity;
