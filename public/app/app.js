@@ -33,6 +33,7 @@ async function init() {
  await Promise.all([loadTemplates(), loadImoveis(), loadPerfil(), loadLabels()]);
  renderGerar();
  renderImoveisGrid();
+ renderInicio();
  loadGaleria();
  loadBilling();
  tratarRetornoPagamento();
@@ -131,6 +132,7 @@ function navegarPara(page) {
  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
  document.getElementById(`page-${page}`)?.classList.add('active');
  document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
+ if (page === 'inicio') renderInicio();
 }
 
 // ── Templates ─────────────────────────────────────────────────────
@@ -313,6 +315,7 @@ function scrollGaleria(dir) {
 async function loadImoveis() {
  const res = await authFetch('/api/imoveis');
  imoveis = await res.json();
+ renderInicio();
 }
 
 function renderImoveisGrid() {
@@ -834,6 +837,7 @@ async function loadPerfil() {
  document.getElementById('logoPreview').style.display = 'block';
  document.getElementById('logoPlaceholder').style.display = 'none';
  }
+ renderInicio();
 }
 
 // Redimensiona a imagem no navegador (máx. 1024px, mantém transparência)
@@ -902,6 +906,7 @@ async function loadGaleria() {
   const res = await authFetch('/api/galeria');
   galeria = await res.json();
   renderGaleriaGrid();
+  renderInicio();
   if (galeria.some(g => g.status === 'gerando') && !pollTimer) iniciarPolling();
  } catch { /* silencioso */ }
 }
@@ -1075,6 +1080,8 @@ function renderBilling() {
  document.getElementById('autoRecargaValor').value = billing.autoRecarga.valorBrl;
  document.getElementById('autoRecargaAviso').style.display = billing.autoRecarga.falhou ? 'block' : 'none';
 
+ renderInicio();
+
  // Extrato
  const ext = document.getElementById('extratoLista');
  if (!billing.extrato.length) {
@@ -1216,6 +1223,123 @@ function enviarEdicao() {
  toast('Edição iniciada! A nova versão aparecerá na galeria.', 'success');
  setTimeout(loadGaleria, 800);
  iniciarPolling();
+}
+
+// ── Início: checklist de onboarding + dashboard ───────────────────
+function verTutorialInicio() {
+ localStorage.setItem('tutorialVisto', '1');
+ navegarPara('tutoriais');
+}
+
+function renderInicio() {
+ const el = document.getElementById('inicioContent');
+ if (!el) return;
+
+ const perfilOk   = !!(perfilData?.nome && perfilData?.logo);
+ const imovelOk   = imoveis.length > 0;
+ const arteOk     = galeria.length > 0;
+ const tutorialOk = localStorage.getItem('tutorialVisto') === '1';
+ const feitos = [perfilOk, imovelOk, arteOk, tutorialOk].filter(Boolean).length;
+
+ const titulo = document.getElementById('inicioTitulo');
+ const sub    = document.getElementById('inicioSub');
+ if (titulo) titulo.textContent = currentUser?.nome ? `Olá, ${currentUser.nome.split(' ')[0]}!` : 'Bem-vindo!';
+
+ // ── Onboarding: checklist ──
+ if (feitos < 4) {
+  if (sub) sub.textContent = 'Vamos preparar tudo para sua primeira arte';
+  const item = (ok, titulo, desc, btnLabel, onclick) => `
+   <div class="check-item ${ok ? 'done' : ''}">
+    <span class="check-item-mark">${ok
+     ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+     : ''}</span>
+    <div class="check-item-info">
+     <div class="check-item-titulo">${titulo}</div>
+     <div class="check-item-desc">${desc}</div>
+    </div>
+    ${ok ? '' : `<button class="btn-primary check-item-btn" onclick="${onclick}">${btnLabel}</button>`}
+   </div>`;
+
+  el.innerHTML = `
+  <div class="checklist-card">
+   <div class="checklist-progress-label">${feitos} de 4 concluídos</div>
+   <div class="checklist-progress"><div class="checklist-progress-bar" style="width:${(feitos / 4) * 100}%"></div></div>
+   ${item(perfilOk, 'Complete o perfil da imobiliária',
+     'Nome e logo — a logo aparece nas suas artes.',
+     'Completar perfil', "navegarPara('perfil')")}
+   ${item(imovelOk, 'Cadastre seu primeiro imóvel',
+     'Com fotos — elas entram na arte gerada.',
+     'Cadastrar imóvel', 'abrirFormImovel()')}
+   ${item(arteOk, 'Gere sua primeira arte',
+     'Escolha um template, um imóvel e deixe a IA criar.',
+     'Gerar arte', "navegarPara('gerar')")}
+   ${item(tutorialOk, 'Assista o tutorial de 1 minuto',
+     'Veja o passo a passo completo em vídeo.',
+     'Assistir', 'verTutorialInicio()')}
+  </div>`;
+  return;
+ }
+
+ // ── Dashboard ──
+ if (sub) sub.textContent = 'Resumo da sua conta';
+
+ let planoCard = '';
+ let avisos = '';
+ if (billing) {
+  const st = billing.assinatura.status;
+  const expira = billing.assinatura.expira ? new Date(billing.assinatura.expira) : null;
+  const saldo = Number(billing.saldo || 0);
+  const artes = Math.floor(saldo / 0.26);
+
+  if (st === 'trial' && expira) {
+   const dias = Math.max(0, Math.ceil((expira - Date.now()) / 86400000));
+   planoCard = `
+   <div class="inicio-card">
+    <div class="inicio-card-label">Período de teste</div>
+    <div class="inicio-card-valor">${dias} dia${dias === 1 ? '' : 's'} restante${dias === 1 ? '' : 's'}</div>
+    <button class="btn-primary" style="margin-top:10px" onclick="navegarPara('plano')">Assinar agora</button>
+   </div>`;
+  } else if (st !== 'ativa' || (expira && expira < new Date())) {
+   planoCard = `
+   <div class="inicio-card">
+    <div class="inicio-card-label">Assinatura</div>
+    <div class="inicio-card-valor" style="color:var(--danger)">Inativa</div>
+    <button class="btn-primary" style="margin-top:10px" onclick="navegarPara('plano')">Assinar</button>
+   </div>`;
+  }
+
+  avisos = [
+   billing.autoRecarga?.falhou ? `<div class="inicio-aviso">A última auto-recarga falhou — verifique seu cartão na tela <a href="#" onclick="navegarPara('plano');return false">Plano</a>.</div>` : '',
+   saldo < 1 && st === 'ativa' ? `<div class="inicio-aviso">Saldo baixo (US$ ${saldo.toFixed(2)}) — <a href="#" onclick="navegarPara('plano');return false">recarregue</a> para continuar gerando.</div>` : '',
+  ].join('');
+
+  planoCard += `
+  <div class="inicio-card">
+   <div class="inicio-card-label">Créditos</div>
+   <div class="inicio-card-valor">US$ ${saldo.toFixed(2)}</div>
+   <div class="inicio-card-sub">≈ ${artes} arte${artes === 1 ? '' : 's'}</div>
+  </div>`;
+ }
+
+ const ultimas = galeria.filter(g => g.imageUrl).slice(0, 4);
+ el.innerHTML = `
+ ${avisos}
+ <div class="inicio-grid">
+  ${planoCard}
+  <div class="inicio-card">
+   <div class="inicio-card-label">Artes geradas</div>
+   <div class="inicio-card-valor">${galeria.length}</div>
+   <div class="inicio-card-sub">${imoveis.length} imóve${imoveis.length === 1 ? 'l' : 'is'} cadastrado${imoveis.length === 1 ? '' : 's'}</div>
+  </div>
+ </div>
+ <button class="btn-generate inicio-cta" onclick="navegarPara('gerar')">+ Criar nova arte</button>
+ ${ultimas.length ? `
+ <div class="inicio-ultimas">
+  <div class="inicio-ultimas-label">Últimas artes</div>
+  <div class="inicio-ultimas-grid">
+   ${ultimas.map(g => `<img src="${g.imageUrl}" alt="" loading="lazy" onclick="navegarPara('galeria')" />`).join('')}
+  </div>
+ </div>` : ''}`;
 }
 
 // ── Toast ─────────────────────────────────────────────────────────
