@@ -1347,6 +1347,40 @@ app.get('/api/admin/usuarios', adminAuth, async (_, res) => {
   }
 });
 
+app.patch('/api/admin/usuarios/:id', adminAuth, async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    const { assinaturaStatus, assinaturaExpira } = req.body;
+    const updates = {};
+
+    if (assinaturaStatus !== undefined) {
+      if (!['ativa', 'trial', 'inativa'].includes(assinaturaStatus))
+        return res.status(400).json({ error: 'Status inválido' });
+      updates.assinatura_status = assinaturaStatus;
+    }
+    if (assinaturaExpira !== undefined) {
+      if (assinaturaExpira === null || assinaturaExpira === '') {
+        updates.assinatura_expira = null;
+      } else {
+        const d = new Date(assinaturaExpira);
+        if (isNaN(d)) return res.status(400).json({ error: 'Data inválida' });
+        d.setHours(23, 59, 59); // vale até o fim do dia escolhido
+        updates.assinatura_expira = d.toISOString();
+      }
+    }
+    if (!Object.keys(updates).length) return res.status(400).json({ error: 'Nada para atualizar' });
+
+    const { data, error } = await supabase.from('usuarios')
+      .update(updates).eq('id', userId)
+      .select('id, assinatura_status, assinatura_expira').single();
+    if (error) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+    res.json({ ok: true, assinaturaStatus: data.assinatura_status, assinaturaExpira: data.assinatura_expira });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/admin/usuarios/:id/creditos', adminAuth, async (req, res) => {
   try {
     const userId   = Number(req.params.id);

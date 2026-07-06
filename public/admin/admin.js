@@ -88,6 +88,7 @@ async function carregarUsuarios() {
 
     el.innerHTML = data.map(u => {
       const expira = u.assinaturaExpira ? new Date(u.assinaturaExpira).toLocaleDateString('pt-BR') : null;
+      const expiraIso = u.assinaturaExpira ? new Date(u.assinaturaExpira).toISOString().slice(0, 10) : '';
       return `
       <div class="usuario-row" id="usr-${u.id}">
         <div class="usuario-row-top">
@@ -95,9 +96,20 @@ async function carregarUsuarios() {
             <div class="usuario-nome">${escHtml(u.nome || '(sem nome)')} <span style="color:var(--text-muted);font-weight:400">#${u.id}</span></div>
             <div class="usuario-email">${escHtml(u.email)}</div>
           </div>
-          <span class="usuario-status ${u.assinaturaStatus}">${USUARIO_STATUS_PT[u.assinaturaStatus] || u.assinaturaStatus}</span>
+          <span class="usuario-status ${u.assinaturaStatus}" id="status-badge-${u.id}">${USUARIO_STATUS_PT[u.assinaturaStatus] || u.assinaturaStatus}</span>
           ${expira ? `<span style="font-size:0.72rem;color:var(--text-muted)">até ${expira}</span>` : ''}
           <span class="usuario-saldo" id="saldo-${u.id}">US$ ${u.saldo.toFixed(2)}</span>
+        </div>
+        <div class="usuario-assinatura">
+          <label>Assinatura:</label>
+          <select id="status-${u.id}">
+            <option value="ativa"   ${u.assinaturaStatus === 'ativa'   ? 'selected' : ''}>Ativa</option>
+            <option value="trial"   ${u.assinaturaStatus === 'trial'   ? 'selected' : ''}>Trial</option>
+            <option value="inativa" ${u.assinaturaStatus === 'inativa' ? 'selected' : ''}>Inativa</option>
+          </select>
+          <label>Válida até:</label>
+          <input type="date" id="expira-${u.id}" value="${expiraIso}" />
+          <button class="btn-ghost" style="font-size:0.8rem" onclick="salvarAssinaturaUsuario(${u.id})">Salvar</button>
         </div>
         <div class="usuario-creditos">
           <input type="number" step="1" id="valor-${u.id}" placeholder="R$" />
@@ -109,6 +121,26 @@ async function carregarUsuarios() {
     }).join('');
   } catch (err) {
     el.innerHTML = `<div class="no-templates">Erro ao carregar: ${escHtml(err.message)}</div>`;
+  }
+}
+
+async function salvarAssinaturaUsuario(userId) {
+  const status = document.getElementById(`status-${userId}`).value;
+  const expira = document.getElementById(`expira-${userId}`).value; // yyyy-mm-dd ou ''
+  try {
+    const res = await fetch(`/api/admin/usuarios/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+      body: JSON.stringify({ assinaturaStatus: status, assinaturaExpira: expira || null }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    const badge = document.getElementById(`status-badge-${userId}`);
+    badge.textContent = USUARIO_STATUS_PT[data.assinaturaStatus] || data.assinaturaStatus;
+    badge.className = `usuario-status ${data.assinaturaStatus}`;
+    toast('Assinatura atualizada', 'success');
+  } catch (err) {
+    toast('Erro: ' + err.message, 'error');
   }
 }
 

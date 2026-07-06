@@ -200,6 +200,16 @@
     .usuario-status.ativa   { border-color: #2e7d4f; color: #6ee7a0; }
     .usuario-status.trial   { border-color: #7d6a2e; color: #f5d76e; }
     .usuario-status.inativa { border-color: #7d2e2e; color: #f08080; }
+    .usuario-assinatura {
+      display: flex; gap: 8px; align-items: center; margin-top: 12px;
+      padding-top: 12px; border-top: 1px solid var(--border); flex-wrap: wrap;
+      font-size: 0.8rem;
+    }
+    .usuario-assinatura label { color: var(--text-muted); font-size: 0.75rem; }
+    .usuario-assinatura select, .usuario-assinatura input[type="date"] {
+      background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      border-radius: var(--radius); padding: 6px 10px; font-size: 0.8rem;
+    }
     .usuario-creditos {
       display: flex; gap: 8px; align-items: center; margin-top: 12px;
       padding-top: 12px; border-top: 1px solid var(--border); flex-wrap: wrap;
