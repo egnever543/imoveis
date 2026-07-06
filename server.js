@@ -1321,6 +1321,61 @@ app.put('/api/admin/config', adminAuth, async (req, res) => {
   }
 });
 
+// ── ADMIN: Usuários e créditos ────────────────────────────────────────────────
+app.get('/api/admin/usuarios', adminAuth, async (_, res) => {
+  try {
+    const { data: usuarios, error } = await supabase.from('usuarios')
+      .select('id, email, nome, assinatura_status, assinatura_expira, criado_em')
+      .order('id', { ascending: true });
+    if (error) throw new Error(error.message);
+
+    const { data: trans } = await supabase.from('transacoes').select('user_id, valor_usd');
+    const saldos = {};
+    (trans || []).forEach(t => { saldos[t.user_id] = (saldos[t.user_id] || 0) + Number(t.valor_usd); });
+
+    res.json(usuarios.map(u => ({
+      id: u.id,
+      email: u.email,
+      nome: u.nome,
+      assinaturaStatus: u.assinatura_status || 'inativa',
+      assinaturaExpira: u.assinatura_expira,
+      criadoEm: u.criado_em,
+      saldo: +((saldos[u.id] || 0)).toFixed(4),
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/usuarios/:id/creditos', adminAuth, async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    const valor  = Number(req.body.valorUsd);
+    if (!userId || !Number.isFinite(valor) || valor === 0)
+      return res.status(400).json({ error: 'Informe um valor em US$ diferente de zero' });
+
+    const { data: u } = await supabase.from('usuarios').select('id').eq('id', userId).single();
+    if (!u) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+    const descricao = (req.body.descricao || '').trim() ||
+      (valor > 0 ? 'Crédito adicionado pelo admin' : 'Ajuste pelo admin');
+
+    const { error } = await supabase.from('transacoes').insert({
+      user_id: userId,
+      tipo: valor > 0 ? 'credito' : 'ajuste',
+      valor_usd: valor,
+      descricao,
+    });
+    if (error) throw new Error(error.message);
+
+    const { data: trans } = await supabase.from('transacoes').select('valor_usd').eq('user_id', userId);
+    const saldo = +((trans || []).reduce((s, t) => s + Number(t.valor_usd), 0)).toFixed(4);
+    res.json({ ok: true, saldo });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── ADMIN: Cobranças (direto do Stripe) ───────────────────────────────────────
 app.get('/api/admin/cobrancas', adminAuth, async (req, res) => {
   try {

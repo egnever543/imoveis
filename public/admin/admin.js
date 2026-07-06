@@ -64,13 +64,73 @@ let logsOffset = 0;
 let logsTotal  = 0;
 
 function mudarTab(tab) {
-  ['templates','prompts','logs','cobranca'].forEach(t => {
+  ['templates','prompts','logs','cobranca','usuarios'].forEach(t => {
     document.getElementById('secao' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? '' : 'none';
     document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
   });
   if (tab === 'prompts')  carregarPrompts();
   if (tab === 'logs')     carregarLogs(true);
   if (tab === 'cobranca') { carregarConfig(); carregarCobrancas(); }
+  if (tab === 'usuarios') carregarUsuarios();
+}
+
+// ── Usuários ─────────────────────────────────────────────────────────
+const USUARIO_STATUS_PT = { ativa: 'ativa', trial: 'trial', inativa: 'inativa' };
+
+async function carregarUsuarios() {
+  const el = document.getElementById('usuariosLista');
+  el.innerHTML = '<div class="no-templates">Carregando…</div>';
+  try {
+    const res  = await fetch('/api/admin/usuarios', { headers: { 'x-admin-password': adminPassword } });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    if (!data.length) { el.innerHTML = '<div class="no-templates">Nenhum usuário cadastrado.</div>'; return; }
+
+    el.innerHTML = data.map(u => {
+      const expira = u.assinaturaExpira ? new Date(u.assinaturaExpira).toLocaleDateString('pt-BR') : null;
+      return `
+      <div class="usuario-row" id="usr-${u.id}">
+        <div class="usuario-row-top">
+          <div>
+            <div class="usuario-nome">${escHtml(u.nome || '(sem nome)')} <span style="color:var(--text-muted);font-weight:400">#${u.id}</span></div>
+            <div class="usuario-email">${escHtml(u.email)}</div>
+          </div>
+          <span class="usuario-status ${u.assinaturaStatus}">${USUARIO_STATUS_PT[u.assinaturaStatus] || u.assinaturaStatus}</span>
+          ${expira ? `<span style="font-size:0.72rem;color:var(--text-muted)">até ${expira}</span>` : ''}
+          <span class="usuario-saldo" id="saldo-${u.id}">US$ ${u.saldo.toFixed(2)}</span>
+        </div>
+        <div class="usuario-creditos">
+          <input type="number" step="0.5" id="valor-${u.id}" placeholder="US$" />
+          <input type="text" id="desc-${u.id}" placeholder="Descrição (aparece no extrato do cliente)" />
+          <button class="btn-primary" style="font-size:0.8rem" onclick="aplicarCreditos(${u.id})">Aplicar</button>
+          <span class="hint-neg">Valor positivo adiciona, negativo remove (ex: -2.50).</span>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (err) {
+    el.innerHTML = `<div class="no-templates">Erro ao carregar: ${escHtml(err.message)}</div>`;
+  }
+}
+
+async function aplicarCreditos(userId) {
+  const valor = Number(document.getElementById(`valor-${userId}`).value);
+  const descricao = document.getElementById(`desc-${userId}`).value.trim();
+  if (!valor) { toast('Informe um valor em US$ diferente de zero', 'error'); return; }
+  try {
+    const res = await fetch(`/api/admin/usuarios/${userId}/creditos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+      body: JSON.stringify({ valorUsd: valor, descricao }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    document.getElementById(`saldo-${userId}`).textContent = `US$ ${data.saldo.toFixed(2)}`;
+    document.getElementById(`valor-${userId}`).value = '';
+    document.getElementById(`desc-${userId}`).value = '';
+    toast(`Saldo atualizado: US$ ${data.saldo.toFixed(2)}`, 'success');
+  } catch (err) {
+    toast('Erro: ' + err.message, 'error');
+  }
 }
 
 const COBRANCA_STATUS_PT = { succeeded: 'paga', pending: 'pendente', failed: 'falhou', reembolsada: 'reembolsada' };

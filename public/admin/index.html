@@ -183,6 +183,31 @@
     .cobranca-data  { color: var(--text-muted); font-size: 0.75rem; flex-shrink: 0; }
     .cobranca-row a { color: var(--text-muted); font-size: 0.75rem; }
 
+    /* ── Usuários ── */
+    .usuario-row {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px;
+    }
+    .usuario-row-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .usuario-nome { font-size: 0.9rem; font-weight: 700; }
+    .usuario-email { font-size: 0.78rem; color: var(--text-muted); }
+    .usuario-saldo { font-family: monospace; font-weight: 700; margin-left: auto; font-size: 0.95rem; }
+    .usuario-status {
+      font-size: 0.68rem; font-weight: 700; padding: 3px 10px; border-radius: 20px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      background: #1f1f1f; border: 1px solid #3d3d3d; color: #d4d4d4;
+    }
+    .usuario-status.ativa   { border-color: #2e7d4f; color: #6ee7a0; }
+    .usuario-status.trial   { border-color: #7d6a2e; color: #f5d76e; }
+    .usuario-status.inativa { border-color: #7d2e2e; color: #f08080; }
+    .usuario-creditos {
+      display: flex; gap: 8px; align-items: center; margin-top: 12px;
+      padding-top: 12px; border-top: 1px solid var(--border); flex-wrap: wrap;
+    }
+    .usuario-creditos input[type="number"] { width: 110px; }
+    .usuario-creditos input[type="text"] { flex: 1; min-width: 140px; }
+    .usuario-creditos .hint-neg { font-size: 0.7rem; color: var(--text-muted); width: 100%; }
+
     @media (max-width: 600px) {
       .admin-wrap { padding: 20px 12px 60px; }
       .admin-header h1 { font-size: 1.15rem; }
@@ -235,6 +260,7 @@
         <button class="admin-tab" id="tabPrompts" onclick="mudarTab('prompts')">Prompts</button>
         <button class="admin-tab" id="tabLogs" onclick="mudarTab('logs')">Logs</button>
         <button class="admin-tab" id="tabCobranca" onclick="mudarTab('cobranca')">Cobrança</button>
+        <button class="admin-tab" id="tabUsuarios" onclick="mudarTab('usuarios')">Usuários</button>
       </div>
 
       <!-- Seção: Templates -->
@@ -345,6 +371,15 @@
           <button class="btn-ghost" style="font-size:0.82rem" onclick="carregarCobrancas()">Atualizar</button>
         </div>
         <div id="cobrancasLista"><div class="no-templates">Carregando…</div></div>
+      </div>
+
+      <!-- Seção: Usuários -->
+      <div id="secaoUsuarios" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div class="section-label" style="margin-bottom:0">Usuários cadastrados</div>
+          <button class="btn-ghost" style="font-size:0.82rem" onclick="carregarUsuarios()">Atualizar</button>
+        </div>
+        <div id="usuariosLista"><div class="no-templates">Carregando…</div></div>
       </div>
 
     </div>
