@@ -90,6 +90,8 @@ a, .btn-link { color: #fff; }
  overscroll-behavior: contain;
  -webkit-overflow-scrolling: touch;
  padding: 18px 24px 80px;
+ height: 100%;
+ align-content: start;
 }
 .gallery-track.grid-mode .gallery-card {
  width: auto;
@@ -113,8 +115,6 @@ a, .btn-link { color: #fff; }
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   padding: 16px 16px 120px;
-  height: auto;
-  align-items: start;
  }
 }
 .gallery-track {
