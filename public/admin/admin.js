@@ -1,3 +1,13 @@
+// Categorias padrão dos templates — edite aqui para adicionar/remover opções
+const CATEGORIAS_TEMPLATE = [
+  'Casa',
+  'Apartamento',
+  'Terreno',
+  'Comercial',
+  'Lançamento',
+  'Aluguel',
+];
+
 const MEDIA_FIELDS = ['foto_imovel', 'logo'];
 const ALL_FIELDS   = [
   'titulo','preco','entrada','parcela','financiamento',
@@ -349,10 +359,12 @@ function abrirEdicao(id) {
   if (!t) return;
   editingId = id;
   document.getElementById('editNome').value = t.nome;
-  document.getElementById('editCategoria').value = t.categoria || '';
-  document.getElementById('categoriasExistentes').innerHTML =
-    [...new Set(allTemplates.map(x => x.categoria).filter(Boolean))]
-      .map(c => `<option value="${escHtml(c)}"></option>`).join('');
+
+  // Select de categoria — inclui a atual do template mesmo se sair da lista padrão
+  const cats = [...new Set([...CATEGORIAS_TEMPLATE, t.categoria].filter(Boolean))];
+  document.getElementById('editCategoria').innerHTML =
+    `<option value="">Sem categoria</option>` +
+    cats.map(c => `<option value="${escHtml(c)}" ${t.categoria === c ? 'selected' : ''}>${escHtml(c)}</option>`).join('');
 
   // Preview da imagem atual + limpar seleÃ§Ã£o anterior
   document.getElementById('editImgPreview').src = t.imageUrl;
