@@ -109,8 +109,10 @@ a, .btn-link { color: #fff; }
  .gallery-filtros { padding: 12px 16px 0; }
  .gallery-track.grid-mode {
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  padding: 14px 14px 110px;
+  gap: 12px;
+  padding: 16px 16px 120px;
+  height: auto;
+  align-items: start;
  }
 }
 .gallery-track {
