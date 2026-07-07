@@ -193,8 +193,12 @@
  <h1>Imóveis</h1>
  <p>Gerencie o seu portfólio</p>
  </div>
+ <div style="display:flex;gap:10px;flex-wrap:wrap">
+ <button class="btn-ghost" onclick="abrirBook()">📄 Cadastrar com book (PDF)</button>
  <button class="btn-primary" onclick="abrirFormImovel()">+ Cadastrar imóvel</button>
  </div>
+ </div>
+ <input type="file" id="bookFileInput" accept="application/pdf" style="display:none" onchange="carregarBook(this)" />
 
  <div id="imoveisEmpty" class="empty-state" style="display:none">
  <p>Nenhum imóvel cadastrado ainda.</p>
@@ -561,6 +565,37 @@
  </div>
  </div>
 
+ <!-- Book PDF -->
+ <div id="bookOverlay" class="gallery-overlay" style="display:none">
+  <div class="gallery-header">
+   <h2>Cadastrar com book</h2>
+   <button class="gallery-close" onclick="fecharBook()">✕</button>
+  </div>
+  <div class="book-toolbar">
+   <div class="field" style="flex:2;min-width:180px">
+    <label>Título do imóvel *</label>
+    <input type="text" id="bookTitulo" placeholder="Ex: Bosque Caminho das Árvores" />
+   </div>
+   <div class="field" style="flex:1;min-width:120px">
+    <label>Preço (opcional)</label>
+    <div class="input-prefix"><span>R$</span><input type="text" id="bookPreco" placeholder="450.000" /></div>
+   </div>
+   <div class="field" style="flex:1;min-width:120px">
+    <label>Cidade (opcional)</label>
+    <input type="text" id="bookCidade" placeholder="Itapoá" />
+   </div>
+  </div>
+  <p class="book-hint">Clique nas páginas que contêm imagens do imóvel e escolha o ângulo de cada uma (uma página por ângulo). A IA recria cada imagem limpa, em 1:1, direto nas fotos do imóvel.</p>
+  <div class="book-body">
+   <div id="bookStatus" class="book-status">Carregando PDF…</div>
+   <div id="bookGrid" class="book-grid"></div>
+  </div>
+  <div class="gallery-footer" style="justify-content:space-between;align-items:center">
+   <span style="font-size:0.85rem;color:var(--text-muted)"><strong id="bookCount" style="color:var(--text)">0</strong> página(s) selecionada(s)</span>
+   <button class="btn-primary" id="btnBookProcessar" onclick="bookProcessar()">Criar imóvel e processar</button>
+  </div>
+ </div>
+
  <!-- Termos de uso -->
  <div id="termosModal" class="editar-modal-backdrop" style="display:none;z-index:500">
   <div class="editar-modal" style="max-width:460px">
@@ -646,7 +681,7 @@
  <!-- Aviso de geração em andamento -->
  <div id="gerandoBanner" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:300;background:#1a1a1a;border:1px solid #3d3d3d;border-radius:12px;padding:14px 20px;display:none;align-items:center;gap:12px;box-shadow:0 4px 24px rgba(0,0,0,0.5);white-space:nowrap">
   <div class="spinner" style="width:18px;height:18px;border-width:2px;flex-shrink:0"></div>
-  <span style="font-size:0.9rem;color:#f5f5f5">Sua arte esta sendo gerada — aparecera na galeria em ate 3 minutos.</span>
+  <span id="gerandoBannerTexto" style="font-size:0.9rem;color:#f5f5f5">Sua arte esta sendo gerada — aparecera na galeria em ate 3 minutos.</span>
  </div>
 
  <!-- Toast -->

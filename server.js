@@ -730,6 +730,89 @@ app.delete('/api/imoveis/:id/foto/:slot', userAuth, async (req, res) => {
   res.json(fromDb(data));
 });
 
+// ── BOOK PDF: estimativa de custo e recriação de fotos ────────────────────────
+app.get('/api/book/estimativa', userAuth, async (req, res) => {
+  try {
+    const n = Math.max(1, Math.min(12, parseInt(req.query.n || '1')));
+    const { data: logs } = await supabase.from('logs')
+      .select('custo').in('tipo', ['formato', 'edicao', 'gerar']).eq('status', 'ok')
+      .not('custo', 'is', null).order('criado_em', { ascending: false }).limit(50);
+    const custos = (logs || []).map(l => Number(l.custo)).filter(c => c > 0);
+    const media = custos.length ? custos.reduce((a, b) => a + b, 0) / custos.length : 0.25;
+    const cfg = await getBillingConfig();
+    const porImagem = +(media * (1 + (cfg.markup_pct || 0) / 100)).toFixed(4);
+    const saldo = await getSaldo(req.user.id);
+    const total = +(porImagem * n).toFixed(4);
+    res.json({ porImagemUsd: porImagem, totalUsd: total, saldo, suficiente: saldo >= total });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/imoveis/:id/book-foto', userAuth, billingGate, async (req, res) => {
+  try {
+    const { angulo, imagem } = req.body;
+    if (!ANGLE_LABELS_PT[angulo]) return res.status(400).json({ error: 'Ângulo inválido' });
+    if (typeof imagem !== 'string' || !imagem.startsWith('data:image/'))
+      return res.status(400).json({ error: 'Imagem inválida' });
+
+    const { data: im } = await supabase.from('imoveis')
+      .select('fotos, titulo').eq('id', req.params.id).eq('user_id', req.user.id).single();
+    if (!im) return res.status(404).json({ error: 'Imóvel não encontrado' });
+    if ((im.fotos || {})[angulo]) return res.json({ ok: true, pulado: true }); // ângulo já preenchido
+
+    const mensagem = `Você recebeu uma página de um book digital de empreendimento imobiliário (Imagem 1) que contém uma foto ou render do imóvel. Recrie SOMENTE a imagem do imóvel, em formato quadrado 1:1, como uma foto profissional de divulgação.
+
+Regras:
+- Remova todos os textos, logos, tarjas, molduras e elementos gráficos do book — entregue apenas a imagem limpa do imóvel.
+- Seja FIEL ao original: mesma arquitetura, cores, materiais, ambiente e iluminação. Não invente elementos que não existem.
+- Enquadramento: ${ANGLE_LABELS_PT[angulo]}.`;
+
+    const response = await openai.responses.create({
+      model: 'gpt-4o',
+      input: [{
+        role: 'user',
+        content: [
+          { type: 'input_image', image_url: imagem },
+          { type: 'input_text', text: mensagem },
+        ],
+      }],
+      tools: [{ type: 'image_generation', quality: 'high', size: '1024x1024' }],
+    });
+
+    const usage = response.usage || null;
+    const custoTokens = usage
+      ? (usage.input_tokens || 0) * PRECO.in + (usage.output_tokens || 0) * PRECO.out
+      : 0;
+    const logInput = { imovel: im.titulo, angulo, promptEnviado: mensagem };
+
+    for (const item of response.output || []) {
+      if (item.type === 'image_generation_call' && item.result) {
+        const up = await cloudinaryUpload(Buffer.from(item.result, 'base64'), 'imoveis');
+        const { data: atual } = await supabase.from('imoveis')
+          .select('fotos').eq('id', req.params.id).single();
+        const novasFotos = { ...(atual?.fotos || {}), [angulo]: up.secure_url };
+        await supabase.from('imoveis').update({ fotos: novasFotos }).eq('id', req.params.id);
+        registrarLog({
+          tipo: 'book', input: logInput, status: 'ok',
+          usage, custo: +(custoTokens + PRECO.img1024).toFixed(6), user_id: req.user.id,
+        });
+        const cobranca = await custoComMarkup(custoTokens + PRECO.img1024);
+        await debitar(req.user.id, cobranca, `Book PDF — ${ANGLE_LABELS_PT[angulo]} (${im.titulo})`, req.params.id);
+        verificarAutoRecarga(req.user.id);
+        return res.json({ ok: true, url: up.secure_url });
+      }
+    }
+
+    registrarLog({ tipo: 'book', input: logInput, status: 'sem_imagem', usage, custo: +custoTokens.toFixed(6), user_id: req.user.id });
+    res.status(500).json({ error: 'Nenhuma imagem gerada' });
+  } catch (err) {
+    console.error('Erro book-foto:', err);
+    registrarLog({ tipo: 'book', input: { erro: err.message }, status: 'erro', user_id: req.user?.id });
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const IMOVEL_CAMPOS = [
   'titulo','tipo','status','finalidade','preco','entrada','parcela','financiamento',
   'aluguel','condominio','iptu','garantia',

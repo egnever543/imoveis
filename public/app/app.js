@@ -1401,6 +1401,204 @@ function gerar1Click() {
  }, '/api/gerar-1click');
 }
 
+// ── Cadastro com book PDF ─────────────────────────────────────────
+const book = { doc: null, paginas: [], sel: {}, menuIdx: null, processando: false };
+
+function carregarPdfJs() {
+ return new Promise((ok, err) => {
+  if (window.pdfjsLib) return ok();
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+  s.onload = () => {
+   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+   ok();
+  };
+  s.onerror = () => err(new Error('Falha ao carregar o leitor de PDF'));
+  document.body.appendChild(s);
+ });
+}
+
+function abrirBook() {
+ document.getElementById('bookFileInput').value = '';
+ document.getElementById('bookFileInput').click();
+}
+
+function fecharBook() {
+ document.getElementById('bookOverlay').style.display = 'none';
+ document.body.style.overflow = '';
+ if (!book.processando) { book.doc = null; book.paginas = []; book.sel = {}; }
+ book.menuIdx = null;
+}
+
+async function carregarBook(input) {
+ const file = input.files[0];
+ if (!file) return;
+ book.paginas = []; book.sel = {}; book.menuIdx = null;
+ document.getElementById('bookOverlay').style.display = 'flex';
+ document.body.style.overflow = 'hidden';
+ document.getElementById('bookGrid').innerHTML = '';
+ document.getElementById('bookStatus').style.display = 'block';
+ document.getElementById('bookStatus').textContent = 'Carregando PDF…';
+ document.getElementById('bookTitulo').value = '';
+ document.getElementById('bookPreco').value = '';
+ document.getElementById('bookCidade').value = '';
+ renderBookCount();
+
+ try {
+  await carregarPdfJs();
+  const buf = await file.arrayBuffer();
+  book.doc = await pdfjsLib.getDocument({ data: buf }).promise;
+  const total = Math.min(book.doc.numPages, 250);
+
+  for (let i = 1; i <= total; i++) {
+   document.getElementById('bookStatus').textContent = `Lendo páginas… ${i}/${total}`;
+   const thumb = await renderPaginaBook(i, 200);
+   book.paginas.push({ num: i, thumb });
+   if (i % 8 === 0 || i === total) renderBookGrid();
+  }
+  document.getElementById('bookStatus').style.display = 'none';
+ } catch (err) {
+  document.getElementById('bookStatus').textContent = 'Erro ao ler o PDF: ' + err.message;
+ }
+}
+
+async function renderPaginaBook(num, larguraAlvo) {
+ const page = await book.doc.getPage(num);
+ const vp1 = page.getViewport({ scale: 1 });
+ const scale = larguraAlvo / vp1.width;
+ const vp = page.getViewport({ scale });
+ const canvas = document.createElement('canvas');
+ canvas.width = vp.width; canvas.height = vp.height;
+ await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+ return canvas.toDataURL('image/jpeg', 0.82);
+}
+
+function renderBookGrid() {
+ const grid = document.getElementById('bookGrid');
+ grid.innerHTML = book.paginas.map((p, i) => {
+  const ang = book.sel[i];
+  const menuAberto = book.menuIdx === i;
+  return `
+  <div class="book-thumb ${ang ? 'selected' : ''}" onclick="bookThumbClick(${i}, event)">
+   <img src="${p.thumb}" loading="lazy" alt="Página ${p.num}" />
+   <span class="book-pagenum">${p.num}</span>
+   ${ang ? `<span class="book-ang">${angleLabels[ang] || ang}</span>` : ''}
+   ${menuAberto ? `
+   <div class="book-menu" onclick="event.stopPropagation()">
+    ${photoSlots
+      .filter(s => !Object.values(book.sel).includes(s.key) || book.sel[i] === s.key)
+      .map(s => `<button onclick="bookAtribuir(${i}, '${s.key}')">${s.label}</button>`).join('')}
+    ${ang ? `<button style="color:var(--danger)" onclick="bookAtribuir(${i}, null)">Remover seleção</button>` : ''}
+   </div>` : ''}
+  </div>`;
+ }).join('');
+ renderBookCount();
+}
+
+function bookThumbClick(i, ev) {
+ ev.stopPropagation();
+ book.menuIdx = book.menuIdx === i ? null : i;
+ renderBookGrid();
+}
+
+function bookAtribuir(i, angulo) {
+ if (angulo === null) delete book.sel[i];
+ else book.sel[i] = angulo;
+ book.menuIdx = null;
+ renderBookGrid();
+}
+
+function renderBookCount() {
+ const el = document.getElementById('bookCount');
+ if (el) el.textContent = Object.keys(book.sel).length;
+}
+
+async function bookProcessar() {
+ if (book.processando) return;
+ const sels = Object.entries(book.sel);
+ if (!sels.length) { toast('Selecione ao menos uma página e o ângulo dela.', 'error'); return; }
+ const titulo = document.getElementById('bookTitulo').value.trim();
+ if (!titulo) { toast('Informe o título do imóvel.', 'error'); return; }
+
+ // Estimativa de custo com base na média real dos logs
+ let est;
+ try {
+  const res = await authFetch(`/api/book/estimativa?n=${sels.length}`);
+  est = await res.json();
+  if (est.error) throw new Error(est.error);
+ } catch (err) { toast('Erro na estimativa: ' + err.message, 'error'); return; }
+
+ const ok = await confirmar(
+  'Processar book?',
+  `${sels.length} imagem(ns) serão recriadas pela IA — custo estimado de US$ ${est.totalUsd.toFixed(2)} (≈ US$ ${est.porImagemUsd.toFixed(2)} cada). Seu saldo: US$ ${est.saldo.toFixed(2)}.`,
+  'Confirmar e processar'
+ );
+ if (!ok) return;
+ if (!est.suficiente) {
+  toast('Saldo insuficiente para processar — faça uma recarga.', 'error');
+  fecharBook();
+  navegarPara('plano');
+  return;
+ }
+
+ // Cria o imóvel com os dados básicos
+ let imovel;
+ try {
+  const res = await authFetch('/api/imoveis', {
+   method: 'POST',
+   headers: { 'Content-Type': 'application/json' },
+   body: JSON.stringify({
+    titulo,
+    preco: document.getElementById('bookPreco').value.trim(),
+    cidade: document.getElementById('bookCidade').value.trim(),
+   }),
+  });
+  imovel = await res.json();
+  if (!res.ok || imovel.error) throw new Error(imovel.error || 'Erro ao criar imóvel');
+ } catch (err) { toast('Erro: ' + err.message, 'error'); return; }
+
+ // Fecha o overlay mas mantém o doc vivo para renderizar as páginas em alta
+ const fila = sels.map(([idx, ang]) => ({ idx: +idx, ang }));
+ book.processando = true;
+ fecharBook();
+ await loadImoveis();
+ renderImoveisGrid();
+ navegarPara('imoveis');
+ toast('Imóvel criado! Processando as imagens do book…', 'success');
+
+ const banner = document.getElementById('gerandoBanner');
+ const bannerTexto = document.getElementById('gerandoBannerTexto');
+ banner.style.display = 'flex';
+
+ let feitas = 0, falhas = 0;
+ for (const item of fila) {
+  bannerTexto.textContent = `Book: processando ${angleLabels[item.ang] || item.ang} (${feitas + falhas + 1}/${fila.length})…`;
+  try {
+   const imagem = await renderPaginaBook(book.paginas[item.idx].num, 1024);
+   const res = await authFetch(`/api/imoveis/${imovel.id}/book-foto`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ angulo: item.ang, imagem }),
+   });
+   const d = await res.json();
+   if (!res.ok || d.error) throw new Error(d.error || 'falha');
+   feitas++;
+   await loadImoveis();
+   renderImoveisGrid();
+  } catch (err) {
+   falhas++;
+   console.error('book-foto', err);
+  }
+ }
+
+ book.processando = false;
+ book.doc = null; book.paginas = []; book.sel = {};
+ banner.style.display = 'none';
+ bannerTexto.textContent = 'Sua arte esta sendo gerada — aparecera na galeria em ate 3 minutos.';
+ loadBilling();
+ toast(falhas ? `Book concluído: ${feitas} foto(s) ok, ${falhas} falha(s).` : `Book concluído! ${feitas} foto(s) adicionadas ao imóvel.`, falhas ? 'error' : 'success');
+}
+
 // ── Início: checklist de onboarding + dashboard ───────────────────
 function verTutorialInicio() {
  localStorage.setItem('tutorialVisto', '1');
