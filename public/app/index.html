@@ -561,6 +561,18 @@
  </div>
  </div>
 
+ <!-- Confirmação -->
+ <div id="confirmModal" class="editar-modal-backdrop" style="display:none">
+  <div class="editar-modal" style="max-width:380px">
+   <h2 id="confirmTitulo" style="font-size:1.02rem;font-weight:700;margin-bottom:10px"></h2>
+   <p id="confirmMsg" style="font-size:0.88rem;color:var(--text-muted);line-height:1.55;margin-bottom:20px"></p>
+   <div style="display:flex;justify-content:flex-end;gap:10px">
+    <button class="btn-ghost" id="confirmCancelar">Cancelar</button>
+    <button class="btn-primary" id="confirmOk">Confirmar</button>
+   </div>
+  </div>
+ </div>
+
  <!-- Boas-vindas (contas novas) -->
  <div id="boasVindasModal" class="editar-modal-backdrop" style="display:none" onclick="fecharBoasVindas(event)">
   <div class="editar-modal" style="max-width:420px;text-align:center">

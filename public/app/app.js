@@ -685,9 +685,14 @@ document.addEventListener('click', () => {
  document.querySelectorAll('.formato-menu.open').forEach(m => m.classList.remove('open'));
 });
 
-function gerarFormato(id, formato) {
+async function gerarFormato(id, formato) {
  const label = FORMATOS_LABEL[formato] || formato;
- if (!confirm(`Gerar a versão ${label} desta arte?\nA nova imagem será criada em segundo plano e descontada dos seus créditos.`)) return;
+ const ok = await confirmar(
+  `Gerar versão ${label}?`,
+  'A nova imagem será criada em segundo plano e descontada dos seus créditos.',
+  'Gerar'
+ );
+ if (!ok) return;
  authFetch(`/api/galeria/${id}/formato`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -850,7 +855,8 @@ async function salvarImovel(e) {
 }
 
 async function deletarImovel(id) {
- if (!confirm('Excluir este imóvel?')) return;
+ const ok = await confirmar('Excluir imóvel?', 'As fotos e os dados deste imóvel serão removidos permanentemente.', 'Excluir');
+ if (!ok) return;
  await authFetch(`/api/imoveis/${id}`, { method: 'DELETE' });
  await loadImoveis();
  renderImoveisGrid();
@@ -1061,7 +1067,8 @@ function renderGaleriaGrid() {
 }
 
 async function deletarDaGaleria(id) {
- if (!confirm('Remover esta arte da galeria?')) return;
+ const ok = await confirmar('Remover arte?', 'Esta arte será removida da galeria permanentemente.', 'Remover');
+ if (!ok) return;
  try {
  await authFetch(`/api/galeria/${id}`, { method: 'DELETE' });
  galeria = galeria.filter(i => i.id !== id);
@@ -1486,6 +1493,30 @@ function renderInicio() {
    ${ultimas.map(g => `<img src="${g.imageUrl}" alt="" loading="lazy" onclick="navegarPara('galeria')" />`).join('')}
   </div>
  </div>` : ''}`;
+}
+
+// ── Confirmação estilizada ────────────────────────────────────────
+function confirmar(titulo, msg, okLabel = 'Confirmar') {
+ return new Promise(resolve => {
+  const modal = document.getElementById('confirmModal');
+  document.getElementById('confirmTitulo').textContent = titulo;
+  document.getElementById('confirmMsg').textContent = msg;
+  const btnOk = document.getElementById('confirmOk');
+  const btnCancelar = document.getElementById('confirmCancelar');
+  btnOk.textContent = okLabel;
+  modal.style.display = 'flex';
+
+  const fechar = (resultado) => {
+   modal.style.display = 'none';
+   btnOk.onclick = null;
+   btnCancelar.onclick = null;
+   modal.onclick = null;
+   resolve(resultado);
+  };
+  btnOk.onclick = () => fechar(true);
+  btnCancelar.onclick = () => fechar(false);
+  modal.onclick = (e) => { if (e.target === modal) fechar(false); };
+ });
 }
 
 // ── Toast ─────────────────────────────────────────────────────────
