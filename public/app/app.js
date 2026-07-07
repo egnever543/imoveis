@@ -1462,8 +1462,8 @@ async function carregarBook(input) {
  }
 }
 
-async function renderPaginaBook(num, larguraAlvo) {
- const page = await book.doc.getPage(num);
+async function renderPaginaDoc(doc, num, larguraAlvo) {
+ const page = await doc.getPage(num);
  const vp1 = page.getViewport({ scale: 1 });
  const scale = larguraAlvo / vp1.width;
  const vp = page.getViewport({ scale });
@@ -1471,6 +1471,10 @@ async function renderPaginaBook(num, larguraAlvo) {
  canvas.width = vp.width; canvas.height = vp.height;
  await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
  return canvas.toDataURL('image/jpeg', 0.82);
+}
+
+function renderPaginaBook(num, larguraAlvo) {
+ return renderPaginaDoc(book.doc, num, larguraAlvo);
 }
 
 function renderBookGrid() {
@@ -1519,6 +1523,11 @@ async function bookProcessar() {
  if (!sels.length) { toast('Selecione ao menos uma página e o ângulo dela.', 'error'); return; }
  const titulo = document.getElementById('bookTitulo').value.trim();
  if (!titulo) { toast('Informe o título do imóvel.', 'error'); return; }
+
+ // Captura referências locais — sobrevivem ao fechamento do overlay
+ const doc = book.doc;
+ const paginas = book.paginas;
+ if (!doc) { toast('O PDF foi descarregado — anexe o arquivo novamente.', 'error'); return; }
 
  // Estimativa de custo com base na média real dos logs
  let est;
@@ -1574,7 +1583,7 @@ async function bookProcessar() {
  for (const item of fila) {
   bannerTexto.textContent = `Book: processando ${angleLabels[item.ang] || item.ang} (${feitas + falhas + 1}/${fila.length})…`;
   try {
-   const imagem = await renderPaginaBook(book.paginas[item.idx].num, 1024);
+   const imagem = await renderPaginaDoc(doc, paginas[item.idx].num, 1024);
    const res = await authFetch(`/api/imoveis/${imovel.id}/book-foto`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
