@@ -686,6 +686,8 @@ document.addEventListener('click', () => {
 });
 
 function gerarFormato(id, formato) {
+ const label = FORMATOS_LABEL[formato] || formato;
+ if (!confirm(`Gerar a versão ${label} desta arte?\nA nova imagem será criada em segundo plano e descontada dos seus créditos.`)) return;
  authFetch(`/api/galeria/${id}/formato`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
