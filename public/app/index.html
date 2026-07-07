@@ -561,6 +561,26 @@
  </div>
  </div>
 
+ <!-- Termos de uso -->
+ <div id="termosModal" class="editar-modal-backdrop" style="display:none;z-index:500">
+  <div class="editar-modal" style="max-width:460px">
+   <h2 style="font-size:1.05rem;font-weight:700;margin-bottom:12px">Termos de Uso</h2>
+   <p style="font-size:0.86rem;color:var(--text-muted);line-height:1.6;margin-bottom:12px">
+    Para continuar usando o Estúdio do Corretor, você precisa aceitar nossos
+    <a href="/termos.html" target="_blank" style="color:#fff">Termos de Uso e Política de Responsabilidade</a>.
+   </p>
+   <p style="font-size:0.82rem;color:var(--text-muted);line-height:1.6;margin-bottom:20px">
+    Em resumo: as artes são geradas por inteligência artificial e podem conter erros —
+    <strong style="color:var(--text)">é sua responsabilidade revisar todo o conteúdo antes de publicar</strong>.
+    Você também declara ter direito de uso sobre as fotos e informações que enviar.
+   </p>
+   <div style="display:flex;justify-content:flex-end;gap:10px">
+    <button class="btn-ghost" onclick="sair()">Sair</button>
+    <button class="btn-primary" onclick="aceitarTermos()">Li e aceito os Termos</button>
+   </div>
+  </div>
+ </div>
+
  <!-- Confirmação -->
  <div id="confirmModal" class="editar-modal-backdrop" style="display:none">
   <div class="editar-modal" style="max-width:380px">

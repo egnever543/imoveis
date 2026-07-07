@@ -42,6 +42,29 @@ async function init() {
   localStorage.removeItem('mostrarBoasVindas');
   document.getElementById('boasVindasModal').style.display = 'flex';
  }
+
+ verificarTermos();
+}
+
+// ── Termos de uso ─────────────────────────────────────────────────
+async function verificarTermos() {
+ try {
+  const res = await authFetch('/api/termos/status');
+  const data = await res.json();
+  if (!data.aceito) document.getElementById('termosModal').style.display = 'flex';
+ } catch { /* silencioso */ }
+}
+
+async function aceitarTermos() {
+ try {
+  const res = await authFetch('/api/termos/aceitar', { method: 'POST' });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  document.getElementById('termosModal').style.display = 'none';
+  toast('Termos aceitos. Bom trabalho!', 'success');
+ } catch (err) {
+  toast('Erro ao registrar aceite: ' + err.message, 'error');
+ }
 }
 
 function fecharBoasVindas(ev) {

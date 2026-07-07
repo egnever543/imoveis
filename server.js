@@ -339,6 +339,11 @@ function adminAuth(req, res, next) {
   next();
 }
 
+// ── Termos de uso ─────────────────────────────────────────────────────────────
+// Ao publicar uma nova versão dos termos, atualize esta constante — o popup de
+// aceite reaparece automaticamente para todos os usuários.
+const TERMOS_VERSAO = '1.0';
+
 // ── User auth middleware ──────────────────────────────────────────────────────
 function userAuth(req, res, next) {
   const header = req.headers['authorization'] || '';
@@ -414,6 +419,26 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ── TERMOS: status e aceite ───────────────────────────────────────────────────
+app.get('/api/termos/status', userAuth, async (req, res) => {
+  const { data: u } = await supabase.from('usuarios')
+    .select('termos_versao, termos_aceito_em').eq('id', req.user.id).single();
+  res.json({
+    aceito: u?.termos_versao === TERMOS_VERSAO,
+    versaoAtual: TERMOS_VERSAO,
+    aceitoEm: u?.termos_aceito_em || null,
+  });
+});
+
+app.post('/api/termos/aceitar', userAuth, async (req, res) => {
+  const { error } = await supabase.from('usuarios').update({
+    termos_versao: TERMOS_VERSAO,
+    termos_aceito_em: new Date().toISOString(),
+  }).eq('id', req.user.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
 });
 
 // ── ADMIN: Templates ──────────────────────────────────────────────────────────
@@ -1569,7 +1594,7 @@ app.put('/api/admin/config', adminAuth, async (req, res) => {
 app.get('/api/admin/usuarios', adminAuth, async (_, res) => {
   try {
     const { data: usuarios, error } = await supabase.from('usuarios')
-      .select('id, email, nome, assinatura_status, assinatura_expira, criado_em')
+      .select('id, email, nome, assinatura_status, assinatura_expira, criado_em, termos_versao, termos_aceito_em')
       .order('id', { ascending: true });
     if (error) throw new Error(error.message);
 
@@ -1585,6 +1610,8 @@ app.get('/api/admin/usuarios', adminAuth, async (_, res) => {
       assinaturaExpira: u.assinatura_expira,
       criadoEm: u.criado_em,
       saldo: +((saldos[u.id] || 0)).toFixed(4),
+      termosVersao: u.termos_versao || null,
+      termosAceitoEm: u.termos_aceito_em || null,
     })));
   } catch (err) {
     res.status(500).json({ error: err.message });

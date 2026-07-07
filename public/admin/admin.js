@@ -109,6 +109,11 @@ async function carregarUsuarios() {
           </div>
           <span class="usuario-status ${u.assinaturaStatus}" id="status-badge-${u.id}">${USUARIO_STATUS_PT[u.assinaturaStatus] || u.assinaturaStatus}</span>
           ${expira ? `<span style="font-size:0.72rem;color:var(--text-muted)">até ${expira}</span>` : ''}
+          <span style="font-size:0.72rem;color:${u.termosAceitoEm ? 'var(--text-muted)' : '#f5d76e'}">
+            ${u.termosAceitoEm
+              ? `Termos v${u.termosVersao} em ${new Date(u.termosAceitoEm).toLocaleDateString('pt-BR')}`
+              : 'Termos pendentes'}
+          </span>
           <span class="usuario-saldo" id="saldo-${u.id}">US$ ${u.saldo.toFixed(2)}</span>
         </div>
         <div class="usuario-assinatura">
