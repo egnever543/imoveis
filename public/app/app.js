@@ -670,19 +670,39 @@ function iniciarPolling() {
  }, 10000);
 }
 
-function gerarVariacaoReels(id) {
- const item = galeria.find(g => g.id === id);
- if (!item) return;
- if (!item.templateId || !item.imovelId) {
-  toast('Esta arte é antiga e não tem os dados para gerar variação.', 'error');
-  return;
- }
- iniciarGeracao({
-  templateId: item.templateId,
-  imovelId: item.imovelId,
-  textosPrevia: item.textos || null,
-  formato: 'reels',
+// ── Variação de formato (Feed / Reels / Stories) ──────────────────
+const FORMATOS_LABEL = { '1x1': 'Feed', feed: 'Feed', reels: 'Reels', stories: 'Stories' };
+
+function toggleFormatoMenu(id, ev) {
+ if (ev) ev.stopPropagation();
+ document.querySelectorAll('.formato-menu.open').forEach(m => {
+  if (m.id !== `fm-${id}`) m.classList.remove('open');
  });
+ document.getElementById(`fm-${id}`)?.classList.toggle('open');
+}
+
+document.addEventListener('click', () => {
+ document.querySelectorAll('.formato-menu.open').forEach(m => m.classList.remove('open'));
+});
+
+function gerarFormato(id, formato) {
+ authFetch(`/api/galeria/${id}/formato`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ formato }),
+ })
+  .then(async r => ({ status: r.status, d: await r.json() }))
+  .then(({ status, d }) => {
+   if (status === 402) { toast(d.error, 'error'); navegarPara('plano'); loadBilling(); return; }
+   if (d.error) toast('Erro: ' + d.error, 'error');
+   loadGaleria();
+   loadBilling();
+  })
+  .catch(err => { toast('Erro: ' + err.message, 'error'); loadGaleria(); });
+
+ toast(`Gerando versão ${FORMATOS_LABEL[formato] || formato}…`, 'success');
+ setTimeout(loadGaleria, 800);
+ iniciarPolling();
 }
 
 // ── CRUD Imóveis ──────────────────────────────────────────────────
@@ -1019,12 +1039,19 @@ function renderGaleriaGrid() {
     </div>
     <div class="galeria-card-info">
      <div class="galeria-card-title">${item.imovelTitulo || '—'}</div>
-     <div class="galeria-card-sub">${item.templateNome || ''}${item.formato === 'reels' ? ' • Reels' : ''}</div>
+     <div class="galeria-card-sub">${item.templateNome || ''}${item.formato && item.formato !== '1x1' && item.formato !== 'feed' ? ` • ${FORMATOS_LABEL[item.formato] || item.formato}` : ''}</div>
     </div>
     <div class="galeria-card-actions">
      <a href="${item.imageUrl}" download class="btn-ghost btn-sm"><svg class="btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Baixar</a>
      <button class="btn-ghost btn-sm" onclick="abrirEdicao(${item.id})" title="Edição mágica"><svg class="btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
-     ${item.formato !== 'reels' && item.templateId ? `<button class="btn-ghost btn-sm" onclick="gerarVariacaoReels(${item.id})">Reels</button>` : ''}
+     <div class="formato-wrap">
+      <button class="btn-ghost btn-sm" style="width:100%" onclick="toggleFormatoMenu(${item.id}, event)">Formato ▾</button>
+      <div class="formato-menu" id="fm-${item.id}">
+       ${['feed', 'reels', 'stories']
+         .filter(f => f !== (item.formato === '1x1' ? 'feed' : item.formato))
+         .map(f => `<button onclick="gerarFormato(${item.id}, '${f}')">${FORMATOS_LABEL[f]}</button>`).join('')}
+      </div>
+     </div>
      <button class="btn-danger btn-sm" onclick="deletarDaGaleria(${item.id})">Excluir</button>
     </div>
    </div>`;
