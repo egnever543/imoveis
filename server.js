@@ -761,13 +761,19 @@ app.post('/api/imoveis/:id/book-foto', userAuth, billingGate, async (req, res) =
     if (!im) return res.status(404).json({ error: 'Imóvel não encontrado' });
     if ((im.fotos || {})[angulo]) return res.json({ ok: true, pulado: true }); // ângulo já preenchido
 
-    const mensagem = `Você recebeu uma página de um book digital de empreendimento imobiliário (Imagem 1) que contém uma foto ou render do imóvel. Recrie SOMENTE a imagem do imóvel, em formato quadrado 1:1, como uma foto profissional de divulgação.
+    const mensagem = `Sua tarefa é APENAS LIMPAR a imagem fornecida (Imagem 1), removendo elementos gráficos do book — NÃO é criar nem completar nada.
 
-Regras:
-- Remova todos os textos, logos, tarjas, molduras e elementos gráficos do book — entregue apenas a imagem limpa do imóvel.
-- Seja FIEL ao original: mesma arquitetura, cores, materiais, ambiente e iluminação. Não invente elementos que não existem.
-- IMPORTANTE: se alguma área do imóvel NÃO aparece na página (cortada pela borda, coberta por texto ou fora do enquadramento), NÃO a recrie nem imagine como seria — apenas recorte/enquadre a parte visível da imagem para o formato 1:1. O resultado deve ser essencialmente um recorte limpo do que está visível, nunca uma extrapolação.
-- Enquadramento: ${ANGLE_LABELS_PT[angulo]}.`;
+Trate isto como um recorte/retoque, não como uma geração nova. A composição, o enquadramento e o conteúdo visível devem permanecer EXATAMENTE iguais aos da Imagem 1.
+
+O que fazer:
+- Remova apenas textos, logos, tarjas, legendas, molduras, marcas d'água e faixas gráficas sobrepostas, preenchendo o local com a continuação natural do que está IMEDIATAMENTE ao redor (poucos centímetros).
+
+O que é ABSOLUTAMENTE PROIBIDO:
+- NÃO estenda, complete ou continue o imóvel. Se o prédio, o telhado, os andares ou qualquer parte estão CORTADOS pela borda da imagem, eles DEVEM permanecer cortados exatamente no mesmo ponto. NÃO adicione andares, cobertura, céu, chão, vegetação ou construções que não estejam claramente visíveis na Imagem 1.
+- NÃO mude o ângulo, a perspectiva, o zoom ou o enquadramento.
+- NÃO invente, imagine ou "melhore" nenhuma parte. Se algo não aparece, continua não aparecendo.
+
+Formato de saída: mesma proporção e enquadramento da Imagem 1 (não force 1:1 se a imagem original não for quadrada — preserve o recorte original). O resultado deve ser indistinguível do original, apenas sem os elementos gráficos removidos.`;
 
     const response = await openai.responses.create({
       model: 'gpt-4o',
@@ -778,7 +784,7 @@ Regras:
           { type: 'input_text', text: mensagem },
         ],
       }],
-      tools: [{ type: 'image_generation', quality: 'high', size: '1024x1024' }],
+      tools: [{ type: 'image_generation', quality: 'high', size: 'auto' }],
     });
 
     const usage = response.usage || null;
