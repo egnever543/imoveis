@@ -1456,8 +1456,22 @@ app.post('/api/gerar-1click', userAuth, billingGate, async (req, res) => {
     if (pendErr) throw new Error(pendErr.message);
     galeriaId = pendente.id;
 
-    // Até 2 fotos do imóvel + logo do perfil
-    const fotoUrls = Object.values(imovel.fotos || {}).slice(0, 2);
+    // Até 2 fotos do imóvel + logo do perfil — exclui fotos marcadas como recorte
+    const recorteMap = imovel.fotosRecorte || {};
+    const fotoUrls = Object.entries(imovel.fotos || {})
+      .filter(([slot]) => !recorteMap[slot])
+      .map(([, url]) => url)
+      .slice(0, 2);
+    if (!fotoUrls.length) {
+      if (galeriaId) await supabase.from('galeria').delete().eq('id', galeriaId);
+      const temAlguma = Object.keys(imovel.fotos || {}).length > 0;
+      return res.status(400).json({
+        error: temAlguma
+          ? 'As fotos deste imóvel estão marcadas como recorte (mostram só parte do imóvel) e não podem ser usadas na geração. Adicione uma foto que mostre o imóvel por inteiro.'
+          : 'O imóvel precisa de ao menos uma foto para o 1-Click Art.',
+        code: 'recorte',
+      });
+    }
     const fotos = (await Promise.all(fotoUrls.map(u => imageB64FromUrl(u)))).filter(Boolean);
     if (!fotos.length) throw new Error('O imóvel precisa de ao menos uma foto para o 1-Click Art');
     let logoImg = null;
