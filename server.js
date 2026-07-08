@@ -1083,6 +1083,16 @@ app.post('/api/gerar', userAuth, billingGate, async (req, res) => {
       }
     }
 
+    // Bloqueio: fotos marcadas como recorte ainda não são suportadas na geração
+    const slotRecorte = fotoSlots.find(s => s.recorte);
+    if (slotRecorte) {
+      if (galeriaId) await supabase.from('galeria').delete().eq('id', galeriaId);
+      return res.status(400).json({
+        error: `A foto de "${ANGLE_LABELS_PT[slotRecorte.ang] || slotRecorte.ang}" está marcada como recorte (mostra só parte do imóvel). Imagens cortadas ainda não são suportadas na geração — use uma foto que mostre o imóvel por inteiro ou desmarque a opção "Recorte".`,
+        code: 'recorte',
+      });
+    }
+
     let logoImg = null;
     if (template.fields.includes('logo') && perfil?.logo) {
       logoImg = await imageB64FromUrl(perfil.logo);
@@ -1131,10 +1141,7 @@ ${fotoSlots.length === 0
       ? '• Foto do imóvel: nenhuma foto fornecida.'
       : fotoSlots.map((s, i) => {
           const onde = mapa[`ang:${s.ang}`] ? `Localização no template: ${mapa[`ang:${s.ang}`]}.` : '';
-          const recorteInstr = s.recorte
-            ? ` ATENÇÃO: esta foto é apenas um RECORTE/parte do imóvel — o imóvel se estende além do que aparece na foto (está cortado por uma ou mais bordas). Para ESTA foto, o enquadramento, o ângulo e o zoom devem ser os da PRÓPRIA FOTO — NÃO os do template. Ignore como a foto está posicionada no template original: NÃO tente completar, alongar, encolher, reposicionar ou recriar o restante do imóvel, e NÃO invente estruturas, céu, chão ou paisagem que não estejam na foto. Preencha a área de foto com esta imagem como um "cover", preservando o ângulo original. IMPORTANTE — regra do corte: onde quer que o imóvel esteja cortado na foto original (topo, base ou laterais), esse mesmo lado deve ficar encostado na borda correspondente da área de foto, fazendo o imóvel "sair" do quadro por ali, para transmitir que ele continua naquela direção. NÃO adicione céu, espaço vazio, margem ou fundo entre a parte cortada do imóvel e a borda do quadro — o corte da foto deve coincidir com a borda da área de foto. Do template, use APENAS a identidade visual — cores, fontes, textos, grafismos e a disposição dos elementos gráficos ao redor —, nunca o enquadramento da foto.`
-            : '';
-          return `• Foto (${ANGLE_LABELS_PT[s.ang] || s.ang}): substitua pela Imagem ${imgOrder[`foto_${i}`]} exatamente como fornecida — não gere nem recrie.${recorteInstr} ${onde}`;
+          return `• Foto (${ANGLE_LABELS_PT[s.ang] || s.ang}): substitua pela Imagem ${imgOrder[`foto_${i}`]} exatamente como fornecida — não gere nem recrie. ${onde}`;
         }).join('\n')}
 
 ${logoImg

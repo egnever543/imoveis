@@ -485,18 +485,26 @@ function atualizarResumo() {
  // Verifica ângulos faltando
  const angulos = t.angulos || [];
  const fotos = im.fotos || {};
+ const recorteMap = im.fotosRecorte || {};
  const faltando = angulos.filter(a => !fotos[a]);
+ // Fotos marcadas como recorte que este template usaria (bloqueiam a geração)
+ const usaFoto = (t.fields || []).includes('foto_imovel');
+ const slotsUsados = angulos.length ? angulos : (usaFoto ? Object.keys(fotos).slice(0, 1) : []);
+ const recorteEmUso = slotsUsados.filter(a => fotos[a] && recorteMap[a]);
 
  if (hint) {
   hint.style.display = 'block';
-  if (faltando.length > 0) {
+  if (recorteEmUso.length > 0) {
+   const labels = recorteEmUso.map(a => angleLabels[a] || a).join(', ');
+   hint.innerHTML = `A foto de <strong>${labels}</strong> está marcada como recorte (mostra só parte do imóvel) e não pode ser usada na geração de template. <a href="#" onclick="editarImovel('${im.id}');return false" style="color:#fff">Trocar a foto →</a>`;
+  } else if (faltando.length > 0) {
    const labels = faltando.map(a => angleLabels[a] || a).join(', ');
    hint.innerHTML = `Este template exige fotos que o imóvel ainda não tem: <strong>${labels}</strong>. <a href="#" onclick="editarImovel('${im.id}');return false" style="color:#fff">Adicionar fotos →</a>`;
   } else {
    hint.textContent = 'Iremos gerar os textos que irão aparecer na arte, confira-os antes de enviar para criação.';
   }
  }
- if (btnP) btnP.disabled = faltando.length > 0;
+ if (btnP) btnP.disabled = faltando.length > 0 || recorteEmUso.length > 0;
 
  renderCamposAviso(t, im);
 }
