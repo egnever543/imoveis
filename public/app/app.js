@@ -1578,32 +1578,33 @@ async function bookProcessar() {
  const banner = document.getElementById('gerandoBanner');
  const bannerTexto = document.getElementById('gerandoBannerTexto');
  banner.style.display = 'flex';
+ bannerTexto.textContent = `Processando ${fila.length} imagem(ns) do book em segundo plano — pode fechar a página.`;
 
- let feitas = 0, falhas = 0;
- for (const item of fila) {
-  bannerTexto.textContent = `Book: processando ${angleLabels[item.ang] || item.ang} (${feitas + falhas + 1}/${fila.length})…`;
+ // Renderiza todas as páginas em alta e dispara as requisições em paralelo.
+ // Após este ponto, o servidor conclui e salva cada foto sozinho — fechar/atualizar não interrompe.
+ const envios = await Promise.all(fila.map(async item => {
   try {
    const imagem = await renderPaginaDoc(doc, paginas[item.idx].num, 1024);
-   const res = await authFetch(`/api/imoveis/${imovel.id}/book-foto`, {
+   return authFetch(`/api/imoveis/${imovel.id}/book-foto`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ angulo: item.ang, imagem }),
-   });
-   const d = await res.json();
-   if (!res.ok || d.error) throw new Error(d.error || 'falha');
-   feitas++;
-   await loadImoveis();
-   renderImoveisGrid();
-  } catch (err) {
-   falhas++;
-   console.error('book-foto', err);
-  }
- }
+   }).then(async res => {
+    const d = await res.json().catch(() => ({}));
+    return res.ok && !d.error;
+   }).catch(() => false);
+  } catch { return false; }
+ }));
+
+ const feitas = envios.filter(Boolean).length;
+ const falhas = envios.length - feitas;
 
  book.processando = false;
  book.doc = null; book.paginas = []; book.sel = {};
  banner.style.display = 'none';
  bannerTexto.textContent = 'Sua arte esta sendo gerada — aparecera na galeria em ate 3 minutos.';
+ await loadImoveis();
+ renderImoveisGrid();
  loadBilling();
  toast(falhas ? `Book concluído: ${feitas} foto(s) ok, ${falhas} falha(s).` : `Book concluído! ${feitas} foto(s) adicionadas ao imóvel.`, falhas ? 'error' : 'success');
 }
