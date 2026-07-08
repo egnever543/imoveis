@@ -160,6 +160,7 @@ function fromDb(row) {
   if ('total_andares' in r) { r.totalAndares  = r.total_andares; delete r.total_andares; }
   if ('image_url'     in r) { r.imageUrl      = r.image_url;     delete r.image_url; }
   if ('fotos' in r) r.fotos = r.fotos || {};
+  if ('fotos_recorte' in r) { r.fotosRecorte = r.fotos_recorte || {}; delete r.fotos_recorte; }
   if ('mapa'  in r) {
     if (typeof r.mapa === 'string') {
       try { r.mapa = JSON.parse(r.mapa); } catch { r.mapa = {}; }
@@ -730,6 +731,22 @@ app.delete('/api/imoveis/:id/foto/:slot', userAuth, async (req, res) => {
   res.json(fromDb(data));
 });
 
+// Marca/desmarca uma foto como "recorte" (mostra só parte do imóvel)
+app.put('/api/imoveis/:id/foto/:slot/recorte', userAuth, async (req, res) => {
+  const { data: existing } = await supabase
+    .from('imoveis').select('fotos_recorte').eq('id', req.params.id).eq('user_id', req.user.id).single();
+  if (!existing) return res.status(404).json({ error: 'Não encontrado' });
+
+  const novo = { ...(existing.fotos_recorte || {}) };
+  if (req.body.recorte) novo[req.params.slot] = true;
+  else delete novo[req.params.slot];
+
+  const { data, error } = await supabase
+    .from('imoveis').update({ fotos_recorte: novo }).eq('id', req.params.id).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(fromDb(data));
+});
+
 // ── BOOK PDF: estimativa de custo e recriação de fotos ────────────────────────
 app.get('/api/book/estimativa', userAuth, async (req, res) => {
   try {
@@ -1036,19 +1053,25 @@ app.post('/api/gerar', userAuth, billingGate, async (req, res) => {
     const angulos = template.angulos || [];
     const fotoSlots = [];
     const urlsDoImovel = Object.values(imovel.fotos || {});
+    const recorteMap = imovel.fotosRecorte || {}; // { slotKey: true } — foto que é só um recorte do imóvel
+    const ehRecorte = (ang, url) => {
+      if (recorteMap[ang]) return true;
+      const slot = Object.keys(imovel.fotos || {}).find(k => (imovel.fotos || {})[k] === url);
+      return slot ? !!recorteMap[slot] : false;
+    };
     if (template.fields.includes('foto_imovel') && fotosEscolhidas && typeof fotosEscolhidas === 'object' && Object.keys(fotosEscolhidas).length) {
       // Usuário escolheu as fotos na prévia — só aceita URLs que pertencem ao imóvel
       for (const [ang, url] of Object.entries(fotosEscolhidas)) {
         if (!urlsDoImovel.includes(url)) continue;
         const img = await imageB64FromUrl(url);
-        if (img) fotoSlots.push({ ang, img });
+        if (img) fotoSlots.push({ ang, img, recorte: ehRecorte(ang, url) });
       }
     } else if (template.fields.includes('foto_imovel') && angulos.length > 0) {
       for (const ang of angulos) {
         const url = (imovel.fotos || {})[ang];
         if (url) {
           const img = await imageB64FromUrl(url);
-          if (img) fotoSlots.push({ ang, img });
+          if (img) fotoSlots.push({ ang, img, recorte: !!recorteMap[ang] });
         }
       }
     } else if (template.fields.includes('foto_imovel')) {
@@ -1056,7 +1079,7 @@ app.post('/api/gerar', userAuth, billingGate, async (req, res) => {
       const primeiraUrl = urlsDoImovel[0];
       if (primeiraUrl) {
         const img = await imageB64FromUrl(primeiraUrl);
-        if (img) fotoSlots.push({ ang: 'foto', img });
+        if (img) fotoSlots.push({ ang: 'foto', img, recorte: ehRecorte('foto', primeiraUrl) });
       }
     }
 
@@ -1108,7 +1131,10 @@ ${fotoSlots.length === 0
       ? '• Foto do imóvel: nenhuma foto fornecida.'
       : fotoSlots.map((s, i) => {
           const onde = mapa[`ang:${s.ang}`] ? `Localização no template: ${mapa[`ang:${s.ang}`]}.` : '';
-          return `• Foto (${ANGLE_LABELS_PT[s.ang] || s.ang}): substitua pela Imagem ${imgOrder[`foto_${i}`]} exatamente como fornecida — não gere nem recrie. Encaixe a foto INTEIRA no espaço, mostrando o imóvel completo — se necessário, reduza a escala para caber tudo, mas NUNCA corte o topo, as laterais ou qualquer parte do imóvel, e NÃO estenda nem invente partes que não aparecem na foto. Se a foto do imóvel já for um recorte/parte do imóvel (não mostra ele por inteiro), MANTENHA exatamente o enquadramento e o ângulo da própria foto — não tente reenquadrar, completar, alongar ou recriar o restante do imóvel para parecer "completo"; use a foto como ela é, mesmo que mostre só parte do prédio. ${onde}`;
+          const recorteInstr = s.recorte
+            ? ` ATENÇÃO: esta foto é apenas um RECORTE/parte do imóvel (não mostra o imóvel por inteiro). MANTENHA exatamente o enquadramento e o ângulo da própria foto — NÃO tente completar, alongar, encolher ou recriar o restante do imóvel para parecer "completo", e NÃO invente andares, topo, céu ou paisagem. Use a foto exatamente como ela é, mesmo que mostre só parte do prédio, recortando as bordas naturalmente para preencher o espaço.`
+            : '';
+          return `• Foto (${ANGLE_LABELS_PT[s.ang] || s.ang}): substitua pela Imagem ${imgOrder[`foto_${i}`]} exatamente como fornecida — não gere nem recrie.${recorteInstr} ${onde}`;
         }).join('\n')}
 
 ${logoImg
