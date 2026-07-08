@@ -1108,7 +1108,7 @@ ${fotoSlots.length === 0
       ? '• Foto do imóvel: nenhuma foto fornecida.'
       : fotoSlots.map((s, i) => {
           const onde = mapa[`ang:${s.ang}`] ? `Localização no template: ${mapa[`ang:${s.ang}`]}.` : '';
-          return `• Foto (${ANGLE_LABELS_PT[s.ang] || s.ang}): substitua pela Imagem ${imgOrder[`foto_${i}`]} exatamente como fornecida — não gere nem recrie. Encaixe a foto INTEIRA no espaço, mostrando o imóvel completo — se necessário, reduza a escala para caber tudo, mas NUNCA corte o topo, as laterais ou qualquer parte do imóvel, e NÃO estenda nem invente partes que não aparecem na foto. ${onde}`;
+          return `• Foto (${ANGLE_LABELS_PT[s.ang] || s.ang}): substitua pela Imagem ${imgOrder[`foto_${i}`]} exatamente como fornecida — não gere nem recrie. Encaixe a foto INTEIRA no espaço, mostrando o imóvel completo — se necessário, reduza a escala para caber tudo, mas NUNCA corte o topo, as laterais ou qualquer parte do imóvel, e NÃO estenda nem invente partes que não aparecem na foto. Se a foto do imóvel já for um recorte/parte do imóvel (não mostra ele por inteiro), MANTENHA exatamente o enquadramento e o ângulo da própria foto — não tente reenquadrar, completar, alongar ou recriar o restante do imóvel para parecer "completo"; use a foto como ela é, mesmo que mostre só parte do prédio. ${onde}`;
         }).join('\n')}
 
 ${logoImg
