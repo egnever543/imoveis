@@ -485,26 +485,18 @@ function atualizarResumo() {
  // Verifica ângulos faltando
  const angulos = t.angulos || [];
  const fotos = im.fotos || {};
- const recorteMap = im.fotosRecorte || {};
  const faltando = angulos.filter(a => !fotos[a]);
- // Fotos marcadas como recorte que este template usaria (bloqueiam a geração)
- const usaFoto = (t.fields || []).includes('foto_imovel');
- const slotsUsados = angulos.length ? angulos : (usaFoto ? Object.keys(fotos).slice(0, 1) : []);
- const recorteEmUso = slotsUsados.filter(a => fotos[a] && recorteMap[a]);
 
  if (hint) {
   hint.style.display = 'block';
-  if (recorteEmUso.length > 0) {
-   const labels = recorteEmUso.map(a => angleLabels[a] || a).join(', ');
-   hint.innerHTML = `A foto de <strong>${labels}</strong> está marcada como recorte (mostra só parte do imóvel) e não pode ser usada na geração de template. <a href="#" onclick="editarImovel('${im.id}');return false" style="color:#fff">Trocar a foto →</a>`;
-  } else if (faltando.length > 0) {
+  if (faltando.length > 0) {
    const labels = faltando.map(a => angleLabels[a] || a).join(', ');
    hint.innerHTML = `Este template exige fotos que o imóvel ainda não tem: <strong>${labels}</strong>. <a href="#" onclick="editarImovel('${im.id}');return false" style="color:#fff">Adicionar fotos →</a>`;
   } else {
    hint.textContent = 'Iremos gerar os textos que irão aparecer na arte, confira-os antes de enviar para criação.';
   }
  }
- if (btnP) btnP.disabled = faltando.length > 0 || recorteEmUso.length > 0;
+ if (btnP) btnP.disabled = faltando.length > 0;
 
  renderCamposAviso(t, im);
 }
@@ -768,7 +760,7 @@ function abrirFormImovel(id = null) {
  });
  if (!im.finalidade) form.elements['finalidade'].value = 'venda';
  atualizarFinalidade(form.elements['finalidade'].value);
- renderFotoSlots(im.fotos || {}, id, im.fotosRecorte || {});
+ renderFotoSlots(im.fotos || {}, id);
  }
 
  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -776,11 +768,10 @@ function abrirFormImovel(id = null) {
  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
 }
 
-function renderFotoSlots(fotos, imovelId = null, recorteMap = {}) {
+function renderFotoSlots(fotos, imovelId = null) {
  const wrap = document.getElementById('fotoSlotsWrap');
  wrap.innerHTML = photoSlots.map(slot => {
  const url = fotos[slot.key];
- const marcado = !!recorteMap[slot.key];
  return `
  <div class="foto-slot" id="slot-${slot.key}">
  <div class="foto-slot-label">${slot.label}</div>
@@ -795,26 +786,8 @@ function renderFotoSlots(fotos, imovelId = null, recorteMap = {}) {
  <input type="file" accept="image/*" style="display:none"
  onchange="uploadFotoSlot(this, '${imovelId}', '${slot.key}')" />
  </label>
- ${url ? `
- <label class="foto-recorte" title="Marque se a foto mostra apenas parte do imóvel (um recorte), não ele por inteiro">
-  <input type="checkbox" ${marcado ? 'checked' : ''} onchange="marcarRecorte('${imovelId}', '${slot.key}', this.checked)" />
-  <span>Recorte (mostra só parte do imóvel)</span>
- </label>` : ''}
  </div>`;
  }).join('');
-}
-
-async function marcarRecorte(imovelId, slot, recorte) {
- if (!imovelId || imovelId === 'null') return;
- try {
-  const res = await authFetch(`/api/imoveis/${imovelId}/foto/${slot}/recorte`, {
-   method: 'PUT',
-   headers: { 'Content-Type': 'application/json' },
-   body: JSON.stringify({ recorte }),
-  });
-  if (!res.ok) throw new Error();
-  await loadImoveis();
- } catch { toast('Erro ao salvar marcação', 'error'); }
 }
 
 async function uploadFotoSlot(input, imovelId, slot) {
@@ -856,7 +829,7 @@ async function uploadFotoSlot(input, imovelId, slot) {
  const updated = await res.json();
 
  await loadImoveis();
- renderFotoSlots(updated.fotos || {}, id, updated.fotosRecorte || {});
+ renderFotoSlots(updated.fotos || {}, id);
  toast('Foto salva!', 'success');
 }
 
@@ -865,7 +838,7 @@ async function removerFotoSlot(imovelId, slot) {
  await authFetch(`/api/imoveis/${imovelId}/foto/${slot}`, { method: 'DELETE' });
  await loadImoveis();
  const im = imoveis.find(i => i.id === imovelId);
- renderFotoSlots(im?.fotos || {}, imovelId, im?.fotosRecorte || {});
+ renderFotoSlots(im?.fotos || {}, imovelId);
  toast('Foto removida', 'success');
 }
 
@@ -901,7 +874,7 @@ async function salvarImovel(e) {
  await loadImoveis();
  toast(id ? 'Imóvel atualizado!' : 'Imóvel salvo! Agora adicione as fotos abaixo.', 'success');
  if (id) voltarImoveis();
- else renderFotoSlots(saved.fotos || {}, saved.id, saved.fotosRecorte || {});
+ else renderFotoSlots(saved.fotos || {}, saved.id);
 }
 
 async function deletarImovel(id) {
