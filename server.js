@@ -766,6 +766,7 @@ app.post('/api/imoveis/:id/book-foto', userAuth, billingGate, async (req, res) =
 Regras:
 - Remova todos os textos, logos, tarjas, molduras e elementos gráficos do book — entregue apenas a imagem limpa do imóvel.
 - Seja FIEL ao original: mesma arquitetura, cores, materiais, ambiente e iluminação. Não invente elementos que não existem.
+- IMPORTANTE: se alguma área do imóvel NÃO aparece na página (cortada pela borda, coberta por texto ou fora do enquadramento), NÃO a recrie nem imagine como seria — apenas recorte/enquadre a parte visível da imagem para o formato 1:1. O resultado deve ser essencialmente um recorte limpo do que está visível, nunca uma extrapolação.
 - Enquadramento: ${ANGLE_LABELS_PT[angulo]}.`;
 
     const response = await openai.responses.create({
