@@ -1132,7 +1132,7 @@ ${fotoSlots.length === 0
       : fotoSlots.map((s, i) => {
           const onde = mapa[`ang:${s.ang}`] ? `Localização no template: ${mapa[`ang:${s.ang}`]}.` : '';
           const recorteInstr = s.recorte
-            ? ` ATENÇÃO: esta foto é apenas um RECORTE/parte do imóvel (não mostra o imóvel por inteiro). MANTENHA exatamente o enquadramento e o ângulo da própria foto — NÃO tente completar, alongar, encolher ou recriar o restante do imóvel para parecer "completo", e NÃO invente andares, topo, céu ou paisagem. Use a foto exatamente como ela é, mesmo que mostre só parte do prédio, recortando as bordas naturalmente para preencher o espaço.`
+            ? ` ATENÇÃO: esta foto é apenas um RECORTE/parte do imóvel (não mostra o imóvel por inteiro). Para ESTA foto, o enquadramento, o ângulo e o zoom devem ser os da PRÓPRIA FOTO — NÃO os do template. Ignore como a foto do imóvel está posicionada/enquadrada no template original: NÃO tente completar, alongar, encolher, reposicionar ou recriar o restante do imóvel para "encaixar" no espaço, e NÃO invente andares, topo, céu ou paisagem. Preencha a área de foto com esta imagem exatamente como ela é (recortando as bordas naturalmente, como um "cover"), preservando o ângulo original. Do template, use APENAS a identidade visual — cores, fontes, textos, grafismos e a disposição dos elementos gráficos ao redor —, nunca o enquadramento da foto.`
             : '';
           return `• Foto (${ANGLE_LABELS_PT[s.ang] || s.ang}): substitua pela Imagem ${imgOrder[`foto_${i}`]} exatamente como fornecida — não gere nem recrie.${recorteInstr} ${onde}`;
         }).join('\n')}
