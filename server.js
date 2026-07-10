@@ -1402,7 +1402,7 @@ const OBJETIVOS_1CLICK = {
 app.post('/api/gerar-1click', userAuth, billingGate, async (req, res) => {
   let galeriaId = null;
   try {
-    const { imovelId, objetivo, estilo, campos } = req.body;
+    const { imovelId, objetivo, estilo, campos, fotos: fotosEscolhidas } = req.body;
     const est = ESTILOS_1CLICK[estilo] || ESTILOS_1CLICK.clean;
     const obj = OBJETIVOS_1CLICK[objetivo] || OBJETIVOS_1CLICK.venda;
 
@@ -1424,8 +1424,12 @@ app.post('/api/gerar-1click', userAuth, billingGate, async (req, res) => {
     if (pendErr) throw new Error(pendErr.message);
     galeriaId = pendente.id;
 
-    // Até 2 fotos do imóvel + logo do perfil
-    const fotoUrls = Object.values(imovel.fotos || {}).slice(0, 2);
+    // Fotos escolhidas pelo usuário (até 5) — só aceita URLs que pertencem ao imóvel
+    const urlsDoImovel = Object.values(imovel.fotos || {});
+    let fotoUrls = Array.isArray(fotosEscolhidas)
+      ? fotosEscolhidas.filter(u => urlsDoImovel.includes(u)).slice(0, 5)
+      : [];
+    if (!fotoUrls.length) fotoUrls = urlsDoImovel.slice(0, 2); // fallback: primeiras fotos
     const fotos = (await Promise.all(fotoUrls.map(u => imageB64FromUrl(u)))).filter(Boolean);
     if (!fotos.length) throw new Error('O imóvel precisa de ao menos uma foto para o 1-Click Art');
     let logoImg = null;
@@ -1448,8 +1452,9 @@ ${obj}
 
 ${est.prompt}
 
-Imagens fornecidas:
-${fotoLabels.map((l, i) => `- ${l}: foto real do imóvel — use como imagem principal, sem distorcer nem recriar.`).join('\n')}
+Imagens fornecidas (${fotos.length} foto${fotos.length > 1 ? 's' : ''} real${fotos.length > 1 ? 'is' : ''} do imóvel — use todas na arte, sem distorcer nem recriar):
+${fotoLabels.map((l) => `- ${l}: foto real do imóvel.`).join('\n')}
+${fotos.length > 1 ? '- Componha as fotos de forma harmônica e profissional (ex: foto principal em destaque + as demais menores/em faixa/mosaico), todas visíveis e bem integradas ao layout.' : '- Use a foto como imagem principal da arte.'}
 ${logoLabel ? `- ${logoLabel}: logo da imobiliária — integre de forma discreta e elegante (canto superior ou inferior), sem caixa branca.` : '- Nenhuma logo fornecida — não invente logo nem nome de imobiliária.'}
 
 Textos que DEVEM aparecer na arte (somente estes — não invente outros dados):

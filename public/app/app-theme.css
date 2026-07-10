@@ -486,6 +486,29 @@ a, .btn-link { color: #fff; }
 .oc-chip.disabled { opacity: 0.35; cursor: not-allowed; }
 .oc-limite { font-weight: 400; font-size: 0.78rem; color: var(--text-muted); }
 
+.oc-fotos {
+ display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;
+}
+.oc-foto {
+ position: relative; border: 2px solid var(--border); border-radius: 10px;
+ overflow: hidden; cursor: pointer; background: var(--bg-card); transition: border-color 0.15s;
+}
+.oc-foto img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+.oc-foto:hover { border-color: var(--border-light); }
+.oc-foto.selected { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.18); }
+.oc-foto-num {
+ position: absolute; top: 6px; right: 6px;
+ width: 22px; height: 22px; border-radius: 50%;
+ background: #fff; color: #000; font-size: 0.72rem; font-weight: 700;
+ display: flex; align-items: center; justify-content: center;
+}
+.oc-foto-label {
+ position: absolute; left: 0; right: 0; bottom: 0;
+ background: linear-gradient(transparent, rgba(0,0,0,0.85));
+ color: #fff; font-size: 0.68rem; font-weight: 600;
+ padding: 14px 8px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
 .oc-estilos {
  display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px;
 }

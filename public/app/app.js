@@ -1314,7 +1314,8 @@ const OC_ESTILOS = [
 ];
 const OC_CAMPOS = ['preco', 'entrada', 'parcela', 'aluguel', 'condominio', 'iptu', 'area', 'quartos', 'banheiros', 'vagas', 'cidade', 'destaque', 'diferenciais'];
 
-const oc = { imovelId: null, objetivo: 'venda', estilo: 'clean', campos: ['preco', 'quartos', 'area'] };
+const OC_MAX_FOTOS = 5;
+const oc = { imovelId: null, objetivo: 'venda', estilo: 'clean', campos: ['preco', 'quartos', 'area'], fotos: [] };
 
 function renderOneClick() {
  // Imóveis (só os que têm foto)
@@ -1332,6 +1333,22 @@ function renderOneClick() {
     <p>${[im.tipo, local].filter(Boolean).join(' • ') || '—'}</p>
    </div>
    <span class="picker-check"></span>
+  </div>`;
+ }).join('');
+
+ // Imagens do imóvel (até 5)
+ const imAtual = comFoto.find(i => i.id === oc.imovelId);
+ const secFotos = document.getElementById('ocFotosSection');
+ const fotosEntries = imAtual ? Object.entries(imAtual.fotos || {}) : [];
+ if (secFotos) secFotos.style.display = fotosEntries.length ? 'block' : 'none';
+ document.getElementById('ocFotos').innerHTML = fotosEntries.map(([slot, url]) => {
+  const idx = oc.fotos.indexOf(url);
+  const sel = idx >= 0;
+  return `
+  <div class="oc-foto ${sel ? 'selected' : ''}" onclick="ocToggleFoto('${url.replace(/'/g, "\\'")}')">
+   <img src="${url}" alt="${angleLabels[slot] || slot}" loading="lazy" />
+   ${sel ? `<span class="oc-foto-num">${idx + 1}</span>` : ''}
+   <span class="oc-foto-label">${angleLabels[slot] || slot}</span>
   </div>`;
  }).join('');
 
@@ -1359,10 +1376,12 @@ function renderOneClick() {
  // Botão + dica
  const btn = document.getElementById('btnOneClick');
  const hint = document.getElementById('ocHint');
- btn.disabled = !oc.imovelId;
+ btn.disabled = !oc.imovelId || oc.fotos.length === 0;
  hint.textContent = !oc.imovelId
   ? 'Selecione um imóvel com foto para gerar.'
-  : 'A arte será criada em segundo plano e salva na galeria.';
+  : oc.fotos.length === 0
+   ? 'Selecione ao menos uma imagem para a arte.'
+   : `${oc.fotos.length} imagem(ns) selecionada(s). A arte será criada em segundo plano e salva na galeria.`;
 }
 
 function ocSelecionarImovel(id) {
@@ -1377,6 +1396,19 @@ function ocSelecionarImovel(id) {
    oc.campos = ['preco', 'quartos', 'area'];
   }
   oc.campos = oc.campos.filter(c => !!im[c]); // remove escolhas sem valor neste imóvel
+  // Pré-seleciona as primeiras fotos (até o máximo)
+  oc.fotos = Object.values(im.fotos || {}).slice(0, OC_MAX_FOTOS);
+ }
+ renderOneClick();
+}
+
+function ocToggleFoto(url) {
+ const i = oc.fotos.indexOf(url);
+ if (i >= 0) {
+  oc.fotos.splice(i, 1);
+ } else {
+  if (oc.fotos.length >= OC_MAX_FOTOS) { toast(`Máximo de ${OC_MAX_FOTOS} imagens — desmarque uma primeiro.`, 'error'); return; }
+  oc.fotos.push(url);
  }
  renderOneClick();
 }
@@ -1398,6 +1430,7 @@ function gerar1Click() {
   objetivo: oc.objetivo,
   estilo: oc.estilo,
   campos: [...oc.campos],
+  fotos: [...oc.fotos],
  }, '/api/gerar-1click');
 }
 
