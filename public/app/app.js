@@ -742,6 +742,7 @@ function atualizarFinalidade(v) {
 }
 
 function abrirFormImovel(id = null) {
+ imovelAlterado = false;
  document.getElementById('imovelForm').reset();
  document.getElementById('imovelEditId').value = '';
  document.getElementById('formImovelTitulo').textContent = 'Cadastrar Imóvel';
@@ -828,6 +829,7 @@ async function uploadFotoSlot(input, imovelId, slot) {
  if (!res.ok) { toast('Erro ao enviar foto', 'error'); return; }
  const updated = await res.json();
 
+ imovelAlterado = true;
  await loadImoveis();
  renderFotoSlots(updated.fotos || {}, id);
  toast('Foto salva!', 'success');
@@ -844,7 +846,10 @@ async function removerFotoSlot(imovelId, slot) {
 
 function editarImovel(id) { abrirFormImovel(id); }
 
+let imovelAlterado = false; // marca se houve cadastro/edição/foto nesta sessão do formulário
+
 function voltarImoveis() {
+ if (imovelAlterado) { location.reload(); return; } // recarrega para o imóvel aparecer atualizado
  navegarPara('imoveis');
  renderImoveisGrid();
 }
@@ -870,6 +875,7 @@ async function salvarImovel(e) {
  });
  if (!res.ok) { toast('Erro ao salvar', 'error'); return; }
  const saved = await res.json();
+ imovelAlterado = true;
  if (!id) document.getElementById('imovelEditId').value = saved.id;
  await loadImoveis();
  toast(id ? 'Imóvel atualizado!' : 'Imóvel salvo! Agora adicione as fotos abaixo.', 'success');
