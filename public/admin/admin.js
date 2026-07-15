@@ -75,14 +75,104 @@ let logsOffset = 0;
 let logsTotal  = 0;
 
 function mudarTab(tab) {
-  ['templates','prompts','logs','cobranca','usuarios'].forEach(t => {
+  ['templates','prompts','logs','cobranca','videos','usuarios'].forEach(t => {
     document.getElementById('secao' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? '' : 'none';
     document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
   });
   if (tab === 'prompts')  carregarPrompts();
   if (tab === 'logs')     carregarLogs(true);
   if (tab === 'cobranca') { carregarConfig(); carregarCobrancas(); }
+  if (tab === 'videos')   carregarVideoTemplates();
   if (tab === 'usuarios') carregarUsuarios();
+}
+
+// ── Video templates (beta) ────────────────────────────────────────────
+let editandoVt = null;
+
+async function carregarVideoTemplates() {
+  const el = document.getElementById('videoTemplatesList');
+  el.innerHTML = '<div class="no-templates">Carregando…</div>';
+  try {
+    const res = await fetch('/api/admin/video-templates', { headers: { 'x-admin-password': adminPassword } });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    if (!data.length) { el.innerHTML = '<div class="no-templates">Nenhum template de vídeo ainda.</div>'; return; }
+    el.innerHTML = data.map(vt => {
+      const isVideo = (vt.exemploUrl || '').match(/\.(mp4|webm|mov)($|\?)/i);
+      const midia = vt.exemploUrl
+        ? (isVideo
+            ? `<video src="${vt.exemploUrl}" muted loop playsinline onmouseover="this.play()" onmouseout="this.pause()" style="width:76px;height:76px;object-fit:cover;border-radius:8px;border:1px solid var(--border);flex-shrink:0"></video>`
+            : `<img src="${vt.exemploUrl}" style="width:76px;height:76px;object-fit:cover;border-radius:8px;border:1px solid var(--border);flex-shrink:0" />`)
+        : `<div style="width:76px;height:76px;border-radius:8px;border:1px dashed var(--border-light);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:0.7rem;flex-shrink:0">sem<br>exemplo</div>`;
+      return `
+      <div class="template-row">
+        ${midia}
+        <div class="template-row-info">
+          <h3>${escHtml(vt.nome)} ${vt.ativo ? '' : '<span style="color:var(--text-muted);font-weight:400">(inativo)</span>'}</h3>
+          <p style="font-size:0.78rem;color:var(--text-muted);white-space:pre-wrap;word-break:break-word">${escHtml(vt.prompt || '(sem prompt)')}</p>
+        </div>
+        <div class="template-row-actions">
+          <button class="btn-ghost" style="font-size:0.8rem" onclick="editarVideoTemplate('${vt.id}')">Editar</button>
+          <button class="btn-danger" style="font-size:0.8rem" onclick="deletarVideoTemplate('${vt.id}', '${escHtml(vt.nome).replace(/'/g, "\\'")}')">Excluir</button>
+        </div>
+      </div>`;
+    }).join('');
+    window._videoTemplates = data;
+  } catch (err) {
+    el.innerHTML = `<div class="no-templates">Erro: ${escHtml(err.message)}</div>`;
+  }
+}
+
+async function salvarVideoTemplate() {
+  const nome = document.getElementById('vtNome').value.trim();
+  const prompt = document.getElementById('vtPrompt').value.trim();
+  const file = document.getElementById('vtExemplo').files[0];
+  if (!nome) { toast('Informe o nome', 'error'); return; }
+
+  const btn = document.getElementById('btnVtSalvar');
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  try {
+    const fd = new FormData();
+    fd.append('nome', nome);
+    fd.append('prompt', prompt);
+    if (file) fd.append('exemplo', file);
+    const url = editandoVt ? `/api/admin/video-templates/${editandoVt}` : '/api/admin/video-templates';
+    const method = editandoVt ? 'PATCH' : 'POST';
+    const res = await fetch(url, { method, headers: { 'x-admin-password': adminPassword }, body: fd });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    document.getElementById('vtNome').value = '';
+    document.getElementById('vtPrompt').value = '';
+    document.getElementById('vtExemplo').value = '';
+    editandoVt = null;
+    btn.textContent = 'Salvar template';
+    toast('Template de vídeo salvo!', 'success');
+    carregarVideoTemplates();
+  } catch (err) {
+    toast('Erro: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    if (!editandoVt) btn.textContent = 'Salvar template';
+  }
+}
+
+function editarVideoTemplate(id) {
+  const vt = (window._videoTemplates || []).find(v => String(v.id) === String(id));
+  if (!vt) return;
+  editandoVt = id;
+  document.getElementById('vtNome').value = vt.nome || '';
+  document.getElementById('vtPrompt').value = vt.prompt || '';
+  document.getElementById('vtExemplo').value = '';
+  document.getElementById('btnVtSalvar').textContent = 'Atualizar template';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  toast('Editando — o exemplo só muda se você enviar um novo arquivo.', 'success');
+}
+
+async function deletarVideoTemplate(id, nome) {
+  if (!confirm(`Excluir o template de vídeo "${nome}"?`)) return;
+  await fetch(`/api/admin/video-templates/${id}`, { method: 'DELETE', headers: { 'x-admin-password': adminPassword } });
+  carregarVideoTemplates();
+  toast('Template excluído', 'success');
 }
 
 // ── Usuários ─────────────────────────────────────────────────────────
@@ -221,6 +311,9 @@ async function carregarConfig() {
   document.getElementById('cfgRecargaMin').value   = cfg.recarga_min_brl;
   document.getElementById('cfgTrialDias').value    = cfg.trial_dias;
   document.getElementById('cfgTrialCredito').value = cfg.trial_credito_usd;
+  document.getElementById('cfgCustoVideo').value   = cfg.custo_video_usd;
+  document.getElementById('cfgMotorVideo').value   = cfg.motor_video || 'simulado';
+  document.getElementById('cfgVideoAtivo').value   = cfg.video_clips_ativo ? 'true' : 'false';
 }
 
 async function salvarConfig() {
@@ -231,6 +324,9 @@ async function salvarConfig() {
     recarga_min_brl:      Number(document.getElementById('cfgRecargaMin').value),
     trial_dias:           Number(document.getElementById('cfgTrialDias').value),
     trial_credito_usd:    Number(document.getElementById('cfgTrialCredito').value),
+    custo_video_usd:      Number(document.getElementById('cfgCustoVideo').value),
+    motor_video:          document.getElementById('cfgMotorVideo').value,
+    video_clips_ativo:    document.getElementById('cfgVideoAtivo').value === 'true',
   };
   const res = await fetch('/api/admin/config', {
     method: 'PUT',
@@ -298,7 +394,7 @@ async function carregarLogs(reset) {
   btnMore.style.display = logsOffset < logsTotal ? '' : 'none';
 }
 
-const TIPO_LABELS = { gerar: 'Geração de arte', previa: 'Prévia de texto', edicao: 'Edição mágica', oneclick: '1-Click Art', formato: 'Variação de formato', book: 'Book PDF', analise: 'Análise de template', transcricao: 'Transcrição' };
+const TIPO_LABELS = { gerar: 'Geração de arte', previa: 'Prévia de texto', edicao: 'Edição mágica', oneclick: '1-Click Art', formato: 'Variação de formato', book: 'Book PDF', video: 'Video Clip', analise: 'Análise de template', transcricao: 'Transcrição' };
 
 function renderLogsResumo(resumo) {
   const el = document.getElementById('logsResumo');

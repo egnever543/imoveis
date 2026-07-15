@@ -157,6 +157,7 @@ function navegarPara(page) {
  document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
  if (page === 'inicio') renderInicio();
  if (page === 'oneclick') renderOneClick();
+ if (page === 'videoclips') renderVideoClips();
 }
 
 // ── Templates ─────────────────────────────────────────────────────
@@ -1069,18 +1070,22 @@ function renderGaleriaGrid() {
      </div>
     </div>`;
    }
+   const ehVideo = item.tipo === 'video';
+   const midia = ehVideo
+    ? `<video src="${item.imageUrl}" controls muted loop playsinline preload="metadata"></video>`
+    : `<img src="${item.imageUrl}" alt="${item.imovelTitulo || 'Arte'}" loading="lazy" />`;
    return `
    <div class="galeria-card" id="gcrd-${item.id}">
     <div class="galeria-card-img-wrap">
-     <img src="${item.imageUrl}" alt="${item.imovelTitulo || 'Arte'}" loading="lazy" />
+     ${midia}
     </div>
     <div class="galeria-card-info">
      <div class="galeria-card-title">${item.imovelTitulo || '—'}</div>
-     <div class="galeria-card-sub">${item.templateNome || ''}${item.formato && item.formato !== '1x1' && item.formato !== 'feed' ? ` • ${FORMATOS_LABEL[item.formato] || item.formato}` : ''}</div>
+     <div class="galeria-card-sub">${item.templateNome || ''}${!ehVideo && item.formato && item.formato !== '1x1' && item.formato !== 'feed' ? ` • ${FORMATOS_LABEL[item.formato] || item.formato}` : ''}</div>
     </div>
     <div class="galeria-card-actions">
      <a href="${item.imageUrl}" download class="btn-ghost btn-sm"><svg class="btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Baixar</a>
-     <button class="btn-ghost btn-sm" onclick="abrirEdicao(${item.id})" title="Edição mágica"><svg class="btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
+     ${ehVideo ? '' : `<button class="btn-ghost btn-sm" onclick="abrirEdicao(${item.id})" title="Edição mágica"><svg class="btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
      <div class="formato-wrap">
       <button class="btn-ghost btn-sm" style="width:100%" onclick="toggleFormatoMenu(${item.id}, event)">Formato ▾</button>
       <div class="formato-menu" id="fm-${item.id}">
@@ -1088,7 +1093,7 @@ function renderGaleriaGrid() {
          .filter(f => f !== (item.formato === '1x1' ? 'feed' : item.formato))
          .map(f => `<button onclick="gerarFormato(${item.id}, '${f}')">${FORMATOS_LABEL[f]}</button>`).join('')}
       </div>
-     </div>
+     </div>`}
      <button class="btn-danger btn-sm" onclick="deletarDaGaleria(${item.id})">Excluir</button>
     </div>
    </div>`;
@@ -1121,6 +1126,9 @@ async function loadBilling() {
 
 function renderBilling() {
  if (!billing) return;
+ // Video Clips (beta): mostra a aba só se liberado no admin
+ const navVC = document.getElementById('navVideoClips');
+ if (navVC) navVC.style.display = billing.videoClipsAtivo ? '' : 'none';
  const st = billing.assinatura.status;
  const expira = billing.assinatura.expira ? new Date(billing.assinatura.expira) : null;
  const expirada = expira && expira < new Date();
@@ -1438,6 +1446,105 @@ function gerar1Click() {
   campos: [...oc.campos],
   fotos: [...oc.fotos],
  }, '/api/gerar-1click');
+}
+
+// ── Video Clips (beta) ────────────────────────────────────────────
+const VC_MAX_FOTOS = 5;
+const vc = { imovelId: null, fotos: [], templateId: null };
+let vcTemplates = [];
+
+async function renderVideoClips() {
+ // Carrega os templates de vídeo uma vez
+ if (!vcTemplates.length) {
+  try { vcTemplates = await authFetch('/api/video-templates').then(r => r.json()); } catch { vcTemplates = []; }
+ }
+
+ // Imóveis com foto
+ const comFoto = imoveis.filter(im => Object.keys(im.fotos || {}).length > 0);
+ document.getElementById('vcImovelEmpty').style.display = comFoto.length ? 'none' : 'block';
+ if (vc.imovelId && !comFoto.find(i => i.id === vc.imovelId)) vc.imovelId = null;
+ document.getElementById('vcImovelPicker').innerHTML = comFoto.map(im => {
+  const foto = Object.values(im.fotos || {})[0];
+  const local = [im.cidade, im.estado].filter(Boolean).join(' - ');
+  return `
+  <div class="picker-card ${vc.imovelId === im.id ? 'selected' : ''}" onclick="vcSelecionarImovel('${im.id}')">
+   <div class="picker-thumb">${foto ? `<img src="${foto}" alt="" />` : ''}</div>
+   <div class="picker-info"><h4>${im.titulo}</h4><p>${[im.tipo, local].filter(Boolean).join(' • ') || '—'}</p></div>
+   <span class="picker-check"></span>
+  </div>`;
+ }).join('');
+
+ // Imagens do imóvel
+ const imAtual = comFoto.find(i => i.id === vc.imovelId);
+ const secFotos = document.getElementById('vcFotosSection');
+ const fotosEntries = imAtual ? Object.entries(imAtual.fotos || {}) : [];
+ if (secFotos) secFotos.style.display = fotosEntries.length ? 'block' : 'none';
+ document.getElementById('vcFotos').innerHTML = fotosEntries.map(([slot, url]) => {
+  const idx = vc.fotos.indexOf(url);
+  const sel = idx >= 0;
+  return `
+  <div class="oc-foto ${sel ? 'selected' : ''}" onclick="vcToggleFoto('${url.replace(/'/g, "\\'")}')">
+   <img src="${url}" alt="${angleLabels[slot] || slot}" loading="lazy" />
+   ${sel ? `<span class="oc-foto-num">${idx + 1}</span>` : ''}
+   <span class="oc-foto-label">${angleLabels[slot] || slot}</span>
+  </div>`;
+ }).join('');
+
+ // Templates de vídeo (galeria de estilos)
+ const tEl = document.getElementById('vcTemplates');
+ if (!vcTemplates.length) {
+  tEl.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">Nenhum estilo de vídeo disponível ainda.</p>';
+ } else {
+  tEl.innerHTML = vcTemplates.map(t => {
+   const isVideo = (t.exemploUrl || '').match(/\.(mp4|webm|mov)($|\?)/i);
+   const midia = t.exemploUrl
+    ? (isVideo
+       ? `<video src="${t.exemploUrl}" muted loop playsinline autoplay></video>`
+       : `<img src="${t.exemploUrl}" loading="lazy" alt="${t.nome}" />`)
+    : `<div class="vc-template-sem">sem exemplo</div>`;
+   return `
+   <div class="vc-template ${vc.templateId === t.id ? 'selected' : ''}" onclick="vc.templateId=${t.id};renderVideoClips()">
+    <div class="vc-template-midia">${midia}<span class="check-badge">✓</span></div>
+    <div class="vc-template-nome">${t.nome}</div>
+   </div>`;
+  }).join('');
+ }
+
+ // Botão + dica
+ const btn = document.getElementById('btnVideoClip');
+ const hint = document.getElementById('vcHint');
+ const ok = vc.imovelId && vc.fotos.length && vc.templateId;
+ btn.disabled = !ok;
+ hint.textContent = !vc.imovelId ? 'Selecione um imóvel com foto.'
+  : !vc.fotos.length ? 'Selecione ao menos uma imagem para animar.'
+  : !vc.templateId ? 'Escolha um estilo de vídeo.'
+  : 'O vídeo será criado em segundo plano e salvo na galeria.';
+}
+
+function vcSelecionarImovel(id) {
+ vc.imovelId = id;
+ const im = imoveis.find(i => i.id === id);
+ if (im) vc.fotos = Object.values(im.fotos || {}).slice(0, VC_MAX_FOTOS);
+ renderVideoClips();
+}
+
+function vcToggleFoto(url) {
+ const i = vc.fotos.indexOf(url);
+ if (i >= 0) vc.fotos.splice(i, 1);
+ else {
+  if (vc.fotos.length >= VC_MAX_FOTOS) { toast(`Máximo de ${VC_MAX_FOTOS} imagens.`, 'error'); return; }
+  vc.fotos.push(url);
+ }
+ renderVideoClips();
+}
+
+function gerarVideoClip() {
+ if (!vc.imovelId || !vc.templateId || !vc.fotos.length) return;
+ iniciarGeracao({
+  imovelId: vc.imovelId,
+  videoTemplateId: vc.templateId,
+  fotos: [...vc.fotos],
+ }, '/api/gerar-video');
 }
 
 // ── Cadastro com book PDF ─────────────────────────────────────────

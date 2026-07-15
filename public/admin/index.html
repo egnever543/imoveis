@@ -270,6 +270,7 @@
         <button class="admin-tab" id="tabPrompts" onclick="mudarTab('prompts')">Prompts</button>
         <button class="admin-tab" id="tabLogs" onclick="mudarTab('logs')">Logs</button>
         <button class="admin-tab" id="tabCobranca" onclick="mudarTab('cobranca')">Cobrança</button>
+        <button class="admin-tab" id="tabVideos" onclick="mudarTab('videos')">Vídeos <span style="font-size:0.62rem;opacity:0.6">beta</span></button>
         <button class="admin-tab" id="tabUsuarios" onclick="mudarTab('usuarios')">Usuários</button>
       </div>
 
@@ -334,6 +335,7 @@
             <option value="oneclick">1-Click Art</option>
             <option value="formato">Variação de formato</option>
             <option value="book">Book PDF</option>
+            <option value="video">Video Clip</option>
             <option value="analise">Análise de template</option>
             <option value="transcricao">Transcrição</option>
           </select>
@@ -373,6 +375,26 @@
               <label>Crédito do trial (US$)</label>
               <input type="number" id="cfgTrialCredito" min="0" step="0.1" />
             </div>
+            <div class="field">
+              <label>Custo por vídeo (US$)</label>
+              <input type="number" id="cfgCustoVideo" min="0" step="0.05" />
+              <p style="font-size:0.72rem;color:var(--text-muted);margin-top:4px">Custo base do Video Clips (antes do markup)</p>
+            </div>
+            <div class="field">
+              <label>Motor de vídeo</label>
+              <select id="cfgMotorVideo">
+                <option value="simulado">Simulado (usa o exemplo — sem custo)</option>
+                <option value="runway">Runway</option>
+                <option value="kling">Kling</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Video Clips visível aos usuários</label>
+              <select id="cfgVideoAtivo">
+                <option value="false">Não (oculto)</option>
+                <option value="true">Sim (liberado)</option>
+              </select>
+            </div>
           </div>
           <div style="margin-top:18px;display:flex;justify-content:flex-end">
             <button class="btn-primary" onclick="salvarConfig()">Salvar configuração</button>
@@ -384,6 +406,32 @@
           <button class="btn-ghost" style="font-size:0.82rem" onclick="carregarCobrancas()">Atualizar</button>
         </div>
         <div id="cobrancasLista"><div class="no-templates">Carregando…</div></div>
+      </div>
+
+      <!-- Seção: Vídeos -->
+      <div id="secaoVideos" style="display:none">
+        <div class="upload-card">
+          <h2>Adicionar template de vídeo</h2>
+          <div class="field" style="margin-bottom:12px">
+            <label>Nome</label>
+            <input type="text" id="vtNome" placeholder="Ex: Push-in cinematográfico" />
+          </div>
+          <div class="field" style="margin-bottom:12px">
+            <label>Prompt de movimento (enviado ao motor de vídeo)</label>
+            <textarea id="vtPrompt" rows="4" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:var(--radius);padding:10px 12px;font-size:0.85rem;resize:vertical;line-height:1.5" placeholder="Ex: slow subtle camera push-in, gentle parallax, keep architecture unchanged, cinematic lighting"></textarea>
+          </div>
+          <div class="field" style="margin-bottom:12px">
+            <label>Exemplo de resultado (vídeo ou imagem)</label>
+            <input type="file" id="vtExemplo" accept="video/*,image/*" />
+            <p style="font-size:0.72rem;color:var(--text-muted);margin-top:4px">Aparece na galeria para o usuário ver o que este template produz. No motor "Simulado", este arquivo é usado como resultado.</p>
+          </div>
+          <div style="display:flex;justify-content:flex-end">
+            <button class="btn-primary" id="btnVtSalvar" onclick="salvarVideoTemplate()">Salvar template</button>
+          </div>
+        </div>
+
+        <div class="section-label">Templates de vídeo cadastrados</div>
+        <div id="videoTemplatesList" class="templates-list"><div class="no-templates">Carregando…</div></div>
       </div>
 
       <!-- Seção: Usuários -->

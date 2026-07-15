@@ -138,10 +138,11 @@ async function imageB64FromUrl(url) {
   }
 }
 
-function cloudinaryUpload(buffer, folder) {
+function cloudinaryUpload(buffer, folder, mimetype) {
+  const resource_type = mimetype && mimetype.startsWith('video/') ? 'video' : 'image';
   return new Promise((resolve, reject) => {
     cloudinary.uploader.upload_stream(
-      { folder, resource_type: 'image' },
+      { folder, resource_type },
       (err, result) => err ? reject(err) : resolve(result)
     ).end(buffer);
   });
@@ -159,6 +160,7 @@ function fromDb(row) {
   if ('criado_em'     in r) { r.criadoEm     = r.criado_em;     delete r.criado_em; }
   if ('total_andares' in r) { r.totalAndares  = r.total_andares; delete r.total_andares; }
   if ('image_url'     in r) { r.imageUrl      = r.image_url;     delete r.image_url; }
+  if ('exemplo_url'   in r) { r.exemploUrl    = r.exemplo_url;   delete r.exemplo_url; }
   if ('fotos' in r) r.fotos = r.fotos || {};
   if ('mapa'  in r) {
     if (typeof r.mapa === 'string') {
@@ -181,6 +183,10 @@ const BILLING_DEFAULTS = {
   recarga_min_brl: 25,
   trial_dias: 7,
   trial_credito_usd: 1.0,
+  // Video Clips (beta)
+  motor_video: 'simulado',  // 'simulado' | 'runway' | 'kling'
+  custo_video_usd: 0.50,    // custo base por vídeo (antes do markup)
+  video_clips_ativo: false, // mostra a aba Video Clips para os usuários
 };
 
 async function getBillingConfig() {
@@ -1574,6 +1580,7 @@ app.get('/api/billing', userAuth, async (req, res) => {
         recargaMinBrl: cfg.recarga_min_brl,
         cotacaoBrl:    cfg.cotacao_brl,
       },
+      videoClipsAtivo: !!cfg.video_clips_ativo,
       extrato: extrato || [],
     });
   } catch (err) {
@@ -1670,7 +1677,7 @@ app.get('/api/admin/config', adminAuth, async (_, res) => {
 app.put('/api/admin/config', adminAuth, async (req, res) => {
   try {
     const atual = await getBillingConfig();
-    const permitidos = ['markup_pct', 'cotacao_brl', 'preco_assinatura_brl', 'recarga_min_brl', 'trial_dias', 'trial_credito_usd'];
+    const permitidos = ['markup_pct', 'cotacao_brl', 'preco_assinatura_brl', 'recarga_min_brl', 'trial_dias', 'trial_credito_usd', 'custo_video_usd'];
     const novo = { ...atual };
     permitidos.forEach(k => {
       if (req.body[k] !== undefined) {
@@ -1678,6 +1685,9 @@ app.put('/api/admin/config', adminAuth, async (req, res) => {
         if (Number.isFinite(v) && v >= 0) novo[k] = v;
       }
     });
+    // Campos não-numéricos do Video Clips
+    if (['simulado', 'runway', 'kling'].includes(req.body.motor_video)) novo.motor_video = req.body.motor_video;
+    if (req.body.video_clips_ativo !== undefined) novo.video_clips_ativo = !!req.body.video_clips_ativo;
     const { error } = await supabase.from('config').upsert({ chave: 'billing', valor: novo });
     if (error) throw new Error(error.message);
     res.json(novo);
@@ -1798,6 +1808,155 @@ app.get('/api/admin/cobrancas', adminAuth, async (req, res) => {
     }));
     res.json({ cobrancas: lista });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── VIDEO CLIPS (beta) ────────────────────────────────────────────────────────
+// Público: lista os video templates ativos (para o usuário escolher)
+app.get('/api/video-templates', userAuth, async (_, res) => {
+  const { data, error } = await supabase
+    .from('video_templates').select('*').eq('ativo', true).order('criado_em', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json((data || []).map(fromDb));
+});
+
+// Admin: CRUD de video templates
+app.get('/api/admin/video-templates', adminAuth, async (_, res) => {
+  const { data, error } = await supabase
+    .from('video_templates').select('*').order('criado_em', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json((data || []).map(fromDb));
+});
+
+app.post('/api/admin/video-templates', adminAuth, upload.single('exemplo'), async (req, res) => {
+  try {
+    let exemplo_url = null;
+    if (req.file) {
+      const result = await cloudinaryUpload(req.file.buffer, 'video-templates', req.file.mimetype);
+      exemplo_url = result.secure_url;
+    }
+    const { data, error } = await supabase.from('video_templates').insert({
+      id:      Date.now(),
+      nome:    req.body.nome || 'Sem nome',
+      prompt:  req.body.prompt || '',
+      exemplo_url,
+      ativo:   true,
+    }).select().single();
+    if (error) throw new Error(error.message);
+    res.status(201).json(fromDb(data));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/admin/video-templates/:id', adminAuth, upload.single('exemplo'), async (req, res) => {
+  try {
+    const update = {};
+    if (req.body.nome   !== undefined) update.nome   = req.body.nome;
+    if (req.body.prompt !== undefined) update.prompt = req.body.prompt;
+    if (req.body.ativo  !== undefined) update.ativo  = req.body.ativo === 'true' || req.body.ativo === true;
+    if (req.file) {
+      const result = await cloudinaryUpload(req.file.buffer, 'video-templates', req.file.mimetype);
+      update.exemplo_url = result.secure_url;
+    }
+    const { data, error } = await supabase
+      .from('video_templates').update(update).eq('id', req.params.id).select().single();
+    if (error) throw new Error(error.message);
+    res.json(fromDb(data));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/admin/video-templates/:id', adminAuth, async (req, res) => {
+  const { error } = await supabase.from('video_templates').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
+});
+
+// Geração de vídeo (dispatch por motor configurado no admin)
+async function gerarVideoComMotor(motor, { imagensB64, prompt }) {
+  // Ponto único de integração dos motores de vídeo. Retorna { url } ou lança erro.
+  if (motor === 'simulado') {
+    // Modo análise: não gera vídeo real — o chamador usa o exemplo do template.
+    return { simulado: true };
+  }
+  if (motor === 'runway') {
+    if (!process.env.RUNWAY_API_KEY) throw new Error('Runway não configurado (defina RUNWAY_API_KEY).');
+    throw new Error('Integração Runway ainda não implementada — use o motor "Simulado" por enquanto.');
+  }
+  if (motor === 'kling') {
+    if (!process.env.KLING_API_KEY) throw new Error('Kling não configurado (defina KLING_API_KEY).');
+    throw new Error('Integração Kling ainda não implementada — use o motor "Simulado" por enquanto.');
+  }
+  throw new Error('Motor de vídeo desconhecido');
+}
+
+app.post('/api/gerar-video', userAuth, billingGate, async (req, res) => {
+  let galeriaId = null;
+  try {
+    const { imovelId, videoTemplateId, fotos: fotosEscolhidas } = req.body;
+
+    const { data: vtRow } = await supabase.from('video_templates').select('*').eq('id', videoTemplateId).single();
+    if (!vtRow) return res.status(400).json({ error: 'Template de vídeo inválido' });
+    const vt = fromDb(vtRow);
+
+    const { data: imRow } = await supabase.from('imoveis').select('*').eq('id', imovelId).eq('user_id', req.user.id).single();
+    if (!imRow) return res.status(400).json({ error: 'Imóvel não encontrado' });
+    const imovel = fromDb(imRow);
+
+    const cfg = await getBillingConfig();
+    const motor = cfg.motor_video || 'simulado';
+
+    // Fotos escolhidas (validadas contra o imóvel)
+    const urlsDoImovel = Object.values(imovel.fotos || {});
+    let fotoUrls = Array.isArray(fotosEscolhidas)
+      ? fotosEscolhidas.filter(u => urlsDoImovel.includes(u)).slice(0, 5)
+      : [];
+    if (!fotoUrls.length) fotoUrls = urlsDoImovel.slice(0, 1);
+    if (!fotoUrls.length) return res.status(400).json({ error: 'O imóvel precisa de ao menos uma foto.' });
+
+    // Registro pendente na galeria
+    const { data: pendente, error: pendErr } = await supabase.from('galeria').insert({
+      status:        'gerando',
+      formato:       'video',
+      tipo:          'video',
+      imovel_id:     imovelId,
+      template_nome: `Vídeo — ${vt.nome}`,
+      imovel_titulo: imovel.titulo,
+      user_id:       req.user.id,
+    }).select('id').single();
+    if (pendErr) throw new Error(pendErr.message);
+    galeriaId = pendente.id;
+
+    const logInput = { imovel: imovel.titulo, videoTemplate: vt.nome, motor, fotos: fotoUrls, promptEnviado: vt.prompt };
+
+    let videoUrl = null;
+    let custoBase = 0;
+    if (motor === 'simulado') {
+      // Sem custo e sem chamada real — usa o exemplo do template como resultado
+      videoUrl = vt.exemploUrl || null;
+      if (!videoUrl) throw new Error('Este template de vídeo não tem um exemplo para o modo Simulado.');
+    } else {
+      const imagensB64 = (await Promise.all(fotoUrls.map(u => imageB64FromUrl(u)))).filter(Boolean);
+      const out = await gerarVideoComMotor(motor, { imagensB64, prompt: vt.prompt });
+      videoUrl = out.url;
+      custoBase = cfg.custo_video_usd || 0;
+    }
+
+    await supabase.from('galeria').update({ image_url: videoUrl, status: 'pronta' }).eq('id', galeriaId);
+    registrarLog({ tipo: 'video', input: logInput, status: 'ok', custo: +custoBase.toFixed(6), user_id: req.user.id });
+    if (custoBase > 0) {
+      const cobranca = await custoComMarkup(custoBase);
+      await debitar(req.user.id, cobranca, `Vídeo — ${imovel.titulo}`, String(galeriaId));
+      verificarAutoRecarga(req.user.id);
+    }
+    res.json({ success: true, galeriaId });
+  } catch (err) {
+    console.error('Erro vídeo:', err);
+    if (galeriaId) supabase.from('galeria').update({ status: 'erro' }).eq('id', galeriaId).then(() => {}, () => {});
+    registrarLog({ tipo: 'video', input: { erro: err.message }, status: 'erro', user_id: req.user?.id });
     res.status(500).json({ error: err.message });
   }
 });
