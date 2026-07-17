@@ -1124,6 +1124,7 @@ ${logoImg
 
 Regras:
 - Mantenha fonte, cor e tamanho de cada texto — só o conteúdo troca.
+- IDIOMA: TODO o texto da arte final deve estar em PORTUGUÊS do Brasil, inclusive títulos, headlines, chamadas, selos, rótulos e palavras decorativas. Se o template original tiver QUALQUER texto em inglês ou outro idioma (ex: "AMAZING APARTMENT", "PRICE", "FOR SALE", "BEDROOMS", "LUXURY"), TRADUZA para um equivalente natural em português (ex: "APARTAMENTO INCRÍVEL", "PREÇO", "À VENDA", "QUARTOS", "ALTO PADRÃO"), preservando o mesmo estilo visual (fonte, cor, tamanho, posição). Não deixe nenhuma palavra em outro idioma.
 - Quando o valor faz parte de uma frase ou título maior (ex: "TERRENOS NO CONTINENTAL, SC"), reescreva a frase inteira de forma gramaticalmente correta e natural com o novo valor — ajuste preposições, capitalização e concordância conforme necessário, mas preserve o estilo visual (fonte, cor, tamanho, posição).
 - Não adicione linhas novas. Substitua sempre no lugar exato onde o valor original está na imagem.
 - Todo o resto — layout, cores, formas decorativas, espaçamentos — pixel a pixel igual ao original.${isReels ? `
@@ -1529,7 +1530,7 @@ ${perfil?.nome ? `- Assinatura discreta: ${perfil.nome}` : ''}
 
 Regras de qualidade:
 - POUCO texto: hierarquia clara com uma headline dominante e no máximo 4 dados de apoio.
-- Todo texto em português correto, sem erros de ortografia — revise cada palavra.
+- IDIOMA: TODO o texto da arte deve estar em PORTUGUÊS do Brasil — headline, chamadas, CTA, selos e palavras decorativas. NÃO use nenhuma palavra em inglês ou outro idioma (nada de "AMAZING", "PRICE", "FOR SALE", "LUXURY" etc.). Revise cada palavra e a ortografia.
 - Tipografia legível e alinhada; nada de texto cortado ou sobreposto à parte importante da foto.
 - Composição equilibrada e profissional, digna de agência de publicidade.`;
 
