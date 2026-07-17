@@ -1331,7 +1331,77 @@ const OC_CAMPOS = ['preco', 'entrada', 'parcela', 'aluguel', 'condominio', 'iptu
 const OC_MAX_FOTOS = 5;
 const oc = { imovelId: null, objetivo: 'venda', estilo: 'clean', campos: ['preco', 'quartos', 'area'], fotos: [] };
 
-function renderOneClick() {
+// Estilos personalizados salvos pelo usuário
+let estilosCustom = [];
+const OC_PALETA = ['#0A4D68', '#C9A227', '#15803D', '#9F1239', '#1E3A8A', '#B45309', '#334155', '#7C3AED'];
+const OC_FONTES_OPCOES = [
+ { key: 'moderna', label: 'Moderna' },
+ { key: 'elegante', label: 'Elegante' },
+ { key: 'minimalista', label: 'Minimalista' },
+ { key: 'marcante', label: 'Marcante' },
+];
+const estForm = { cor: '#0A4D68', fonte: 'moderna', fundo: 'claro' };
+
+async function carregarEstilosCustom() {
+ try { estilosCustom = await authFetch('/api/estilos').then(r => r.json()); }
+ catch { estilosCustom = []; }
+}
+
+function abrirEstiloModal() {
+ estForm.cor = '#0A4D68'; estForm.fonte = 'moderna'; estForm.fundo = 'claro';
+ document.getElementById('estNome').value = '';
+ renderEstiloModal();
+ document.getElementById('estiloModal').style.display = 'flex';
+}
+function fecharEstiloModal() { document.getElementById('estiloModal').style.display = 'none'; }
+
+function estSetCor(cor) { estForm.cor = cor; renderEstiloModal(); }
+
+function renderEstiloModal() {
+ document.getElementById('estPaleta').innerHTML = OC_PALETA.map(c => `
+  <button class="est-swatch ${estForm.cor.toLowerCase() === c.toLowerCase() ? 'selected' : ''}" style="background:${c}" onclick="estSetCor('${c}')"></button>`).join('');
+ document.getElementById('estCorLivre').value = estForm.cor;
+ document.getElementById('estFontes').innerHTML = OC_FONTES_OPCOES.map(f => `
+  <button class="oc-chip ${estForm.fonte === f.key ? 'active' : ''}" onclick="estForm.fonte='${f.key}';renderEstiloModal()">${f.label}</button>`).join('');
+ document.getElementById('estFundos').innerHTML = ['claro', 'escuro'].map(f => `
+  <button class="oc-chip ${estForm.fundo === f ? 'active' : ''}" onclick="estForm.fundo='${f}';renderEstiloModal()">${f === 'claro' ? 'Claro' : 'Escuro'}</button>`).join('');
+}
+
+async function salvarEstiloPersonalizado() {
+ const nome = document.getElementById('estNome').value.trim();
+ if (!nome) { toast('Dê um nome ao estilo', 'error'); return; }
+ try {
+  const res = await authFetch('/api/estilos', {
+   method: 'POST',
+   headers: { 'Content-Type': 'application/json' },
+   body: JSON.stringify({ nome, cor: estForm.cor, fonte: estForm.fonte, fundo: estForm.fundo }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  await carregarEstilosCustom();
+  oc.estilo = 'custom:' + data.id;
+  fecharEstiloModal();
+  renderOneClick();
+  toast('Estilo salvo!', 'success');
+ } catch (err) { toast('Erro: ' + err.message, 'error'); }
+}
+
+async function excluirEstiloPersonalizado(id) {
+ const ok = await confirmar('Excluir estilo?', 'Este estilo personalizado será removido.', 'Excluir');
+ if (!ok) return;
+ try {
+  await authFetch(`/api/estilos/${id}`, { method: 'DELETE' });
+  if (oc.estilo === 'custom:' + id) oc.estilo = 'clean';
+  await carregarEstilosCustom();
+  renderOneClick();
+  toast('Estilo removido', 'success');
+ } catch { toast('Erro ao remover', 'error'); }
+}
+
+let estilosCustomCarregados = false;
+async function renderOneClick() {
+ // Carrega os estilos salvos uma vez
+ if (!estilosCustomCarregados) { estilosCustomCarregados = true; await carregarEstilosCustom(); }
  // Imóveis (só os que têm foto)
  const comFoto = imoveis.filter(im => Object.keys(im.fotos || {}).length > 0);
  document.getElementById('ocImovelEmpty').style.display = comFoto.length ? 'none' : 'block';
@@ -1370,13 +1440,34 @@ function renderOneClick() {
  document.getElementById('ocObjetivos').innerHTML = OC_OBJETIVOS.map(o => `
   <button class="oc-chip ${oc.objetivo === o.key ? 'active' : ''}" onclick="oc.objetivo='${o.key}';renderOneClick()">${o.label}</button>`).join('');
 
- // Estilos
- document.getElementById('ocEstilos').innerHTML = OC_ESTILOS.map(e => `
+ // Estilos (presets + personalizados salvos + card "criar")
+ const presets = OC_ESTILOS.map(e => `
   <div class="oc-estilo ${oc.estilo === e.key ? 'selected' : ''}" onclick="oc.estilo='${e.key}';renderOneClick()">
    <div class="oc-estilo-swatch" style="background:${e.grad}"><span style="color:${e.txt}">Aa</span></div>
    <div class="oc-estilo-nome">${e.nome}</div>
    <div class="oc-estilo-desc">${e.desc}</div>
   </div>`).join('');
+ const custom = estilosCustom.map(e => {
+  const key = 'custom:' + e.id;
+  const grad = e.config?.fundo === 'escuro'
+   ? `linear-gradient(135deg,#1c1c1c,${e.config.cor})`
+   : `linear-gradient(135deg,#f5f5f4,${e.config?.cor || '#0A4D68'})`;
+  const txt = e.config?.fundo === 'escuro' ? '#fff' : '#1a1a1a';
+  return `
+  <div class="oc-estilo ${oc.estilo === key ? 'selected' : ''}" onclick="oc.estilo='${key}';renderOneClick()">
+   <button class="oc-estilo-del" onclick="event.stopPropagation();excluirEstiloPersonalizado(${e.id})" title="Excluir">✕</button>
+   <div class="oc-estilo-swatch" style="background:${grad}"><span style="color:${txt}">Aa</span></div>
+   <div class="oc-estilo-nome">${e.nome}</div>
+   <div class="oc-estilo-desc">Personalizado</div>
+  </div>`;
+ }).join('');
+ const criar = `
+  <div class="oc-estilo oc-estilo-criar" onclick="abrirEstiloModal()">
+   <div class="oc-estilo-criar-icone">+</div>
+   <div class="oc-estilo-nome">Criar estilo</div>
+   <div class="oc-estilo-desc">Cor, fonte e fundo</div>
+  </div>`;
+ document.getElementById('ocEstilos').innerHTML = presets + custom + criar;
 
  // Campos (máx. 4) — só os preenchidos no imóvel selecionado quando houver
  const im = comFoto.find(i => i.id === oc.imovelId);
@@ -1439,13 +1530,15 @@ function ocToggleCampo(c) {
 
 function gerar1Click() {
  if (!oc.imovelId) return;
- iniciarGeracao({
+ const body = {
   imovelId: oc.imovelId,
   objetivo: oc.objetivo,
-  estilo: oc.estilo,
   campos: [...oc.campos],
   fotos: [...oc.fotos],
- }, '/api/gerar-1click');
+ };
+ if (String(oc.estilo).startsWith('custom:')) body.estiloCustomId = oc.estilo.slice(7);
+ else body.estilo = oc.estilo;
+ iniciarGeracao(body, '/api/gerar-1click');
 }
 
 // ── Video Clips (beta) ────────────────────────────────────────────

@@ -1405,11 +1405,70 @@ const OBJETIVOS_1CLICK = {
   visitas:    'Objetivo do anúncio: convite para VISITA (open house). Tom acolhedor e convidativo. CTA ex: "Venha conhecer".',
 };
 
+// Monta o bloco de estilo a partir das escolhas do usuário (estilo personalizado)
+const OC_FONTES = {
+  moderna:     'sans-serif geométrica moderna',
+  elegante:    'serifada elegante e sofisticada',
+  minimalista: 'sans-serif fina e minimalista',
+  marcante:    'sans-serif condensada e bold, de forte impacto',
+};
+function estiloCustomPrompt(cfg = {}) {
+  const cor = /^#[0-9a-fA-F]{6}$/.test(cfg.cor || '') ? cfg.cor : '#0A4D68';
+  const fonte = OC_FONTES[cfg.fonte] || OC_FONTES.moderna;
+  const fundo = cfg.fundo === 'escuro'
+    ? 'fundo escuro (grafite/quase preto), sofisticado, com iluminação dramática'
+    : 'fundo claro (off-white/branco), luminoso e clean';
+  return `Estilo visual: design profissional de agência de publicidade. Cor de destaque predominante ${cor} — use essa cor e variações dela na paleta (textos de destaque, selos, detalhes). Tipografia ${fonte}. ${fundo}. Muito espaço, composição editorial equilibrada, acabamento premium. A foto do imóvel em destaque com tratamento profissional.`;
+}
+
+// ── Estilos 1-Click personalizados (salvos por usuário) ───────────────────────
+app.get('/api/estilos', userAuth, async (req, res) => {
+  const { data, error } = await supabase.from('estilos_personalizados')
+    .select('*').eq('user_id', req.user.id).order('criado_em', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json((data || []).map(fromDb));
+});
+
+app.post('/api/estilos', userAuth, async (req, res) => {
+  try {
+    const { nome, cor, fonte, fundo } = req.body;
+    if (!nome || !nome.trim()) return res.status(400).json({ error: 'Informe um nome para o estilo' });
+    const config = {
+      cor: /^#[0-9a-fA-F]{6}$/.test(cor || '') ? cor : '#0A4D68',
+      fonte: OC_FONTES[fonte] ? fonte : 'moderna',
+      fundo: fundo === 'escuro' ? 'escuro' : 'claro',
+    };
+    const { data, error } = await supabase.from('estilos_personalizados').insert({
+      id: Date.now(), user_id: req.user.id, nome: nome.trim(), config,
+    }).select().single();
+    if (error) throw new Error(error.message);
+    res.status(201).json(fromDb(data));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/estilos/:id', userAuth, async (req, res) => {
+  const { error } = await supabase.from('estilos_personalizados')
+    .delete().eq('id', req.params.id).eq('user_id', req.user.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
+});
+
 app.post('/api/gerar-1click', userAuth, billingGate, async (req, res) => {
   let galeriaId = null;
   try {
-    const { imovelId, objetivo, estilo, campos, fotos: fotosEscolhidas } = req.body;
-    const est = ESTILOS_1CLICK[estilo] || ESTILOS_1CLICK.clean;
+    const { imovelId, objetivo, estilo, estiloCustomId, campos, fotos: fotosEscolhidas } = req.body;
+    // Estilo: preset fixo OU personalizado salvo pelo usuário
+    let est;
+    if (estiloCustomId) {
+      const { data: ec } = await supabase.from('estilos_personalizados')
+        .select('*').eq('id', estiloCustomId).eq('user_id', req.user.id).single();
+      if (!ec) return res.status(400).json({ error: 'Estilo personalizado não encontrado' });
+      est = { nome: ec.nome, prompt: estiloCustomPrompt(ec.config || {}) };
+    } else {
+      est = ESTILOS_1CLICK[estilo] || ESTILOS_1CLICK.clean;
+    }
     const obj = OBJETIVOS_1CLICK[objetivo] || OBJETIVOS_1CLICK.venda;
 
     const { data: imRow } = await supabase.from('imoveis').select('*').eq('id', imovelId).eq('user_id', req.user.id).single();
