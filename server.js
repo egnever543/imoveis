@@ -544,7 +544,7 @@ app.post('/api/admin/templates/:id/gerar-transcricao', adminAuth, async (req, re
         role: 'user',
         content: [
           { type: 'image_url', image_url: { url: `data:${img.mime};base64,${img.b64}` } },
-          { type: 'text', text: `Transcreva TODO o texto visível nesta imagem de marketing imobiliário, exatamente como aparece — incluindo headlines, labels, valores placeholder, slogans e qualquer outro texto. Preserve a capitalização original. Separe blocos de texto por linha. Não inclua descrições, apenas o texto em si.` },
+          { type: 'text', text: `Transcreva TODO o texto visível nesta imagem de marketing imobiliário — headlines, labels, valores placeholder, slogans e qualquer outro texto. IMPORTANTE: traduza para PORTUGUÊS do Brasil qualquer palavra ou frase que esteja em inglês ou outro idioma (ex: "AMAZING APARTMENT" → "APARTAMENTO INCRÍVEL", "PRICE" → "PREÇO", "FOR SALE" → "À VENDA", "BEDROOMS" → "QUARTOS"), mas PRESERVE exatamente os números, valores, unidades e a formatação como aparecem (ex: "R$ 3.18M", "153 m²", "3"). Preserve a capitalização (maiúsculas/minúsculas) do original. Separe blocos de texto por linha. Não inclua descrições, apenas o texto em si — já em português.` },
         ],
       }],
     });
@@ -586,7 +586,7 @@ app.post('/api/admin/templates/gerar-transcricoes', adminAuth, async (req, res) 
             role: 'user',
             content: [
               { type: 'image_url', image_url: { url: `data:${img.mime};base64,${img.b64}` } },
-              { type: 'text', text: `Transcreva TODO o texto visível nesta imagem de marketing imobiliário, exatamente como aparece — incluindo headlines, labels, valores placeholder, slogans e qualquer outro texto. Preserve a capitalização original. Separe blocos de texto por linha. Não inclua descrições, apenas o texto em si.` },
+              { type: 'text', text: `Transcreva TODO o texto visível nesta imagem de marketing imobiliário — headlines, labels, valores placeholder, slogans e qualquer outro texto. IMPORTANTE: traduza para PORTUGUÊS do Brasil qualquer palavra ou frase que esteja em inglês ou outro idioma (ex: "AMAZING APARTMENT" → "APARTAMENTO INCRÍVEL", "PRICE" → "PREÇO", "FOR SALE" → "À VENDA", "BEDROOMS" → "QUARTOS"), mas PRESERVE exatamente os números, valores, unidades e a formatação como aparecem (ex: "R$ 3.18M", "153 m²", "3"). Preserve a capitalização (maiúsculas/minúsculas) do original. Separe blocos de texto por linha. Não inclua descrições, apenas o texto em si — já em português.` },
             ],
           }],
         });
@@ -2046,7 +2046,7 @@ app.get('/api/admin/prompts', adminAuth, (req, res) => {
       titulo: 'Transcrição de Template (ao analisar)',
       modelo: 'gpt-4o',
       descricao: 'Lê o texto visível do template para usar como referência na prévia.',
-      prompt: `Transcreva TODO o texto visível nesta imagem de marketing imobiliário, exatamente como aparece — incluindo headlines, labels, valores placeholder, slogans e qualquer outro texto. Preserve a capitalização original. Separe blocos de texto por linha. Não inclua descrições, apenas o texto em si.`,
+      prompt: `Transcreva TODO o texto visível nesta imagem de marketing imobiliário — headlines, labels, valores placeholder, slogans e qualquer outro texto. IMPORTANTE: traduza para PORTUGUÊS do Brasil qualquer palavra ou frase que esteja em inglês ou outro idioma (ex: "AMAZING APARTMENT" → "APARTAMENTO INCRÍVEL", "PRICE" → "PREÇO", "FOR SALE" → "À VENDA", "BEDROOMS" → "QUARTOS"), mas PRESERVE exatamente os números, valores, unidades e a formatação como aparecem (ex: "R$ 3.18M", "153 m²", "3"). Preserve a capitalização (maiúsculas/minúsculas) do original. Separe blocos de texto por linha. Não inclua descrições, apenas o texto em si — já em português.`,
     },
   });
 });
