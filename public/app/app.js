@@ -1130,8 +1130,6 @@ function renderBilling() {
  // Video Clips (beta): mostra a aba só se liberado no admin
  const navVC = document.getElementById('navVideoClips');
  if (navVC) navVC.style.display = billing.videoClipsAtivo ? '' : 'none';
- const navCrm = document.getElementById('navCrm');
- if (navCrm) navCrm.style.display = billing.crmAtivo ? '' : 'none';
  const st = billing.assinatura.status;
  const expira = billing.assinatura.expira ? new Date(billing.assinatura.expira) : null;
  const expirada = expira && expira < new Date();

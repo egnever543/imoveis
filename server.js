@@ -190,8 +190,6 @@ const BILLING_DEFAULTS = {
   motor_video: 'simulado',  // 'simulado' | 'runway' | 'kling'
   custo_video_usd: 0.50,    // custo base por vídeo (antes do markup)
   video_clips_ativo: false, // mostra a aba Video Clips para os usuários
-  // CRM (beta)
-  crm_ativo: false,         // mostra a aba CRM para os usuários
 };
 
 async function getBillingConfig() {
@@ -1646,7 +1644,6 @@ app.get('/api/billing', userAuth, async (req, res) => {
         cotacaoBrl:    cfg.cotacao_brl,
       },
       videoClipsAtivo: !!cfg.video_clips_ativo,
-      crmAtivo: !!cfg.crm_ativo,
       extrato: extrato || [],
     });
   } catch (err) {
@@ -1754,7 +1751,6 @@ app.put('/api/admin/config', adminAuth, async (req, res) => {
     // Campos não-numéricos do Video Clips
     if (['simulado', 'runway', 'kling'].includes(req.body.motor_video)) novo.motor_video = req.body.motor_video;
     if (req.body.video_clips_ativo !== undefined) novo.video_clips_ativo = !!req.body.video_clips_ativo;
-    if (req.body.crm_ativo !== undefined) novo.crm_ativo = !!req.body.crm_ativo;
     const { error } = await supabase.from('config').upsert({ chave: 'billing', valor: novo });
     if (error) throw new Error(error.message);
     res.json(novo);
