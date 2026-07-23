@@ -716,6 +716,8 @@ a, .btn-link { color: #fff; }
 .tutorial-info p { font-size: 0.8rem; color: var(--text-muted); }
 
 /* ── CRM ──────────────────────────────────────────────────────── */
+/* CRM usa a largura total da tela (as outras páginas ficam limitadas) */
+.content:has(#page-crm.active) { max-width: none; }
 .crm-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
 .crm-tab {
  padding: 9px 18px; font-size: 0.88rem; font-weight: 600; cursor: pointer;
@@ -761,6 +763,7 @@ a, .btn-link { color: #fff; }
 .lead-interacao { font-size: 0.82rem; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
 .lead-interacao-data { color: var(--text-muted); font-size: 0.72rem; margin-right: 6px; }
 
+#crmAgenda { max-width: 760px; }
 .agenda-dia { margin-bottom: 20px; }
 .agenda-dia-titulo { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: capitalize; margin-bottom: 10px; }
 .agenda-item {
