@@ -172,6 +172,9 @@ function fromDb(row) {
   if ('imovel_titulo' in r) { r.imovelTitulo = r.imovel_titulo; delete r.imovel_titulo; }
   if ('template_id'   in r) { r.templateId   = r.template_id;   delete r.template_id; }
   if ('imovel_id'     in r) { r.imovelId     = r.imovel_id;     delete r.imovel_id; }
+  if ('lead_id'       in r) { r.leadId       = r.lead_id;       delete r.lead_id; }
+  if ('data_hora'     in r) { r.dataHora     = r.data_hora;     delete r.data_hora; }
+  if ('atualizado_em' in r) { r.atualizadoEm = r.atualizado_em; delete r.atualizado_em; }
   return r;
 }
 
@@ -187,6 +190,8 @@ const BILLING_DEFAULTS = {
   motor_video: 'simulado',  // 'simulado' | 'runway' | 'kling'
   custo_video_usd: 0.50,    // custo base por vídeo (antes do markup)
   video_clips_ativo: false, // mostra a aba Video Clips para os usuários
+  // CRM (beta)
+  crm_ativo: false,         // mostra a aba CRM para os usuários
 };
 
 async function getBillingConfig() {
@@ -1641,6 +1646,7 @@ app.get('/api/billing', userAuth, async (req, res) => {
         cotacaoBrl:    cfg.cotacao_brl,
       },
       videoClipsAtivo: !!cfg.video_clips_ativo,
+      crmAtivo: !!cfg.crm_ativo,
       extrato: extrato || [],
     });
   } catch (err) {
@@ -1748,6 +1754,7 @@ app.put('/api/admin/config', adminAuth, async (req, res) => {
     // Campos não-numéricos do Video Clips
     if (['simulado', 'runway', 'kling'].includes(req.body.motor_video)) novo.motor_video = req.body.motor_video;
     if (req.body.video_clips_ativo !== undefined) novo.video_clips_ativo = !!req.body.video_clips_ativo;
+    if (req.body.crm_ativo !== undefined) novo.crm_ativo = !!req.body.crm_ativo;
     const { error } = await supabase.from('config').upsert({ chave: 'billing', valor: novo });
     if (error) throw new Error(error.message);
     res.json(novo);
@@ -2019,6 +2026,131 @@ app.post('/api/gerar-video', userAuth, billingGate, async (req, res) => {
     registrarLog({ tipo: 'video', input: { erro: err.message }, status: 'erro', user_id: req.user?.id });
     res.status(500).json({ error: err.message });
   }
+});
+
+// ── CRM: Leads ────────────────────────────────────────────────────────────────
+const CRM_ETAPAS = ['novo', 'contato', 'visita', 'proposta', 'fechado', 'perdido'];
+const LEAD_CAMPOS = ['nome', 'telefone', 'email', 'origem', 'imovel_id', 'orcamento', 'etapa', 'observacoes'];
+
+app.get('/api/leads', userAuth, async (req, res) => {
+  const { data, error } = await supabase.from('leads')
+    .select('*').eq('user_id', req.user.id).order('atualizado_em', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json((data || []).map(fromDb));
+});
+
+app.post('/api/leads', userAuth, async (req, res) => {
+  try {
+    if (!req.body.nome || !req.body.nome.trim()) return res.status(400).json({ error: 'Informe o nome do lead' });
+    const fields = {};
+    LEAD_CAMPOS.forEach(c => { if (req.body[c] !== undefined) fields[c] = req.body[c]; });
+    if (!CRM_ETAPAS.includes(fields.etapa)) fields.etapa = 'novo';
+    const agora = new Date().toISOString();
+    const { data, error } = await supabase.from('leads').insert({
+      id: Date.now(), ...fields, user_id: req.user.id, criado_em: agora, atualizado_em: agora,
+    }).select().single();
+    if (error) throw new Error(error.message);
+    res.status(201).json(fromDb(data));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/leads/:id', userAuth, async (req, res) => {
+  try {
+    const updates = { atualizado_em: new Date().toISOString() };
+    LEAD_CAMPOS.forEach(c => { if (req.body[c] !== undefined) updates[c] = req.body[c]; });
+    if (updates.etapa !== undefined && !CRM_ETAPAS.includes(updates.etapa)) delete updates.etapa;
+    const { data, error } = await supabase.from('leads')
+      .update(updates).eq('id', req.params.id).eq('user_id', req.user.id).select().single();
+    if (error) return res.status(404).json({ error: 'Lead não encontrado' });
+    res.json(fromDb(data));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Mover no kanban (troca de etapa)
+app.patch('/api/leads/:id/etapa', userAuth, async (req, res) => {
+  if (!CRM_ETAPAS.includes(req.body.etapa)) return res.status(400).json({ error: 'Etapa inválida' });
+  const { data, error } = await supabase.from('leads')
+    .update({ etapa: req.body.etapa, atualizado_em: new Date().toISOString() })
+    .eq('id', req.params.id).eq('user_id', req.user.id).select().single();
+  if (error) return res.status(404).json({ error: 'Lead não encontrado' });
+  res.json(fromDb(data));
+});
+
+app.delete('/api/leads/:id', userAuth, async (req, res) => {
+  await supabase.from('lead_interacoes').delete().eq('lead_id', req.params.id).eq('user_id', req.user.id);
+  const { error } = await supabase.from('leads').delete().eq('id', req.params.id).eq('user_id', req.user.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
+});
+
+// Linha do tempo de interações
+app.get('/api/leads/:id/interacoes', userAuth, async (req, res) => {
+  const { data, error } = await supabase.from('lead_interacoes')
+    .select('*').eq('lead_id', req.params.id).eq('user_id', req.user.id)
+    .order('criado_em', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json((data || []).map(fromDb));
+});
+
+app.post('/api/leads/:id/interacoes', userAuth, async (req, res) => {
+  try {
+    if (!req.body.texto || !req.body.texto.trim()) return res.status(400).json({ error: 'Texto vazio' });
+    const { data, error } = await supabase.from('lead_interacoes').insert({
+      id: Date.now(), lead_id: Number(req.params.id), user_id: req.user.id,
+      texto: req.body.texto.trim(), criado_em: new Date().toISOString(),
+    }).select().single();
+    if (error) throw new Error(error.message);
+    await supabase.from('leads').update({ atualizado_em: new Date().toISOString() })
+      .eq('id', req.params.id).eq('user_id', req.user.id);
+    res.status(201).json(fromDb(data));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── CRM: Agenda ───────────────────────────────────────────────────────────────
+const AGENDA_CAMPOS = ['titulo', 'tipo', 'data_hora', 'notas', 'lead_id', 'imovel_id', 'status'];
+
+app.get('/api/agenda', userAuth, async (req, res) => {
+  const { data, error } = await supabase.from('agenda')
+    .select('*').eq('user_id', req.user.id).order('data_hora', { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json((data || []).map(fromDb));
+});
+
+app.post('/api/agenda', userAuth, async (req, res) => {
+  try {
+    if (!req.body.titulo || !req.body.data_hora) return res.status(400).json({ error: 'Título e data/hora obrigatórios' });
+    const fields = {};
+    AGENDA_CAMPOS.forEach(c => { if (req.body[c] !== undefined && req.body[c] !== '') fields[c] = req.body[c]; });
+    if (!fields.status) fields.status = 'agendado';
+    const { data, error } = await supabase.from('agenda').insert({
+      id: Date.now(), ...fields, user_id: req.user.id, criado_em: new Date().toISOString(),
+    }).select().single();
+    if (error) throw new Error(error.message);
+    res.status(201).json(fromDb(data));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/agenda/:id', userAuth, async (req, res) => {
+  const updates = {};
+  AGENDA_CAMPOS.forEach(c => { if (req.body[c] !== undefined) updates[c] = req.body[c]; });
+  const { data, error } = await supabase.from('agenda')
+    .update(updates).eq('id', req.params.id).eq('user_id', req.user.id).select().single();
+  if (error) return res.status(404).json({ error: 'Compromisso não encontrado' });
+  res.json(fromDb(data));
+});
+
+app.delete('/api/agenda/:id', userAuth, async (req, res) => {
+  const { error } = await supabase.from('agenda').delete().eq('id', req.params.id).eq('user_id', req.user.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
 });
 
 // ── ADMIN: Prompts ────────────────────────────────────────────────────────────

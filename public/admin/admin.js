@@ -314,6 +314,7 @@ async function carregarConfig() {
   document.getElementById('cfgCustoVideo').value   = cfg.custo_video_usd;
   document.getElementById('cfgMotorVideo').value   = cfg.motor_video || 'simulado';
   document.getElementById('cfgVideoAtivo').value   = cfg.video_clips_ativo ? 'true' : 'false';
+  document.getElementById('cfgCrmAtivo').value     = cfg.crm_ativo ? 'true' : 'false';
 }
 
 async function salvarConfig() {
@@ -327,6 +328,7 @@ async function salvarConfig() {
     custo_video_usd:      Number(document.getElementById('cfgCustoVideo').value),
     motor_video:          document.getElementById('cfgMotorVideo').value,
     video_clips_ativo:    document.getElementById('cfgVideoAtivo').value === 'true',
+    crm_ativo:            document.getElementById('cfgCrmAtivo').value === 'true',
   };
   const res = await fetch('/api/admin/config', {
     method: 'PUT',

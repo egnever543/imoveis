@@ -158,6 +158,7 @@ function navegarPara(page) {
  if (page === 'inicio') renderInicio();
  if (page === 'oneclick') renderOneClick();
  if (page === 'videoclips') renderVideoClips();
+ if (page === 'crm') carregarCrm();
 }
 
 // ── Templates ─────────────────────────────────────────────────────
@@ -1129,6 +1130,8 @@ function renderBilling() {
  // Video Clips (beta): mostra a aba só se liberado no admin
  const navVC = document.getElementById('navVideoClips');
  if (navVC) navVC.style.display = billing.videoClipsAtivo ? '' : 'none';
+ const navCrm = document.getElementById('navCrm');
+ if (navCrm) navCrm.style.display = billing.crmAtivo ? '' : 'none';
  const st = billing.assinatura.status;
  const expira = billing.assinatura.expira ? new Date(billing.assinatura.expira) : null;
  const expirada = expira && expira < new Date();
@@ -1638,6 +1641,243 @@ function gerarVideoClip() {
   videoTemplateId: vc.templateId,
   fotos: [...vc.fotos],
  }, '/api/gerar-video');
+}
+
+// ── CRM (beta) ────────────────────────────────────────────────────
+const CRM_ETAPAS = [
+ { key: 'novo', label: 'Novo' },
+ { key: 'contato', label: 'Contato' },
+ { key: 'visita', label: 'Visita' },
+ { key: 'proposta', label: 'Proposta' },
+ { key: 'fechado', label: 'Fechado' },
+ { key: 'perdido', label: 'Perdido' },
+];
+let crmLeads = [];
+let crmAgenda = [];
+let leadEditId = null;
+let agendaEditId = null;
+
+async function carregarCrm() {
+ try {
+  [crmLeads, crmAgenda] = await Promise.all([
+   authFetch('/api/leads').then(r => r.json()),
+   authFetch('/api/agenda').then(r => r.json()),
+  ]);
+ } catch { crmLeads = []; crmAgenda = []; }
+ renderKanban();
+ renderAgenda();
+}
+
+function crmMudarView(v) {
+ document.getElementById('crmFunil').style.display = v === 'funil' ? '' : 'none';
+ document.getElementById('crmAgenda').style.display = v === 'agenda' ? '' : 'none';
+ document.getElementById('crmTabFunil').classList.toggle('active', v === 'funil');
+ document.getElementById('crmTabAgenda').classList.toggle('active', v === 'agenda');
+}
+
+function renderKanban() {
+ const board = document.getElementById('kanbanBoard');
+ board.innerHTML = CRM_ETAPAS.map(et => {
+  const leads = crmLeads.filter(l => (l.etapa || 'novo') === et.key);
+  return `
+  <div class="kanban-col" ondragover="event.preventDefault()" ondrop="dropLead(event, '${et.key}')">
+   <div class="kanban-col-head">${et.label} <span class="kanban-count">${leads.length}</span></div>
+   <div class="kanban-col-body">
+    ${leads.map(l => {
+     const im = imoveis.find(i => i.id === l.imovelId);
+     return `
+     <div class="kanban-card" draggable="true" ondragstart="dragLead(event, ${l.id})" onclick="abrirFormLead(${l.id})">
+      <div class="kanban-card-nome">${escapeHtml(l.nome)}</div>
+      ${l.telefone ? `<div class="kanban-card-sub">${escapeHtml(l.telefone)}</div>` : ''}
+      ${im ? `<div class="kanban-card-imovel">🏠 ${escapeHtml(im.titulo)}</div>` : ''}
+      ${l.orcamento ? `<div class="kanban-card-sub">${escapeHtml(l.orcamento)}</div>` : ''}
+     </div>`;
+    }).join('') || '<div class="kanban-vazio">—</div>'}
+   </div>
+  </div>`;
+ }).join('');
+}
+
+function escapeHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+let dragLeadId = null;
+function dragLead(ev, id) { dragLeadId = id; ev.dataTransfer.effectAllowed = 'move'; }
+async function dropLead(ev, etapa) {
+ ev.preventDefault();
+ if (!dragLeadId) return;
+ const lead = crmLeads.find(l => l.id === dragLeadId);
+ if (lead && lead.etapa !== etapa) {
+  lead.etapa = etapa;
+  renderKanban();
+  try { await authFetch(`/api/leads/${dragLeadId}/etapa`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ etapa }) }); }
+  catch { toast('Erro ao mover', 'error'); carregarCrm(); }
+ }
+ dragLeadId = null;
+}
+
+// ── Ficha do lead ──
+function preencherSelectImoveis(sel, valor) {
+ sel.innerHTML = '<option value="">— nenhum —</option>' +
+  imoveis.map(im => `<option value="${im.id}" ${String(valor) === String(im.id) ? 'selected' : ''}>${escapeHtml(im.titulo)}</option>`).join('');
+}
+function preencherSelectLeads(sel, valor) {
+ sel.innerHTML = '<option value="">— nenhum —</option>' +
+  crmLeads.map(l => `<option value="${l.id}" ${String(valor) === String(l.id) ? 'selected' : ''}>${escapeHtml(l.nome)}</option>`).join('');
+}
+
+function abrirFormLead(id = null) {
+ leadEditId = id;
+ const lead = id ? crmLeads.find(l => l.id === id) : null;
+ document.getElementById('leadModalTitulo').textContent = lead ? 'Ficha do lead' : 'Novo lead';
+ document.getElementById('leadNome').value = lead?.nome || '';
+ document.getElementById('leadTelefone').value = lead?.telefone || '';
+ document.getElementById('leadEmail').value = lead?.email || '';
+ document.getElementById('leadOrigem').value = lead?.origem || '';
+ document.getElementById('leadOrcamento').value = lead?.orcamento || '';
+ document.getElementById('leadObs').value = lead?.observacoes || '';
+ preencherSelectImoveis(document.getElementById('leadImovel'), lead?.imovelId);
+ document.getElementById('leadEtapa').innerHTML = CRM_ETAPAS.map(e => `<option value="${e.key}" ${(lead?.etapa || 'novo') === e.key ? 'selected' : ''}>${e.label}</option>`).join('');
+ document.getElementById('leadBtnExcluir').style.display = lead ? '' : 'none';
+ document.getElementById('leadTimelineWrap').style.display = lead ? 'block' : 'none';
+ document.getElementById('leadTimeline').innerHTML = '';
+ if (lead) carregarInteracoes(id);
+ document.getElementById('leadModal').style.display = 'flex';
+}
+function fecharLeadModal(ev) { if (ev && ev.target !== ev.currentTarget) return; document.getElementById('leadModal').style.display = 'none'; }
+
+async function salvarLead() {
+ const nome = document.getElementById('leadNome').value.trim();
+ if (!nome) { toast('Informe o nome', 'error'); return; }
+ const body = {
+  nome,
+  telefone: document.getElementById('leadTelefone').value.trim(),
+  email: document.getElementById('leadEmail').value.trim(),
+  origem: document.getElementById('leadOrigem').value.trim(),
+  imovel_id: document.getElementById('leadImovel').value || null,
+  orcamento: document.getElementById('leadOrcamento').value.trim(),
+  etapa: document.getElementById('leadEtapa').value,
+  observacoes: document.getElementById('leadObs').value.trim(),
+ };
+ try {
+  const url = leadEditId ? `/api/leads/${leadEditId}` : '/api/leads';
+  const method = leadEditId ? 'PUT' : 'POST';
+  const res = await authFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  fecharLeadModal();
+  toast(leadEditId ? 'Lead atualizado!' : 'Lead criado!', 'success');
+  carregarCrm();
+ } catch (err) { toast('Erro: ' + err.message, 'error'); }
+}
+
+async function excluirLead() {
+ const ok = await confirmar('Excluir lead?', 'O lead e seu histórico serão removidos.', 'Excluir');
+ if (!ok) return;
+ try {
+  await authFetch(`/api/leads/${leadEditId}`, { method: 'DELETE' });
+  fecharLeadModal();
+  toast('Lead excluído', 'success');
+  carregarCrm();
+ } catch { toast('Erro ao excluir', 'error'); }
+}
+
+async function carregarInteracoes(id) {
+ try {
+  const lista = await authFetch(`/api/leads/${id}/interacoes`).then(r => r.json());
+  const el = document.getElementById('leadTimeline');
+  el.innerHTML = lista.length ? lista.map(i => {
+   const d = new Date(i.criado_em);
+   return `<div class="lead-interacao"><span class="lead-interacao-data">${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span> ${escapeHtml(i.texto)}</div>`;
+  }).join('') : '<div style="color:var(--text-muted);font-size:0.8rem">Sem registros ainda.</div>';
+ } catch { /* silencioso */ }
+}
+
+async function addInteracao() {
+ const inp = document.getElementById('leadNovaInteracao');
+ const texto = inp.value.trim();
+ if (!texto || !leadEditId) return;
+ try {
+  await authFetch(`/api/leads/${leadEditId}/interacoes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto }) });
+  inp.value = '';
+  carregarInteracoes(leadEditId);
+ } catch { toast('Erro ao registrar', 'error'); }
+}
+
+// ── Agenda ──
+function renderAgenda() {
+ const el = document.getElementById('agendaLista');
+ const futuros = crmAgenda.filter(a => a.status !== 'cancelado').sort((a, b) => new Date(a.dataHora) - new Date(b.dataHora));
+ if (!futuros.length) { el.innerHTML = '<div class="empty-state small"><p>Nenhum compromisso agendado.</p></div>'; return; }
+
+ // Agrupa por dia
+ const grupos = {};
+ futuros.forEach(a => {
+  const d = new Date(a.dataHora);
+  const chave = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+  (grupos[chave] = grupos[chave] || []).push(a);
+ });
+ el.innerHTML = Object.entries(grupos).map(([dia, itens]) => `
+  <div class="agenda-dia">
+   <div class="agenda-dia-titulo">${dia}</div>
+   ${itens.map(a => {
+    const hora = new Date(a.dataHora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const lead = crmLeads.find(l => l.id === a.leadId);
+    return `
+    <div class="agenda-item" onclick="abrirFormAgenda(${a.id})">
+     <div class="agenda-hora">${hora}</div>
+     <div class="agenda-info">
+      <div class="agenda-titulo">${escapeHtml(a.titulo)} <span class="agenda-tipo">${a.tipo || ''}</span></div>
+      ${lead ? `<div class="agenda-sub">${escapeHtml(lead.nome)}</div>` : ''}
+     </div>
+    </div>`;
+   }).join('')}
+  </div>`).join('');
+}
+
+function abrirFormAgenda(id = null) {
+ agendaEditId = id;
+ const ag = id ? crmAgenda.find(a => a.id === id) : null;
+ document.getElementById('agTitulo').value = ag?.titulo || '';
+ document.getElementById('agTipo').value = ag?.tipo || 'visita';
+ document.getElementById('agNotas').value = ag?.notas || '';
+ document.getElementById('agDataHora').value = ag?.dataHora ? new Date(ag.dataHora).toISOString().slice(0, 16) : '';
+ preencherSelectLeads(document.getElementById('agLead'), ag?.leadId);
+ document.getElementById('agBtnExcluir').style.display = ag ? '' : 'none';
+ document.getElementById('agendaModal').style.display = 'flex';
+}
+function fecharAgendaModal(ev) { if (ev && ev.target !== ev.currentTarget) return; document.getElementById('agendaModal').style.display = 'none'; }
+
+async function salvarAgenda() {
+ const titulo = document.getElementById('agTitulo').value.trim();
+ const dh = document.getElementById('agDataHora').value;
+ if (!titulo || !dh) { toast('Título e data/hora obrigatórios', 'error'); return; }
+ const body = {
+  titulo, tipo: document.getElementById('agTipo').value,
+  data_hora: new Date(dh).toISOString(),
+  notas: document.getElementById('agNotas').value.trim(),
+  lead_id: document.getElementById('agLead').value || null,
+ };
+ try {
+  const url = agendaEditId ? `/api/agenda/${agendaEditId}` : '/api/agenda';
+  const method = agendaEditId ? 'PUT' : 'POST';
+  const res = await authFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  fecharAgendaModal();
+  toast('Compromisso salvo!', 'success');
+  carregarCrm();
+ } catch (err) { toast('Erro: ' + err.message, 'error'); }
+}
+
+async function excluirAgenda() {
+ const ok = await confirmar('Excluir compromisso?', 'Este compromisso será removido da agenda.', 'Excluir');
+ if (!ok) return;
+ try {
+  await authFetch(`/api/agenda/${agendaEditId}`, { method: 'DELETE' });
+  fecharAgendaModal();
+  toast('Compromisso excluído', 'success');
+  carregarCrm();
+ } catch { toast('Erro ao excluir', 'error'); }
 }
 
 // ── Cadastro com book PDF ─────────────────────────────────────────

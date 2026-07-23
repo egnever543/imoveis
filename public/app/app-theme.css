@@ -715,6 +715,61 @@ a, .btn-link { color: #fff; }
 .tutorial-info h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 4px; }
 .tutorial-info p { font-size: 0.8rem; color: var(--text-muted); }
 
+/* ── CRM ──────────────────────────────────────────────────────── */
+.crm-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+.crm-tab {
+ padding: 9px 18px; font-size: 0.88rem; font-weight: 600; cursor: pointer;
+ background: none; border: none; color: var(--text-muted);
+ border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s;
+}
+.crm-tab.active { color: var(--text); border-bottom-color: #fff; }
+.crm-tab:hover:not(.active) { color: var(--text); }
+
+.kanban { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; align-items: flex-start; }
+.kanban-col {
+ flex: 0 0 240px; background: var(--bg-card); border: 1px solid var(--border);
+ border-radius: 12px; display: flex; flex-direction: column; max-height: 72vh;
+}
+.kanban-col-head {
+ padding: 12px 14px; font-size: 0.85rem; font-weight: 700;
+ border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px;
+}
+.kanban-count { background: var(--bg); border: 1px solid var(--border-light); border-radius: 20px; padding: 1px 8px; font-size: 0.72rem; color: var(--text-muted); font-weight: 600; }
+.kanban-col-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; min-height: 60px; }
+.kanban-card {
+ background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+ padding: 10px 12px; cursor: pointer; transition: border-color 0.15s;
+}
+.kanban-card:hover { border-color: var(--border-light); }
+.kanban-card-nome { font-size: 0.85rem; font-weight: 600; }
+.kanban-card-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+.kanban-card-imovel { font-size: 0.73rem; color: #d4d4d4; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kanban-vazio { color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 8px; opacity: 0.5; }
+
+.lead-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.lead-nova-interacao { display: flex; gap: 8px; margin: 8px 0 10px; }
+.lead-nova-interacao input { flex: 1; }
+.lead-timeline { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
+.lead-interacao { font-size: 0.82rem; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
+.lead-interacao-data { color: var(--text-muted); font-size: 0.72rem; margin-right: 6px; }
+
+.agenda-dia { margin-bottom: 20px; }
+.agenda-dia-titulo { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: capitalize; margin-bottom: 10px; }
+.agenda-item {
+ display: flex; gap: 14px; align-items: center;
+ background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+ padding: 12px 14px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.15s;
+}
+.agenda-item:hover { border-color: var(--border-light); }
+.agenda-hora { font-size: 0.95rem; font-weight: 700; flex-shrink: 0; }
+.agenda-titulo { font-size: 0.88rem; font-weight: 600; }
+.agenda-tipo { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-left: 6px; }
+.agenda-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+
+@media (max-width: 768px) {
+ .lead-form-grid { grid-template-columns: 1fr; }
+}
+
 /* ── Edição mágica ────────────────────────────────────────────── */
 .editar-modal-backdrop {
  position: fixed; inset: 0; background: rgba(0,0,0,0.8);
