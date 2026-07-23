@@ -1784,8 +1784,9 @@ async function carregarInteracoes(id) {
   const lista = await authFetch(`/api/leads/${id}/interacoes`).then(r => r.json());
   const el = document.getElementById('leadTimeline');
   el.innerHTML = lista.length ? lista.map(i => {
-   const d = new Date(i.criado_em);
-   return `<div class="lead-interacao"><span class="lead-interacao-data">${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span> ${escapeHtml(i.texto)}</div>`;
+   const d = new Date(i.criadoEm);
+   const carimbo = isNaN(d) ? '' : `<span class="lead-interacao-data">${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span> `;
+   return `<div class="lead-interacao">${carimbo}${escapeHtml(i.texto)}</div>`;
   }).join('') : '<div style="color:var(--text-muted);font-size:0.8rem">Sem registros ainda.</div>';
  } catch { /* silencioso */ }
 }
