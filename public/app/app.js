@@ -36,6 +36,7 @@ async function init() {
  renderInicio();
  loadGaleria();
  loadBilling();
+ restaurarPagina();
  tratarRetornoPagamento();
 
  if (localStorage.getItem('mostrarBoasVindas') === '1') {
@@ -150,15 +151,27 @@ function setupNav() {
  });
 }
 
+const PAGINAS_VALIDAS = ['inicio','gerar','oneclick','videoclips','imoveis','crm','galeria','perfil','plano','tutoriais'];
+
 function navegarPara(page) {
  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
  document.getElementById(`page-${page}`)?.classList.add('active');
  document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
+ // Guarda a aba atual na URL para sobreviver ao F5
+ if (PAGINAS_VALIDAS.includes(page) && location.hash !== '#' + page) {
+  history.replaceState(null, '', '#' + page);
+ }
  if (page === 'inicio') renderInicio();
  if (page === 'oneclick') renderOneClick();
  if (page === 'videoclips') renderVideoClips();
  if (page === 'crm') carregarCrm();
+}
+
+// Restaura a aba salva na URL (#imoveis, #crm…) após F5
+function restaurarPagina() {
+ const p = (location.hash || '').replace('#', '');
+ if (p && PAGINAS_VALIDAS.includes(p)) navegarPara(p);
 }
 
 // ── Templates ─────────────────────────────────────────────────────
