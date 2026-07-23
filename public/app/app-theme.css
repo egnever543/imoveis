@@ -725,9 +725,17 @@ a, .btn-link { color: #fff; }
 .crm-tab.active { color: var(--text); border-bottom-color: #fff; }
 .crm-tab:hover:not(.active) { color: var(--text); }
 
-.kanban { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; align-items: flex-start; }
+.kanban {
+ display: flex; gap: 12px; padding-bottom: 8px; align-items: flex-start;
+ overflow-x: auto; overscroll-behavior-x: contain;
+}
+.kanban::-webkit-scrollbar { height: 8px; }
+.kanban::-webkit-scrollbar-track { background: transparent; }
+.kanban::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 4px; }
+.kanban { scrollbar-width: thin; scrollbar-color: var(--border-light) transparent; }
 .kanban-col {
- flex: 0 0 240px; background: var(--bg-card); border: 1px solid var(--border);
+ flex: 1 1 0; min-width: 180px;
+ background: var(--bg-card); border: 1px solid var(--border);
  border-radius: 12px; display: flex; flex-direction: column; max-height: 72vh;
 }
 .kanban-col-head {
@@ -768,6 +776,7 @@ a, .btn-link { color: #fff; }
 
 @media (max-width: 768px) {
  .lead-form-grid { grid-template-columns: 1fr; }
+ .kanban-col { flex: 0 0 78vw; min-width: 78vw; }
 }
 
 /* ── Edição mágica ────────────────────────────────────────────── */
